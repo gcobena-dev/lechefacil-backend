@@ -1,0 +1,31 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan -input=false
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    if: github.event.inputs.apply == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve -input=false

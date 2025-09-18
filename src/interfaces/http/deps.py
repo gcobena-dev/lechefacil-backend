@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+
+from fastapi import Request
+
+from src.application.errors import AuthError
+from src.config.settings import Settings, get_settings
+from src.infrastructure.auth.context import AuthContext
+from src.infrastructure.db.session import SQLAlchemyUnitOfWork
+
+
+async def get_auth_context(request: Request) -> AuthContext:
+    context = getattr(request.state, "auth_context", None)
+    if context is None:
+        raise AuthError("Authentication required")
+    return context
+
+
+async def get_uow(request: Request) -> AsyncIterator[SQLAlchemyUnitOfWork]:
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory is None:
+        raise RuntimeError("Session factory not configured")
+    uow = SQLAlchemyUnitOfWork(session_factory)
+    async with uow:
+        yield uow
+
+
+def get_app_settings() -> Settings:
+    return get_settings()
