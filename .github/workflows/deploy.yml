@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Deploy to Railway
-        run: railway up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID"
+        run: railway up --service="$RAILWAY_SERVICE_ID"
 
       - name: Run database migrations
-        run: railway run --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --command "poetry run alembic upgrade head"
+        run: railway run --service="$RAILWAY_SERVICE_ID" --command "poetry run alembic upgrade head"
