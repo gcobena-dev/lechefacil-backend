@@ -27,10 +27,10 @@ async def test_login_with_internal_token(client, seeded_memberships, tenant_id):
 
 
 @pytest.mark.asyncio
-async def test_register_and_login_new_user(client, seeded_memberships, tenant_id):
-    admin_id = seeded_memberships["admin"]
+async def test_register_and_login_new_user(client, seeded_memberships, tenant_id, token_factory):
+    admin_token = token_factory(seeded_memberships["admin"])
     headers = {
-        "Authorization": f"Bearer {admin_id}",
+        "Authorization": f"Bearer {admin_token}",
         "X-Tenant-ID": str(tenant_id),
     }
     register_payload = {

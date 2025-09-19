@@ -7,17 +7,20 @@ from sqlalchemy import select
 from src.infrastructure.db.orm.animal import AnimalORM
 
 
-async def test_animals_crud_flow(app, client, seeded_memberships, tenant_id):
+async def test_animals_crud_flow(app, client, seeded_memberships, tenant_id, token_factory):
+    admin_token = token_factory(seeded_memberships["admin"])
+    manager_token = token_factory(seeded_memberships["manager"])
+    worker_token = token_factory(seeded_memberships["worker"])
     admin_headers = {
-        "Authorization": f"Bearer {seeded_memberships['admin']}",
+        "Authorization": f"Bearer {admin_token}",
         "X-Tenant-ID": str(tenant_id),
     }
     manager_headers = {
-        "Authorization": f"Bearer {seeded_memberships['manager']}",
+        "Authorization": f"Bearer {manager_token}",
         "X-Tenant-ID": str(tenant_id),
     }
     worker_headers = {
-        "Authorization": f"Bearer {seeded_memberships['worker']}",
+        "Authorization": f"Bearer {worker_token}",
         "X-Tenant-ID": str(tenant_id),
     }
 

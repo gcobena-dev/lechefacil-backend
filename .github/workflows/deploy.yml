@@ -11,12 +11,8 @@ permissions:
   packages: write
 
 jobs:
-  build_and_deploy:
+  build_image:
     runs-on: ubuntu-latest
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-      APP_SERVICE_NAME: lechefacil-backend
     steps:
       - uses: actions/checkout@v4
 
@@ -26,30 +22,43 @@ jobs:
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Build image
+        id: build
         env:
           IMAGE_SHA: ghcr.io/${{ github.repository }}:${{ github.sha }}
           IMAGE_LATEST: ghcr.io/${{ github.repository }}:latest
         run: |
           IMAGE=$(echo "$IMAGE_SHA" | tr '[:upper:]' '[:lower:]')
           LATEST=$(echo "$IMAGE_LATEST" | tr '[:upper:]' '[:lower:]')
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-          echo "IMAGE_LATEST=$LATEST" >> $GITHUB_ENV
           docker build -t "$IMAGE" -t "$LATEST" .
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
 
       - name: Push image tags
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+          IMAGE_LATEST: ${{ steps.build.outputs.latest }}
         run: |
           docker push "$IMAGE"
           docker push "$IMAGE_LATEST"
 
-      - name: Setup Railway CLI
-        run: |
-          npm install -g @railway/cli
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      latest: ${{ steps.build.outputs.latest }}
+
+  deploy:
+    needs: build_image
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      IMAGE: ${{ needs.build_image.outputs.image }}
+      IMAGE_LATEST: ${{ needs.build_image.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Deploy to Railway
-        env:
-          RAILWAY_TOKEN: ${{ env.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ env.RAILWAY_PROJECT_ID }}
-        run: |
-          railway login --token "$RAILWAY_TOKEN"
-          railway link "$RAILWAY_PROJECT_ID"
-          railway deploy --service "$APP_SERVICE_NAME"
+        run: railway up --service="$RAILWAY_SERVICE_ID"
+
+      - name: Run database migrations
+        run: railway run --service="$RAILWAY_SERVICE_ID" --command "poetry run alembic upgrade head"

@@ -6,7 +6,6 @@ from fastapi import Depends, FastAPI
 
 from src.config.settings import Settings, get_settings
 from src.infrastructure.auth.jwt_service import JWTService
-from src.infrastructure.auth.oidc_jwks import OIDCJWKSClient
 from src.infrastructure.auth.password import PasswordHasher
 from src.infrastructure.db.session import create_engine, create_session_factory
 from src.interfaces.http.deps import get_app_settings
@@ -29,7 +28,6 @@ async def lifespan(app: FastAPI):
 def create_app(
     *,
     settings: Settings | None = None,
-    jwks_client: OIDCJWKSClient | None = None,
     password_hasher: PasswordHasher | None = None,
     jwt_service: JWTService | None = None,
 ) -> FastAPI:
@@ -49,11 +47,7 @@ def create_app(
         algorithm=settings.jwt_algorithm,
         access_token_expires_minutes=settings.jwt_access_token_expires_minutes,
         issuer=settings.jwt_issuer,
-        audience=settings.oidc_audience,
-    )
-    app.state.jwks_client = jwks_client or OIDCJWKSClient(
-        str(settings.jwks_url),
-        cache_ttl=settings.jwks_cache_ttl,
+        audience=settings.jwt_audience,
     )
     register_error_handlers(app)
     app.include_router(auth_router.router)

@@ -46,27 +46,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
             tenant_id = UUID(tenant_value)
         except ValueError as exc:
             raise PermissionDenied("Invalid tenant identifier") from exc
-        jwks_client = getattr(request.app.state, "jwks_client", None)
         jwt_service = getattr(request.app.state, "jwt_service", None)
-        if jwks_client is None:
-            raise RuntimeError("JWKS client not configured")
-
-        claims = None
+        if jwt_service is None:
+            raise RuntimeError("JWT service not configured")
         try:
-            claims = await jwks_client.decode_token(
-                token,
-                issuer=str(self.settings.oidc_issuer),
-                audience=self.settings.oidc_audience,
-            )
-        except AuthError:
-            if jwt_service is None:
-                raise
-            try:
-                claims = jwt_service.decode(token)
-            except AuthError as exc:
-                raise exc
-        if claims is None:
-            raise AuthError("Token validation failed")
+            claims = jwt_service.decode(token)
+        except AuthError as exc:
+            raise exc
 
         subject = claims.get("sub")
         if not subject:

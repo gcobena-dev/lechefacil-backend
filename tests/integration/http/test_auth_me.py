@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 
-async def test_me_returns_user_context(client, seeded_memberships, tenant_id):
+async def test_me_returns_user_context(client, seeded_memberships, tenant_id, token_factory):
     admin_id = seeded_memberships["admin"]
+    token = token_factory(admin_id)
     headers = {
-        "Authorization": f"Bearer {admin_id}",
+        "Authorization": f"Bearer {token}",
         "X-Tenant-ID": str(tenant_id),
     }
     response = await client.get("/api/v1/me", headers=headers)

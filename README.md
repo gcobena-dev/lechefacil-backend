@@ -4,12 +4,11 @@ Minimal FastAPI backend MVP for multi-tenant dairy management.
 
 ## Features
 - FastAPI + SQLAlchemy async stack with row-level tenancy
-- User auth with internal JWTs plus OIDC validation and RBAC
-- JWT auth via OIDC + JWKS with basic RBAC
+- User auth with internally issued JWTs and role-based access control
 - Animals CRUD with optimistic locking and per-tenant uniqueness
 - Clean architecture inspired layering
 - CI pipeline with lint, tests, Docker build
-- Terraform skeleton for cloud deployment
+- GitHub Actions pipeline that builds/publishes container images and deploys to Railway
 
 ## Getting Started
 ```bash
