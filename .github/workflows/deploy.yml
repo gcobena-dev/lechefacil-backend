@@ -93,9 +93,9 @@ jobs:
         run: npm install -g @railway/cli
 
       - name: Run database migrations (SSH into service)
-        env:
-          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
         run: |
-          ENV_FLAG=""
-          if [ -n "${RAILWAY_ENVIRONMENT_ID}" ]; then ENV_FLAG="--environment ${RAILWAY_ENVIRONMENT_ID}"; fi
-          railway ssh --project "${RAILWAY_PROJECT_ID}" --service "${RAILWAY_SERVICE_ID}" ${ENV_FLAG} -- poetry run alembic upgrade head
+          railway ssh \
+            --project "${RAILWAY_PROJECT_ID}" \
+            --service "${RAILWAY_SERVICE_ID}" \
+            --environment "${RAILWAY_ENVIRONMENT:-production}" \
+            -- poetry run alembic upgrade head
