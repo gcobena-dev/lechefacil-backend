@@ -64,7 +64,6 @@ jobs:
   migrate:
     needs: deploy
     runs-on: ubuntu-latest
-    container: ghcr.io/railwayapp/cli:latest
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
@@ -84,6 +83,14 @@ jobs:
         run: |
           pip install --no-cache-dir poetry==2.0.1
           poetry install --no-root --only main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
       - name: Run database migrations
         run: railway run --service "$RAILWAY_SERVICE_ID" -- poetry run alembic upgrade head
