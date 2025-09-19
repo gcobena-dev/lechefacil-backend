@@ -7,8 +7,6 @@ terraform {
   }
 }
 
-provider "railway" {}
-
 resource "railway_service" "app" {
   name        = "lechefacil-backend"
   project_id  = var.project_id
