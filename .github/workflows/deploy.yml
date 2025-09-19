@@ -5,19 +5,18 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      apply:
-        description: "Run terraform apply"
-        required: false
-        default: "true"
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  build_and_push:
+  build_and_deploy:
     runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      APP_SERVICE_NAME: lechefacil-backend
     steps:
       - uses: actions/checkout@v4
 
@@ -26,74 +25,31 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      - name: Build and push image
-        id: push
+      - name: Build image
         env:
           IMAGE_SHA: ghcr.io/${{ github.repository }}:${{ github.sha }}
           IMAGE_LATEST: ghcr.io/${{ github.repository }}:latest
         run: |
           IMAGE=$(echo "$IMAGE_SHA" | tr '[:upper:]' '[:lower:]')
           LATEST=$(echo "$IMAGE_LATEST" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          echo "IMAGE_LATEST=$LATEST" >> $GITHUB_ENV
           docker build -t "$IMAGE" -t "$LATEST" .
+
+      - name: Push image tags
+        run: |
           docker push "$IMAGE"
-          docker push "$LATEST"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-    outputs:
-      image: ${{ steps.push.outputs.image }}
+          docker push "$IMAGE_LATEST"
 
-  plan:
-    needs: build_and_push
-    runs-on: ubuntu-latest
-    env:
-      TF_VAR_container_image: ${{ needs.build_and_push.outputs.image }}
-      TF_VAR_railway_project_id: ${{ secrets.TF_VAR_railway_project_id }}
-      TF_VAR_environment: ${{ secrets.TF_VAR_environment }}
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
+      - name: Setup Railway CLI
+        run: |
+          npm install -g @railway/cli
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.5.7
-
-      - name: Terraform Init
-        working-directory: terraform
-        run: terraform init
-
-      - name: Terraform Plan
-        working-directory: terraform
-        run: terraform plan -input=false -out=tfplan
-
-      - name: Upload plan artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform/tfplan
-
-  apply:
-    needs:
-      - build_and_push
-      - plan
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.apply == 'true')
-    runs-on: ubuntu-latest
-    env:
-      TF_VAR_container_image: ${{ needs.build_and_push.outputs.image }}
-      TF_VAR_railway_project_id: ${{ secrets.TF_VAR_railway_project_id }}
-      TF_VAR_environment: ${{ secrets.TF_VAR_environment }}
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.5.7
-
-      - name: Download plan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform
-
-      - name: Terraform Apply
-        working-directory: terraform
-        run: terraform apply -auto-approve -input=false tfplan
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ env.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ env.RAILWAY_PROJECT_ID }}
+        run: |
+          railway login --token "$RAILWAY_TOKEN"
+          railway use --project "$RAILWAY_PROJECT_ID"
+          railway deploy --service "$APP_SERVICE_NAME" --image "$IMAGE"
