@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Deploy to Railway
-        run: railway up --service="$RAILWAY_SERVICE_ID"
+        run: railway up --service "$RAILWAY_SERVICE_ID"
 
   migrate:
     needs: deploy
@@ -92,5 +92,10 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Run database migrations
-        run: railway run --service "$RAILWAY_SERVICE_ID" -- poetry run alembic upgrade head
+      - name: Run database migrations (SSH into service)
+        env:
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          ENV_FLAG=""
+          if [ -n "${RAILWAY_ENVIRONMENT_ID}" ]; then ENV_FLAG="--environment ${RAILWAY_ENVIRONMENT_ID}"; fi
+          railway ssh --project "${RAILWAY_PROJECT_ID}" --service "${RAILWAY_SERVICE_ID}" ${ENV_FLAG} -- poetry run alembic upgrade head
