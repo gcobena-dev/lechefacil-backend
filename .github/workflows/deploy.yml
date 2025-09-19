@@ -52,13 +52,14 @@ jobs:
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       IMAGE: ${{ needs.build_image.outputs.image }}
       IMAGE_LATEST: ${{ needs.build_image.outputs.latest }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Deploy to Railway
-        run: railway up --service="$RAILWAY_SERVICE_ID"
+        run: railway up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID"
 
       - name: Run database migrations
-        run: railway run --service="$RAILWAY_SERVICE_ID" --command "poetry run alembic upgrade head"
+        run: railway run --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --command "poetry run alembic upgrade head"
