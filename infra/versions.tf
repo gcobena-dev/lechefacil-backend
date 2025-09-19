@@ -5,5 +5,9 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    railway = {
+      source  = "railwayapp/railway"
+      version = "~> 1.0"
+    }
   }
 }

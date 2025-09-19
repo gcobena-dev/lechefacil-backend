@@ -1,5 +1,5 @@
 output "deployment_endpoint" {
   description = "Endpoint of the deployed service"
-  value       = module.lightsail.endpoint
+  value       = module.railway.endpoint
   sensitive   = false
 }

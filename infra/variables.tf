@@ -16,6 +16,6 @@ variable "railway_project_id" {
 }
 
 variable "container_image" {
-  description = "OCI image to deploy"
+  description = "OCI image to deploy (for example ghcr.io/owner/repo:tag)"
   type        = string
 }
