@@ -15,7 +15,3 @@ resource "railway_service" "app" {
   image       = var.container_image
   environment = var.environment
 }
-
-output "endpoint" {
-  value = railway_service.app.domain
-}
