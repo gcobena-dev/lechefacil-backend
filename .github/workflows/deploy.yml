@@ -50,5 +50,4 @@ jobs:
           RAILWAY_TOKEN: ${{ env.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ env.RAILWAY_PROJECT_ID }}
         run: |
-          railway use --project "$RAILWAY_PROJECT_ID"
-          railway deploy --service "$APP_SERVICE_NAME" --image "$IMAGE"
+          railway up --service "$APP_SERVICE_NAME" --image "$IMAGE" --project "$RAILWAY_PROJECT_ID"
