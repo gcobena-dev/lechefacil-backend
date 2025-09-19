@@ -1,31 +1,99 @@
 name: Deploy
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Run terraform apply"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  plan:
+  build_and_push:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push image
+        id: push
+        env:
+          IMAGE_SHA: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          IMAGE_LATEST: ghcr.io/${{ github.repository }}:latest
+        run: |
+          IMAGE=$(echo "$IMAGE_SHA" | tr '[:upper:]' '[:lower:]')
+          LATEST=$(echo "$IMAGE_LATEST" | tr '[:upper:]' '[:lower:]')
+          docker build -t "$IMAGE" -t "$LATEST" .
+          docker push "$IMAGE"
+          docker push "$LATEST"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+
+  plan:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_container_image: ${{ needs.build_and_push.outputs.image }}
+      TF_VAR_railway_project_id: ${{ secrets.TF_VAR_railway_project_id }}
+      TF_VAR_environment: ${{ secrets.TF_VAR_environment }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
       - name: Terraform Init
         working-directory: infra
         run: terraform init
+
       - name: Terraform Plan
         working-directory: infra
-        run: terraform plan -input=false
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: infra/tfplan
 
   apply:
-    needs: plan
+    needs:
+      - build_and_push
+      - plan
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.apply == 'true')
     runs-on: ubuntu-latest
-    if: github.event.inputs.apply == 'true'
+    env:
+      TF_VAR_container_image: ${{ needs.build_and_push.outputs.image }}
+      TF_VAR_railway_project_id: ${{ secrets.TF_VAR_railway_project_id }}
+      TF_VAR_environment: ${{ secrets.TF_VAR_environment }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
-      - name: Terraform Init
-        working-directory: infra
-        run: terraform init
+        with:
+          terraform_version: 1.5.7
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan
+          path: infra
+
       - name: Terraform Apply
         working-directory: infra
-        run: terraform apply -auto-approve -input=false
+        run: terraform apply -auto-approve -input=false tfplan
