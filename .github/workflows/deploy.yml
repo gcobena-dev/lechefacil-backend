@@ -60,6 +60,3 @@ jobs:
 
       - name: Deploy to Railway
         run: railway up --service="$RAILWAY_SERVICE_ID"
-
-      - name: Run database migrations
-        run: railway run --service="$RAILWAY_SERVICE_ID" --command "poetry run alembic upgrade head"
