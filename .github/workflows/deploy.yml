@@ -75,7 +75,7 @@ jobs:
 
       - name: Authenticate Railway CLI
         run: |
-          railway whoami || railway login --browserless --token "$RAILWAY_TOKEN"
+          railway whoami || railway login --browserless
 
       - name: Run database migrations (SSH into service)
         run: |
@@ -100,7 +100,7 @@ jobs:
 
       - name: Authenticate Railway CLI
         run: |
-          railway whoami || railway login --browserless --token "$RAILWAY_TOKEN"
+          railway whoami || railway login --browserless
 
       - name: Run database migrations (SSH into service)
         run: |
