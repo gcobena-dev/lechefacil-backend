@@ -7,6 +7,7 @@ class Role(str, Enum):
     ADMIN = "ADMIN"
     MANAGER = "MANAGER"
     WORKER = "WORKER"
+    VETERINARIAN = "VETERINARIAN"
 
     def can_create(self) -> bool:
         return self in {Role.ADMIN, Role.MANAGER}
@@ -15,4 +16,7 @@ class Role(str, Enum):
         return self in {Role.ADMIN, Role.MANAGER}
 
     def can_delete(self) -> bool:
+        return self is Role.ADMIN
+
+    def can_manage_users(self) -> bool:
         return self is Role.ADMIN

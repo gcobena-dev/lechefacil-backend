@@ -11,6 +11,7 @@ async def test_me_returns_user_context(client, seeded_memberships, tenant_id):
     assert response.status_code == 200
     payload = response.json()
     assert payload["user_id"] == str(admin_id)
+    assert payload["email"] == "admin@example.com"
     assert payload["active_tenant"] == str(tenant_id)
     assert payload["active_role"] == "ADMIN"
     assert any(m["tenant_id"] == str(tenant_id) for m in payload["memberships"])

@@ -8,3 +8,5 @@ The project follows a light clean architecture split into domain, application, i
 - **Interfaces** exposes HTTP endpoints, middleware, and DTOs via FastAPI.
 
 Unit of work boundaries ensure all write operations pass through transactional contexts, while repositories enforce tenant filters and optimistic locking.
+
+Authentication combines external OIDC validation and locally issued JWTs that reference users stored in the database; a password hasher service and JWT service live in the infrastructure layer.

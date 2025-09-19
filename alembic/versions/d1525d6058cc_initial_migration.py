@@ -1,0 +1,102 @@
+"""Initial migration
+
+Revision ID: d1525d6058cc
+Revises: 
+Create Date: 2025-09-18 14:12:53.010317
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = "d1525d6058cc"
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    op.create_table(
+        "users",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("email", sa.String(length=255), nullable=False),
+        sa.Column("hashed_password", sa.String(length=255), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            server_onupdate=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("email", name="ux_users_email"),
+    )
+    op.create_index(op.f("ix_users_email"), "users", ["email"], unique=False)
+
+    op.create_table(
+        "animals",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("tag", sa.String(length=128), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=True),
+        sa.Column("breed", sa.String(length=255), nullable=True),
+        sa.Column("birth_date", sa.Date(), nullable=True),
+        sa.Column("lot", sa.String(length=255), nullable=True),
+        sa.Column(
+            "status",
+            sa.Enum("ACTIVE", "SOLD", "DEAD", "CULLED", name="animalstatus", native_enum=False),
+            nullable=False,
+        ),
+        sa.Column("photo_url", sa.String(length=1024), nullable=True),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            server_onupdate=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("tenant_id", "tag", name="ux_animals_tenant_tag"),
+    )
+    op.create_index(op.f("ix_animals_tenant_id"), "animals", ["tenant_id"], unique=False)
+    op.create_table(
+        "memberships",
+        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "role",
+            sa.Enum("ADMIN", "MANAGER", "WORKER", "VETERINARIAN", name="role", native_enum=False),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("user_id", "tenant_id"),
+        sa.UniqueConstraint("user_id", "tenant_id", name="ux_memberships_user_tenant"),
+    )
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.drop_table("memberships")
+    op.drop_index(op.f("ix_animals_tenant_id"), table_name="animals")
+    op.drop_table("animals")
+    op.drop_index(op.f("ix_users_email"), table_name="users")
+    op.drop_table("users")

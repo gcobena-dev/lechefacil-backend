@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from src.config.settings import get_settings
 from src.infrastructure.db.base import Base
-from src.infrastructure.db.orm import animal, membership  # noqa: F401
+from src.infrastructure.db.orm import animal, membership, user  # noqa: F401
 
 config = context.config
 

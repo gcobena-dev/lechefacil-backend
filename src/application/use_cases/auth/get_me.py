@@ -17,6 +17,7 @@ class MembershipInfo:
 @dataclass(slots=True)
 class MeResult:
     user_id: UUID
+    email: str
     active_tenant: UUID
     active_role: Role
     memberships: list[MembershipInfo]
@@ -26,6 +27,7 @@ class MeResult:
 async def execute(
     *,
     user_id: UUID,
+    email: str,
     active_tenant: UUID,
     active_role: Role,
     memberships: list[Membership],
@@ -34,6 +36,7 @@ async def execute(
     membership_infos = [MembershipInfo(tenant_id=m.tenant_id, role=m.role) for m in memberships]
     return MeResult(
         user_id=user_id,
+        email=email,
         active_tenant=active_tenant,
         active_role=active_role,
         memberships=membership_infos,

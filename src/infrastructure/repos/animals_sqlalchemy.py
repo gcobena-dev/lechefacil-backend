@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +27,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             lot=orm.lot,
             status=orm.status,
             photo_url=orm.photo_url,
+            deleted_at=orm.deleted_at,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
             version=orm.version,
@@ -43,6 +44,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             lot=animal.lot,
             status=animal.status,
             photo_url=animal.photo_url,
+            deleted_at=animal.deleted_at,
             created_at=animal.created_at,
             updated_at=animal.updated_at,
             version=animal.version,
@@ -59,6 +61,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             select(AnimalORM)
             .where(AnimalORM.tenant_id == tenant_id)
             .where(AnimalORM.id == animal_id)
+            .where(AnimalORM.deleted_at.is_(None))
         )
         result = await self.session.execute(stmt)
         orm = result.scalar_one_or_none()
@@ -72,6 +75,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         cursor: UUID | None,
     ) -> tuple[list[Animal], UUID | None]:
         stmt = select(AnimalORM).where(AnimalORM.tenant_id == tenant_id)
+        stmt = stmt.where(AnimalORM.deleted_at.is_(None))
         if cursor:
             stmt = stmt.where(AnimalORM.id > cursor)
         stmt = stmt.order_by(AnimalORM.id).limit(limit + 1)
@@ -94,6 +98,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             update(AnimalORM)
             .where(AnimalORM.tenant_id == tenant_id, AnimalORM.id == animal_id)
             .where(AnimalORM.version == expected_version)
+            .where(AnimalORM.deleted_at.is_(None))
             .values(**values)
             .returning(AnimalORM)
         )
@@ -108,12 +113,15 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
 
     async def delete(self, tenant_id: UUID, animal_id: UUID) -> bool:
         stmt = (
-            delete(AnimalORM)
+            update(AnimalORM)
             .where(AnimalORM.tenant_id == tenant_id)
             .where(AnimalORM.id == animal_id)
+            .where(AnimalORM.deleted_at.is_(None))
+            .values(deleted_at=func.now(), version=AnimalORM.version + 1)
+            .returning(AnimalORM.id)
         )
         try:
             result = await self.session.execute(stmt)
         except IntegrityError as exc:
             raise InfrastructureError("Failed to delete animal") from exc
-        return result.rowcount > 0
+        return result.scalar_one_or_none() is not None

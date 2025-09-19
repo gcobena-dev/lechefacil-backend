@@ -16,6 +16,7 @@ asyncpg = "^0.29.0"
 alembic = "^1.13.1"
 pydantic-settings = "^2.2.1"
 python-jose = { extras = ["cryptography"], version = "^3.3.0" }
+passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 
 [tool.poetry.group.dev.dependencies]
 aiosqlite = "^0.19.0"

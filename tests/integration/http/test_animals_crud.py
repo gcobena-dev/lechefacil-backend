@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from uuid import UUID
 
-async def test_animals_crud_flow(client, seeded_memberships, tenant_id):
+from sqlalchemy import select
+
+from src.infrastructure.db.orm.animal import AnimalORM
+
+
+async def test_animals_crud_flow(app, client, seeded_memberships, tenant_id):
     admin_headers = {
         "Authorization": f"Bearer {seeded_memberships['admin']}",
         "X-Tenant-ID": str(tenant_id),
@@ -55,6 +61,12 @@ async def test_animals_crud_flow(client, seeded_memberships, tenant_id):
 
     admin_delete = await client.delete(f"/api/v1/animals/{animal_id}", headers=admin_headers)
     assert admin_delete.status_code == 204
+
+    async with app.state.session_factory() as session:  # type: ignore[attr-defined]
+        animal_uuid = UUID(animal_id)
+        result = await session.execute(select(AnimalORM).where(AnimalORM.id == animal_uuid))
+        row = result.scalar_one()
+        assert row.deleted_at is not None
 
     missing_response = await client.get(f"/api/v1/animals/{animal_id}", headers=admin_headers)
     assert missing_response.status_code == 404

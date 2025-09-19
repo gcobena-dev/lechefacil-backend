@@ -7,6 +7,8 @@ from fastapi import Request
 from src.application.errors import AuthError
 from src.config.settings import Settings, get_settings
 from src.infrastructure.auth.context import AuthContext
+from src.infrastructure.auth.jwt_service import JWTService
+from src.infrastructure.auth.password import PasswordHasher
 from src.infrastructure.db.session import SQLAlchemyUnitOfWork
 
 
@@ -28,3 +30,17 @@ async def get_uow(request: Request) -> AsyncIterator[SQLAlchemyUnitOfWork]:
 
 def get_app_settings() -> Settings:
     return get_settings()
+
+
+def get_password_hasher(request: Request) -> PasswordHasher:
+    hasher = getattr(request.app.state, "password_hasher", None)
+    if hasher is None:
+        raise RuntimeError("Password hasher not configured")
+    return hasher
+
+
+def get_jwt_service(request: Request) -> JWTService:
+    service = getattr(request.app.state, "jwt_service", None)
+    if service is None:
+        raise RuntimeError("JWT service not configured")
+    return service

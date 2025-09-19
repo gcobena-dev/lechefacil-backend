@@ -24,6 +24,7 @@ class Animal:
     lot: str | None = None
     status: AnimalStatus = AnimalStatus.ACTIVE
     photo_url: str | None = None
+    deleted_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     version: int = 1

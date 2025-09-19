@@ -25,12 +25,18 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self._session_factory = session_factory
         self.session: AsyncSession | None = None
         self.animals = None
+        self.users = None
+        self.memberships = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
         from src.infrastructure.repos.animals_sqlalchemy import AnimalsSQLAlchemyRepository
+        from src.infrastructure.repos.memberships_sqlalchemy import MembershipsSQLAlchemyRepository
+        from src.infrastructure.repos.users_sqlalchemy import UsersSQLAlchemyRepository
 
         self.animals = AnimalsSQLAlchemyRepository(self.session)
+        self.users = UsersSQLAlchemyRepository(self.session)
+        self.memberships = MembershipsSQLAlchemyRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -43,6 +49,8 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             await self.session.close()
             self.session = None
             self.animals = None
+            self.users = None
+            self.memberships = None
 
     async def commit(self) -> None:
         if not self.session:

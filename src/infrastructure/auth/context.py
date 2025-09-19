@@ -9,13 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.errors import PermissionDenied
 from src.domain.models.membership import Membership
+from src.domain.models.user import User
 from src.domain.value_objects.role import Role
 from src.infrastructure.db.orm.membership import MembershipORM
+from src.infrastructure.db.orm.user import UserORM
 
 
 @dataclass(slots=True)
 class AuthContext:
     user_id: UUID
+    email: str
     tenant_id: UUID
     role: Role
     memberships: list[Membership]
@@ -31,6 +34,22 @@ async def fetch_memberships(session: AsyncSession, user_id: UUID) -> list[Member
     result = await session.execute(stmt)
     rows = result.scalars().all()
     return [Membership(user_id=row.user_id, tenant_id=row.tenant_id, role=row.role) for row in rows]
+
+
+async def fetch_user(session: AsyncSession, user_id: UUID) -> User | None:
+    stmt = select(UserORM).where(UserORM.id == user_id)
+    result = await session.execute(stmt)
+    row = result.scalar_one_or_none()
+    if not row:
+        return None
+    return User(
+        id=row.id,
+        email=row.email,
+        hashed_password=row.hashed_password,
+        is_active=row.is_active,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
 
 
 def select_active_role(memberships: list[Membership], tenant_id: UUID) -> Role:
