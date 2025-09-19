@@ -64,38 +64,20 @@ jobs:
   migrate:
     needs: deploy
     runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
       RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
-      - name: Install Poetry and deps
-        run: |
-          pip install --no-cache-dir poetry==2.0.1
-          poetry install --no-root --only main
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
       - name: Run database migrations (SSH into service)
         run: |
+          ENV_NAME="${RAILWAY_ENVIRONMENT:-production}"
           railway ssh \
             --project "${RAILWAY_PROJECT_ID}" \
             --service "${RAILWAY_SERVICE_ID}" \
-            --environment "${RAILWAY_ENVIRONMENT:-production}" \
+            --environment "${ENV_NAME}" \
             -- poetry run alembic upgrade head
