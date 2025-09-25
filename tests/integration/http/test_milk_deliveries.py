@@ -55,6 +55,6 @@ async def test_worker_creates_milk_delivery_with_price(
     body = deliv_resp.json()
     assert body["buyer_id"] == buyer["id"]
     assert body["currency"] == "USD"
-    assert body["price_snapshot"] == "0.5"
+    assert body["price_snapshot"] == "0.5000"
     expected_amount = _round2(volume * Decimal("0.5"))
     assert body["amount"] == str(expected_amount)

@@ -45,7 +45,7 @@ async def test_create_milk_production_for_animal(
     body = resp2.json()
     assert body["animal_id"] == animal_id
     assert body["input_unit"] == "kg"
-    assert body["input_quantity"] == 10
+    assert body["input_quantity"] == "10"
     assert body["density"] == "1.03"
     assert body["volume_l"] == "9.709"
 
