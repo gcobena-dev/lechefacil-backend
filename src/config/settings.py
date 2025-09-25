@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     @classmethod
     def parse_email_list(cls, value):  # type: ignore[no-untyped-def]
         if isinstance(value, str):
+            # Try to parse as JSON first (for production env vars like '["email"]')
+            import json
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+            # Fallback to comma-separated parsing
             return [v.strip() for v in value.split(",") if v.strip()]
         return value
 
