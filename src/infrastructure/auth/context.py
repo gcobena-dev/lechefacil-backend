@@ -47,6 +47,7 @@ async def fetch_user(session: AsyncSession, user_id: UUID) -> User | None:
         email=row.email,
         hashed_password=row.hashed_password,
         is_active=row.is_active,
+        must_change_password=getattr(row, "must_change_password", False),
         created_at=row.created_at,
         updated_at=row.updated_at,
     )

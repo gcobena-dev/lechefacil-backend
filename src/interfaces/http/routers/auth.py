@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response
 
 from src.application.use_cases.auth import change_password, get_me, login_user, register_user
+from src.application.use_cases.auth import bootstrap_tenant
+from src.application.use_cases.auth import manage_membership
+from src.application.use_cases.auth import register_account
+from src.application.use_cases.auth import list_tenant_users
+from src.application.use_cases.auth import remove_membership
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.auth.jwt_service import JWTService
 from src.infrastructure.auth.password import PasswordHasher
@@ -16,9 +21,23 @@ from src.interfaces.http.schemas.auth import (
     MeResponse,
     RegisterRequest,
     RegisterResponse,
+    RegisterTenantRequest,
+    RegisterTenantResponse,
+    AddMembershipRequest,
+    AddMembershipResponse,
+    SelfRegisterRequest,
+    SelfRegisterResponse,
+    UsersListResponse,
+    UserListResponse,
+    PaginationInfo,
+    RemoveMembershipRequest,
+    RemoveMembershipResponse,
 )
+from src.infrastructure.email.models import EmailMessage, EmailService
+from src.infrastructure.email.renderer.engine import EmailTemplateRenderer
+from src.interfaces.http.deps import get_app_settings
 
-router = APIRouter(prefix="/api/v1", tags=["auth"])
+router = APIRouter(prefix="", tags=["auth"])
 
 
 @router.get("/me", response_model=MeResponse)
@@ -45,6 +64,7 @@ async def read_me(context: AuthContext = Depends(get_auth_context)) -> MeRespons
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(
     payload: LoginRequest,
+    response: Response,
     uow=Depends(get_uow),
     password_hasher: PasswordHasher = Depends(get_password_hasher),
     jwt_service: JWTService = Depends(get_jwt_service),
@@ -60,11 +80,22 @@ async def login(
         jwt_service=jwt_service,
     )
     memberships = [MembershipSchema(**m) for m in result.memberships]
+    # Issue refresh token cookie
+    refresh = jwt_service.create_refresh_token(subject=result.user_id)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh,
+        httponly=True,
+        samesite="lax",
+        secure=False,  # consider True in production with HTTPS
+        path="/",
+    )
     return LoginResponse(
         access_token=result.access_token,
         token_type=result.token_type,
         user_id=result.user_id,
         email=result.email,
+        must_change_password=result.must_change_password,
         memberships=memberships,
     )
 
@@ -110,3 +141,289 @@ async def change_password_endpoint(
         password_hasher=password_hasher,
     )
     return ChangePasswordResponse(status="password_changed")
+
+
+@router.post("/auth/register-tenant", response_model=RegisterTenantResponse, status_code=201)
+async def register_tenant_endpoint(
+    payload: RegisterTenantRequest,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> RegisterTenantResponse:
+    # Restrict to admins (as a simple guard); adjust if superuser concept is added
+    if not context.role.can_manage_users():
+        from src.application.errors import PermissionDenied
+
+        raise PermissionDenied("Only admins can bootstrap tenants")
+    result = await bootstrap_tenant.execute(
+        uow=uow,
+        payload=bootstrap_tenant.RegisterTenantInput(
+            email=payload.email,
+            password=payload.password,
+            tenant_id=payload.tenant_id,
+        ),
+        password_hasher=password_hasher,
+    )
+    return RegisterTenantResponse(user_id=result.user_id, email=result.email, tenant_id=result.tenant_id)
+
+
+@router.get("/auth/my-tenants", response_model=list[MembershipSchema])
+async def my_tenants(request: Request, uow=Depends(get_uow)) -> list[MembershipSchema]:
+    from src.application.errors import AuthError
+    authorization = request.headers.get("Authorization")
+    if not authorization:
+        raise AuthError("Missing Authorization header")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise AuthError("Invalid Authorization header")
+    jwt_service: JWTService | None = getattr(request.app.state, "jwt_service", None)
+    if jwt_service is None:
+        raise RuntimeError("JWT service not configured")
+    claims = jwt_service.decode(token)
+    subject = claims.get("sub")
+    if not subject:
+        raise AuthError("Token missing subject")
+    from uuid import UUID
+
+    user_id = UUID(str(subject))
+    memberships = await uow.memberships.list_for_user(user_id)
+    return [MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in memberships]
+
+
+@router.post("/auth/memberships", response_model=AddMembershipResponse)
+async def add_membership_endpoint(
+    payload: AddMembershipRequest,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    request: Request = None,  # type: ignore[assignment]
+    settings=Depends(get_app_settings),
+) -> AddMembershipResponse:
+    # Only ADMINs of the tenant in header can manage users for that tenant
+    if not context.role.can_manage_users():
+        from src.application.errors import PermissionDenied
+
+        raise PermissionDenied("Only admins can manage memberships")
+    if payload.tenant_id != context.tenant_id:
+        from src.application.errors import PermissionDenied
+
+        raise PermissionDenied("Cannot manage memberships for a different tenant")
+    result = await manage_membership.execute(
+        uow=uow,
+        payload=manage_membership.AddMembershipInput(
+            tenant_id=payload.tenant_id,
+            role=payload.role,
+            email=payload.email,
+            user_id=payload.user_id,
+            create_if_missing=payload.create_if_missing,
+            initial_password=payload.initial_password,
+        ),
+        password_hasher=password_hasher,
+    )
+    # Send email to the user if we created a new account
+    try:
+        if result.created_user and payload.email:
+            renderer: EmailTemplateRenderer | None = getattr(request.app.state, "email_renderer", None)
+            email_svc: EmailService | None = getattr(request.app.state, "email_service", None)
+            if renderer and email_svc:
+                msg = renderer.render(
+                    template_key="membership_invite",
+                    settings=settings,
+                    context={
+                        "email": payload.email,
+                        "role": result.role.value,
+                        "tenant_id": str(result.tenant_id),
+                        "initial_password": result.generated_password or "(generada)",
+                        "instructions": "Inicia sesión y cambia tu contraseña en Perfil > Cambiar contraseña.",
+                    },
+                    locale=settings.email_default_locale,
+                )
+                await email_svc.send(
+                    EmailMessage(
+                        subject=msg.subject,
+                        to=[payload.email],
+                        bcc=settings.email_admin_recipients,
+                        text=msg.text,
+                        html=msg.html,
+                        from_email=settings.email_from_address,
+                        from_name=settings.email_from_name,
+                    )
+                )
+    except Exception:  # pragma: no cover - do not fail endpoint for email errors
+        pass
+    return AddMembershipResponse(
+        user_id=result.user_id,
+        email=result.email,
+        tenant_id=result.tenant_id,
+        role=result.role,
+        created_user=result.created_user,
+        generated_password=result.generated_password,
+    )
+
+
+@router.post("/auth/refresh", response_model=LoginResponse)
+async def refresh_token(request: Request, response: Response, uow=Depends(get_uow)) -> LoginResponse:
+    jwt_service: JWTService | None = getattr(request.app.state, "jwt_service", None)
+    if jwt_service is None:
+        raise RuntimeError("JWT service not configured")
+    token = request.cookies.get("refresh_token")
+    if not token:
+        from src.application.errors import AuthError
+
+        raise AuthError("Missing refresh token")
+    claims = jwt_service.decode_refresh(token)
+    from uuid import UUID as _UUID
+
+    user_id = _UUID(str(claims.get("sub")))
+    # Load user and memberships to return same shape as login
+    async with uow:
+        user = await uow.users.get(user_id)
+        if not user or not user.is_active:
+            from src.application.errors import AuthError
+
+            raise AuthError("Inactive or missing user")
+        memberships = await uow.memberships.list_for_user(user_id)
+    access = jwt_service.create_access_token(subject=user_id)
+    # Optionally rotate refresh
+    new_refresh = jwt_service.create_refresh_token(subject=user_id)
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        path="/",
+    )
+    return LoginResponse(
+        access_token=access,
+        token_type="bearer",
+        user_id=user.id,
+        email=user.email,
+        must_change_password=user.must_change_password,
+        memberships=[MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in memberships],
+    )
+
+
+@router.post("/auth/logout")
+async def logout_endpoint(response: Response) -> dict[str, str]:
+    response.delete_cookie(key="refresh_token", path="/")
+    return {"status": "ok"}
+
+
+@router.post("/auth/signin", response_model=SelfRegisterResponse, status_code=201)
+async def self_register_endpoint(
+    payload: SelfRegisterRequest,
+    uow=Depends(get_uow),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> SelfRegisterResponse:
+    result = await register_account.execute(
+        uow=uow,
+        payload=register_account.SelfRegisterInput(email=payload.email, password=payload.password),
+        password_hasher=password_hasher,
+    )
+    # Cast to expected types
+    from uuid import UUID
+
+    return SelfRegisterResponse(user_id=UUID(result.user_id), email=result.email)
+
+
+@router.get("/tenants/{tenant_id}/users", response_model=UsersListResponse)
+async def list_tenant_users_endpoint(
+    tenant_id: str,
+    page: int = 1,
+    limit: int = 10,
+    role: str | None = None,
+    search: str | None = None,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> UsersListResponse:
+    from uuid import UUID
+    from src.domain.value_objects.role import Role
+
+    tenant_uuid = UUID(tenant_id)
+
+    # Check if user has access to this tenant
+    if context.tenant_id != tenant_uuid:
+        from src.application.errors import PermissionDenied
+        raise PermissionDenied("Cannot access users from a different tenant")
+
+    role_filter = None
+    if role:
+        try:
+            role_filter = Role(role.upper())
+        except ValueError:
+            from src.application.errors import ValidationError
+            raise ValidationError(f"Invalid role: {role}")
+
+    result = await list_tenant_users.execute(
+        uow=uow,
+        payload=list_tenant_users.ListTenantUsersInput(
+            tenant_id=tenant_uuid,
+            page=page,
+            limit=limit,
+            role_filter=role_filter,
+            search=search,
+        ),
+    )
+
+    user_responses = []
+    for user in result.users:
+        user_responses.append(
+            UserListResponse(
+                id=user.id,
+                email=user.email,
+                role=user.role,
+                is_active=user.is_active,
+                created_at=user.created_at,
+                last_login=user.last_login,
+            )
+        )
+
+    total_pages = (result.total + result.limit - 1) // result.limit
+
+    return UsersListResponse(
+        users=user_responses,
+        pagination=PaginationInfo(
+            page=result.page,
+            limit=result.limit,
+            total=result.total,
+            pages=total_pages,
+        ),
+    )
+
+
+@router.delete("/tenants/{tenant_id}/users/{user_id}/membership", response_model=RemoveMembershipResponse)
+async def remove_membership_endpoint(
+    tenant_id: str,
+    user_id: str,
+    payload: RemoveMembershipRequest,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> RemoveMembershipResponse:
+    from uuid import UUID
+
+    tenant_uuid = UUID(tenant_id)
+    user_uuid = UUID(user_id)
+
+    # Check if user has access to this tenant
+    if context.tenant_id != tenant_uuid:
+        from src.application.errors import PermissionDenied
+        raise PermissionDenied("Cannot manage memberships for a different tenant")
+
+    result = await remove_membership.execute(
+        uow=uow,
+        requester_id=context.user_id,
+        requester_role=context.role,
+        payload=remove_membership.RemoveMembershipInput(
+            user_id=user_uuid,
+            tenant_id=tenant_uuid,
+            reason=payload.reason,
+        ),
+    )
+
+    return RemoveMembershipResponse(
+        message=result.message,
+        user_id=result.user_id,
+        tenant_id=result.tenant_id,
+        removed_at=result.removed_at,
+    )

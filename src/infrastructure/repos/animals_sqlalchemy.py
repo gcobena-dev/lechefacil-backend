@@ -71,20 +71,51 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         self,
         tenant_id: UUID,
         *,
-        limit: int,
-        cursor: UUID | None,
-    ) -> tuple[list[Animal], UUID | None]:
+        limit: int | None = None,
+        cursor: UUID | None = None,
+        is_active: bool | None = None,
+    ) -> list[Animal] | tuple[list[Animal], UUID | None]:
         stmt = select(AnimalORM).where(AnimalORM.tenant_id == tenant_id)
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
+
+        if is_active is not None:
+            from src.domain.models.animal import AnimalStatus
+            if is_active:
+                stmt = stmt.where(AnimalORM.status == AnimalStatus.ACTIVE)
+            else:
+                stmt = stmt.where(AnimalORM.status != AnimalStatus.ACTIVE)
+
         if cursor:
             stmt = stmt.where(AnimalORM.id > cursor)
-        stmt = stmt.order_by(AnimalORM.id).limit(limit + 1)
+
+        stmt = stmt.order_by(AnimalORM.id)
+
+        if limit is not None:
+            stmt = stmt.limit(limit + 1)
+            result = await self.session.execute(stmt)
+            rows = result.scalars().all()
+            has_more = len(rows) > limit
+            items = rows[:limit]
+            next_cursor = items[-1].id if has_more else None
+            return [self._to_domain(item) for item in items], next_cursor
+        else:
+            result = await self.session.execute(stmt)
+            rows = result.scalars().all()
+            return [self._to_domain(item) for item in rows]
+
+    async def count(self, tenant_id: UUID, *, is_active: bool | None = None) -> int:
+        stmt = select(func.count(AnimalORM.id)).where(AnimalORM.tenant_id == tenant_id)
+        stmt = stmt.where(AnimalORM.deleted_at.is_(None))
+
+        if is_active is not None:
+            from src.domain.models.animal import AnimalStatus
+            if is_active:
+                stmt = stmt.where(AnimalORM.status == AnimalStatus.ACTIVE)
+            else:
+                stmt = stmt.where(AnimalORM.status != AnimalStatus.ACTIVE)
+
         result = await self.session.execute(stmt)
-        rows = result.scalars().all()
-        has_more = len(rows) > limit
-        items = rows[:limit]
-        next_cursor = items[-1].id if has_more else None
-        return [self._to_domain(item) for item in items], next_cursor
+        return result.scalar() or 0
 
     async def update(
         self,

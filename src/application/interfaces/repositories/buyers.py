@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from typing import Protocol
+from uuid import UUID
+
+from src.domain.models.buyer import Buyer
+
+
+class BuyersRepository(Protocol):
+    async def add(self, buyer: Buyer) -> Buyer: ...
+    async def list(self, tenant_id: UUID) -> list[Buyer]: ...
+    async def get(self, tenant_id: UUID, buyer_id: UUID) -> Buyer | None: ...
+    async def set_active(self, tenant_id: UUID, buyer_id: UUID, is_active: bool) -> None: ...

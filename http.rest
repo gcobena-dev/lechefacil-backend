@@ -1,0 +1,292 @@
+@baseUrl = http://localhost:8000/api/v1
+@tenantHeader = X-Tenant-ID
+@tenantId = ebc94e00-fa32-4e06-bd61-eb9d16bbad64
+@email = gancoce@gmail.com
+@password = password123
+
+### Tenant self-register (creates tenant + ADMIN user)
+# @name register_tenant
+POST {{baseUrl}}/auth/register-tenant
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Capture tenant and user from self-register
+@tenantId = {{register_tenant.response.body.tenant_id}}
+
+### Health
+GET {{baseUrl}}/health
+
+### Login
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "tenant_id": "{{tenantId}}"
+}
+
+### Capture auth token from login response
+@authToken = {{login.response.body.access_token}}
+
+### Discover my tenants (no tenant header required)
+# @name my_tenants
+GET {{baseUrl}}/auth/my-tenants
+Authorization: Bearer {{authToken}}
+
+### Pick a tenant from the response and set @tenantId manually if needed
+
+### Me (requires Authorization + tenant header)
+GET {{baseUrl}}/me
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Buyers - list
+GET {{baseUrl}}/buyers/
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Buyers - create
+# @name create_buyer
+POST {{baseUrl}}/buyers/
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "name": "Comprador Demo2",
+  "code": "BUY-002",
+  "contact": "compras@demo.com",
+  "is_active": true
+}
+
+### Capture buyer id
+@buyerId = {{create_buyer.response.body.id}}
+
+### Milk Prices - list (optional filters: date_from, date_to, buyer_id)
+GET {{baseUrl}}/milk-prices/
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Milk Prices - create or upsert (same date+buyer overwrites)
+# @name create_price
+POST {{baseUrl}}/milk-prices/
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "date": "2025-01-01",
+  "price_per_l": 0.50,
+  "currency": "USD",
+  "buyer_id": "{{buyerId}}"
+}
+
+### Animals - list (cursor pagination: limit, cursor)
+GET {{baseUrl}}/animals/?limit=20
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Animals - create
+# @name create_animal
+POST {{baseUrl}}/animals/
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "tag": "A-001",
+  "name": "Vaca 001",
+  "breed": "Holstein",
+  "birth_date": "2022-06-15",
+  "lot": "Lote A",
+  "status": "active",
+  "photo_url": null
+}
+
+### Capture animal id and version
+@animalId = {{create_animal.response.body.id}}
+@animalVersion = {{create_animal.response.body.version}}
+
+### Animals - get by id
+# @name get_animal
+GET {{baseUrl}}/animals/{{animalId}}
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Animals - value for a given date (uses deliveries average or price table)
+GET {{baseUrl}}/animals/{{animalId}}/value?date=2025-01-01
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Animals - update (requires version)
+PUT {{baseUrl}}/animals/{{animalId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "version": {{animalVersion}},
+  "name": "Vaca 001 Renombrada",
+  "status": "active"
+}
+
+### Animals - delete
+DELETE {{baseUrl}}/animals/{{animalId}}
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Milk Productions - list (filter by animal)
+GET {{baseUrl}}/milk-productions/?animal_id={{animalId}}
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Milk Productions - create (by animal; unit conversion supported: kg|lb|l)
+# @name create_production
+POST {{baseUrl}}/milk-productions/
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "date": "2025-01-01",
+  "shift": "AM",
+  "animal_id": "{{animalId}}",
+  "input_quantity": 10,
+  "notes": "Ordeño matutino"
+}
+
+### Capture production id and version
+@productionId = {{create_production.response.body.id}}
+@productionVersion = {{create_production.response.body.version}}
+
+### Milk Productions - update (recomputes volume if unit/qty/density change)
+PUT {{baseUrl}}/milk-productions/{{productionId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "version": {{productionVersion}},
+  "input_quantity": 12
+}
+
+### Milk Productions - delete
+DELETE {{baseUrl}}/milk-productions/{{productionId}}
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Milk Deliveries - list (optional filters: date_from, date_to, buyer_id)
+GET {{baseUrl}}/milk-deliveries/
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Milk Deliveries - create (uses price resolution rules)
+# @name create_delivery
+POST {{baseUrl}}/milk-deliveries/
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "date_time": "2025-01-01T08:00:00Z",
+  "volume_l": 120.5,
+  "buyer_id": "{{buyerId}}",
+  "notes": "Entrega matutina"
+}
+
+### Capture delivery id and version
+@deliveryId = {{create_delivery.response.body.id}}
+@deliveryVersion = {{create_delivery.response.body.version}}
+
+### Milk Deliveries - update
+PUT {{baseUrl}}/milk-deliveries/{{deliveryId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "version": {{deliveryVersion}},
+  "notes": "Entrega actualizada"
+}
+
+### Milk Deliveries - delete
+DELETE {{baseUrl}}/milk-deliveries/{{deliveryId}}
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Settings - get billing
+GET {{baseUrl}}/settings/billing
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+### Settings - update billing (admin only)
+PUT {{baseUrl}}/settings/billing
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "default_buyer_id": "{{buyerId}}",
+  "default_currency": "USD",
+  "default_price_per_l": 0.48,
+  "default_delivery_input_unit": "l",
+  "default_production_input_unit": "kg"
+}
+
+### Admin - add membership (create user if missing)
+# @name add_membership
+POST {{baseUrl}}/auth/memberships
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "role": "WORKER",
+  "email": "vaquero@example.com",
+  "create_if_missing": true
+}
+
+### If user was created, capture generated password (shown in response)
+
+### Animals Photos - presign upload (requires S3 config)
+# @name presign_photo
+POST {{baseUrl}}/animals/{{animalId}}/photos/uploads
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "content_type": "image/jpeg"
+}
+
+### Capture storage key from presign
+@storageKey = {{presign_photo.response.body.storage_key}}
+
+### Animals Photos - confirm photo (after uploading to storage, supply storage_key)
+# @name confirm_photo
+POST {{baseUrl}}/animals/{{animalId}}/photos
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}
+
+{
+  "storage_key": "{{storageKey}}",
+  "mime_type": "image/jpeg",
+  "size_bytes": 123456,
+  "title": "Foto principal",
+  "description": "Vaca 001",
+  "is_primary": true,
+  "position": 0
+}
+
+### Animals Photos - list
+GET {{baseUrl}}/animals/{{animalId}}/photos
+Authorization: Bearer {{authToken}}
+{{tenantHeader}}: {{tenantId}}

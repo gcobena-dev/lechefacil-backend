@@ -20,3 +20,6 @@ class Role(str, Enum):
 
     def can_manage_users(self) -> bool:
         return self is Role.ADMIN
+
+    def can_read(self) -> bool:
+        return self in {Role.ADMIN, Role.MANAGER, Role.WORKER, Role.VETERINARIAN}

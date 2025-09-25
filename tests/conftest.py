@@ -26,7 +26,7 @@ from src.config.settings import Settings
 from src.domain.value_objects.role import Role
 from src.infrastructure.auth.password import PasswordHasher
 from src.infrastructure.db.base import Base
-from src.infrastructure.db.orm import animal, membership, user  # noqa: F401
+from src.infrastructure.db.orm import animal, attachment, membership, user  # noqa: F401
 from src.infrastructure.db.orm.membership import MembershipORM
 from src.infrastructure.db.orm.user import UserORM
 from src.interfaces.http.main import create_app

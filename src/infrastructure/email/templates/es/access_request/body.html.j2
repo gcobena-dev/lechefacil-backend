@@ -1,0 +1,35 @@
+<h2 style="margin:0 0 12px 0;font-size:18px;">Nueva solicitud de acceso</h2>
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;font-size:14px;line-height:1.5;">
+  <tr>
+    <td style="padding:4px 0;width:180px;color:#6b7280;">Nombre</td>
+    <td>{{ full_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 0;width:180px;color:#6b7280;">Email</td>
+    <td>{{ email }}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 0;width:180px;color:#6b7280;">Teléfono</td>
+    <td>{{ phone_number or '-' }}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 0;width:180px;color:#6b7280;">Finca</td>
+    <td>{{ farm_name }}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 0;width:180px;color:#6b7280;">Ubicación</td>
+    <td>{{ farm_location }}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 0;width:180px;color:#6b7280;">Rol solicitado</td>
+    <td>{{ requested_role }}</td>
+  </tr>
+</table>
+
+{% if message %}
+<div style="margin-top:12px;">
+  <div style="color:#6b7280;margin-bottom:6px;">Mensaje</div>
+  <div style="white-space:pre-wrap;">{{ message }}</div>
+</div>
+{% endif %}
+

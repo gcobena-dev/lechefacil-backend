@@ -9,7 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from src.config.settings import get_settings
 from src.infrastructure.db.base import Base
-from src.infrastructure.db.orm import animal, membership, user  # noqa: F401
+from src.infrastructure.db.orm import (
+    animal,  # noqa: F401
+    membership,  # noqa: F401
+    user,  # noqa: F401
+    attachment,  # noqa: F401
+    buyer,  # noqa: F401
+    milk_price,  # noqa: F401
+    tenant_config,  # noqa: F401
+    milk_production,  # noqa: F401
+    milk_delivery,  # noqa: F401
+)
 
 config = context.config
 

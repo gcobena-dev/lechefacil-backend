@@ -37,6 +37,7 @@ class JWTService:
             "sub": str(subject),
             "iat": int(now.timestamp()),
             "exp": int((now + timedelta(minutes=self.access_token_expires_minutes)).timestamp()),
+            "typ": "access",
         }
         if self.issuer:
             to_encode["iss"] = self.issuer
@@ -57,3 +58,23 @@ class JWTService:
             )
         except JWTError as exc:
             raise AuthError("Token validation failed") from exc
+
+    def create_refresh_token(self, *, subject: UUID, expires_days: int = 30) -> str:
+        now = datetime.now(timezone.utc)
+        to_encode: dict[str, Any] = {
+            "sub": str(subject),
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(days=expires_days)).timestamp()),
+            "typ": "refresh",
+        }
+        if self.issuer:
+            to_encode["iss"] = self.issuer
+        if self.audience:
+            to_encode["aud"] = self.audience
+        return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+
+    def decode_refresh(self, token: str) -> dict[str, Any]:
+        claims = self.decode(token)
+        if claims.get("typ") != "refresh":
+            raise AuthError("Invalid refresh token")
+        return claims

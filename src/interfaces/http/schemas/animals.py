@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -47,8 +48,21 @@ class AnimalResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     version: int
+    # Derived fields for attachments (optional in responses)
+    primary_photo_url: str | None = None
+    photos_count: int | None = None
 
 
 class AnimalsListResponse(BaseModel):
     items: list[AnimalResponse]
     next_cursor: str | None = None
+
+
+class AnimalValueResponse(BaseModel):
+    animal_id: UUID
+    date: date
+    total_volume_l: Decimal
+    price_per_l: Decimal
+    currency: str
+    amount: Decimal
+    source: str  # deliveries_average | price_daily | tenant_default

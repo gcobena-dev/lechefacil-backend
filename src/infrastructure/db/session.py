@@ -27,16 +27,40 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.animals = None
         self.users = None
         self.memberships = None
+        self.attachments = None
+        self.buyers = None
+        self.milk_prices = None
+        self.tenant_config = None
+        self.milk_productions = None
+        self.milk_deliveries = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
         from src.infrastructure.repos.animals_sqlalchemy import AnimalsSQLAlchemyRepository
+        from src.infrastructure.repos.attachments_sqlalchemy import AttachmentsSQLAlchemyRepository
+        from src.infrastructure.repos.buyers_sqlalchemy import BuyersSQLAlchemyRepository
         from src.infrastructure.repos.memberships_sqlalchemy import MembershipsSQLAlchemyRepository
+        from src.infrastructure.repos.milk_deliveries_sqlalchemy import (
+            MilkDeliveriesSQLAlchemyRepository,
+        )
+        from src.infrastructure.repos.milk_prices_sqlalchemy import MilkPricesSQLAlchemyRepository
+        from src.infrastructure.repos.milk_productions_sqlalchemy import (
+            MilkProductionsSQLAlchemyRepository,
+        )
+        from src.infrastructure.repos.tenant_config_sqlalchemy import (
+            TenantConfigSQLAlchemyRepository,
+        )
         from src.infrastructure.repos.users_sqlalchemy import UsersSQLAlchemyRepository
 
         self.animals = AnimalsSQLAlchemyRepository(self.session)
         self.users = UsersSQLAlchemyRepository(self.session)
         self.memberships = MembershipsSQLAlchemyRepository(self.session)
+        self.attachments = AttachmentsSQLAlchemyRepository(self.session)
+        self.buyers = BuyersSQLAlchemyRepository(self.session)
+        self.milk_prices = MilkPricesSQLAlchemyRepository(self.session)
+        self.tenant_config = TenantConfigSQLAlchemyRepository(self.session)
+        self.milk_productions = MilkProductionsSQLAlchemyRepository(self.session)
+        self.milk_deliveries = MilkDeliveriesSQLAlchemyRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -51,6 +75,12 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.animals = None
             self.users = None
             self.memberships = None
+            self.attachments = None
+            self.buyers = None
+            self.milk_prices = None
+            self.tenant_config = None
+            self.milk_productions = None
+            self.milk_deliveries = None
 
     async def commit(self) -> None:
         if not self.session:

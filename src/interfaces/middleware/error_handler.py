@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette import status
@@ -7,10 +8,19 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.application.errors import AppError, InfrastructureError
 
+logger = logging.getLogger(__name__)
+
 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:  # noqa: WPS430
+        logger.info(
+            "Application error handled: %s - %s (status: %d)",
+            exc.code,
+            exc.message,
+            exc.status_code,
+            extra={"path": request.url.path, "method": request.method},
+        )
         payload = {"code": exc.code, "message": exc.message}
         if exc.details is not None:
             payload["details"] = exc.details

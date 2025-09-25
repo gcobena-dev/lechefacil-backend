@@ -33,6 +33,7 @@ class LoginResponse(BaseModel):
     token_type: str
     user_id: UUID
     email: EmailStr
+    must_change_password: bool
     memberships: list[MembershipSchema]
 
 
@@ -50,6 +51,18 @@ class RegisterResponse(BaseModel):
     is_active: bool
 
 
+class RegisterTenantRequest(BaseModel):
+    email: EmailStr
+    password: str
+    tenant_id: UUID | None = None
+
+
+class RegisterTenantResponse(BaseModel):
+    user_id: UUID
+    email: EmailStr
+    tenant_id: UUID
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
@@ -57,3 +70,66 @@ class ChangePasswordRequest(BaseModel):
 
 class ChangePasswordResponse(BaseModel):
     status: str
+
+
+class AddMembershipRequest(BaseModel):
+    tenant_id: UUID
+    role: Role
+    email: EmailStr | None = None
+    user_id: UUID | None = None
+    create_if_missing: bool = False
+    initial_password: str | None = None
+
+
+class AddMembershipResponse(BaseModel):
+    user_id: UUID
+    email: EmailStr
+    tenant_id: UUID
+    role: Role
+    created_user: bool
+    generated_password: str | None = None
+
+
+# Self-registration (no tenant)
+class SelfRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class SelfRegisterResponse(BaseModel):
+    user_id: UUID
+    email: EmailStr
+
+
+class UserListResponse(BaseModel):
+    id: UUID
+    email: EmailStr
+    first_name: str | None = None
+    last_name: str | None = None
+    role: Role
+    is_active: bool
+    created_at: str
+    last_login: str | None = None
+
+
+class PaginationInfo(BaseModel):
+    page: int
+    limit: int
+    total: int
+    pages: int
+
+
+class UsersListResponse(BaseModel):
+    users: list[UserListResponse]
+    pagination: PaginationInfo
+
+
+class RemoveMembershipRequest(BaseModel):
+    reason: str | None = None
+
+
+class RemoveMembershipResponse(BaseModel):
+    message: str
+    user_id: UUID
+    tenant_id: UUID
+    removed_at: str
