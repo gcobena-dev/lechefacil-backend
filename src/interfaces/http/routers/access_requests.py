@@ -35,7 +35,7 @@ async def submit_access_request(
         },
         locale=settings.email_default_locale,
     )
-    to = settings.email_admin_recipients
+    to = settings.email_admin_recipients_list
     from_email = settings.email_from_address
     from_name = settings.email_from_name
     email_svc: EmailService | None = getattr(request.app.state, "email_service", None)

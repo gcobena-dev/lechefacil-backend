@@ -46,10 +46,9 @@ async def execute(
     if user is None:
         if not payload.create_if_missing:
             raise ConflictError("User not found and create_if_missing is false")
-        # Create user with provided initial_password or generated one
-        from secrets import token_urlsafe
-
-        pwd = payload.initial_password or token_urlsafe(16)
+        # Create user with provided initial_password or default one
+        default_password = "LecheFacil123!"
+        pwd = payload.initial_password or default_password
         generated_password = None if payload.initial_password else pwd
         hashed = password_hasher.hash(pwd)
         user = User.create(

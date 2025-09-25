@@ -25,21 +25,12 @@ class Settings(BaseSettings):
     jwt_audience: str | None = None
     # CORS
     cors_allow_origins: list[str] = ["*"]
-    # Email
-    email_provider: str = "logging"  # logging | smtp
+    # Email (disabled for now)
+    email_provider: str = "logging"  # logging only
     email_from_name: str = "LecheFacil"
     email_from_address: str = "no-reply@lechefacil.local"
-    email_admin_recipients: list[str] = ["gcobena.dev@gmail.com"]
+    email_admin_recipients: str = "gcobena.dev@gmail.com"
     email_default_locale: str = "es"
-    email_brand_logo_url: str | None = None
-    email_primary_color: str = "#16a34a"  # Tailwind green-600
-    # SMTP provider
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_username: str | None = None
-    smtp_password: str | None = None
-    smtp_use_tls: bool = True  # STARTTLS
-    smtp_use_ssl: bool = False  # SMTPS (465)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -60,21 +51,12 @@ class Settings(BaseSettings):
             return [v.strip() for v in value.split(",") if v.strip()]
         return value
 
-    @field_validator("email_admin_recipients", mode="before")
-    @classmethod
-    def parse_email_list(cls, value):  # type: ignore[no-untyped-def]
-        if isinstance(value, str):
-            # Try to parse as JSON first (for production env vars like '["email"]')
-            import json
-            try:
-                parsed = json.loads(value)
-                if isinstance(parsed, list):
-                    return parsed
-            except (json.JSONDecodeError, TypeError):
-                pass
-            # Fallback to comma-separated parsing
-            return [v.strip() for v in value.split(",") if v.strip()]
-        return value
+    @property
+    def email_admin_recipients_list(self) -> list[str]:
+        """Convert email_admin_recipients string to list"""
+        if not self.email_admin_recipients:
+            return []
+        return [email.strip() for email in self.email_admin_recipients.split(",") if email.strip()]
 
 
 @lru_cache(maxsize=1)

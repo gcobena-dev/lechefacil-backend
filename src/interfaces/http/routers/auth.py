@@ -18,8 +18,6 @@ from src.application.use_cases.auth import (
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.auth.jwt_service import JWTService
 from src.infrastructure.auth.password import PasswordHasher
-from src.infrastructure.email.models import EmailMessage, EmailService
-from src.infrastructure.email.renderer.engine import EmailTemplateRenderer
 from src.interfaces.http.deps import (
     get_app_settings,
     get_auth_context,
@@ -236,57 +234,17 @@ async def add_membership_endpoint(
         ),
         password_hasher=password_hasher,
     )
-    # Send email to the user if we created a new account
-    logger.info(f"Membership created for user {result.user_id}, created_user={result.created_user}, email={payload.email}")
-    try:
-        if result.created_user and payload.email:
-            logger.info("Attempting to send membership invite email")
-            renderer: EmailTemplateRenderer | None = getattr(
-                request.app.state, "email_renderer", None
-            )
-            email_svc: EmailService | None = getattr(request.app.state, "email_service", None)
-            logger.info(f"Email renderer available: {renderer is not None}")
-            logger.info(f"Email service available: {email_svc is not None}")
-            logger.info(f"Email service type: {type(email_svc).__name__ if email_svc else 'None'}")
-
-            if renderer and email_svc:
-                logger.info("Rendering email template")
-                msg = renderer.render(
-                    template_key="membership_invite",
-                    settings=settings,
-                    context={
-                        "email": payload.email,
-                        "role": result.role.value,
-                        "tenant_id": str(result.tenant_id),
-                        "initial_password": result.generated_password or "(generada)",
-                        "instructions": "Inicia sesión y cambia tu "
-                        "contraseña en Perfil > Cambiar contraseña.",
-                    },
-                    locale=settings.email_default_locale,
-                )
-                logger.info(f"Email template rendered successfully. Subject: {msg.subject}")
-                logger.info(f"Sending email to: {payload.email}")
-                logger.info(f"BCC recipients: {settings.email_admin_recipients}")
-                logger.info(f"From: {settings.email_from_name} <{settings.email_from_address}>")
-
-                await email_svc.send(
-                    EmailMessage(
-                        subject=msg.subject,
-                        to=[payload.email],
-                        bcc=settings.email_admin_recipients,
-                        text=msg.text,
-                        html=msg.html,
-                        from_email=settings.email_from_address,
-                        from_name=settings.email_from_name,
-                    )
-                )
-                logger.info("Email sent successfully")
-            else:
-                logger.warning(f"Cannot send email - renderer: {renderer is not None}, email_svc: {email_svc is not None}")
-        else:
-            logger.info(f"Not sending email - created_user: {result.created_user}, has_email: {bool(payload.email)}")
-    except Exception as e:  # pragma: no cover - do not fail endpoint for email errors
-        logger.error(f"Error sending membership invite email: {str(e)}", exc_info=True)
+    # Log membership creation (email sending disabled for now)
+    logger.info(
+        f"Membership created for user {result.user_id}, "
+        f"created_user={result.created_user}, email={payload.email}"
+    )
+    if result.created_user:
+        logger.info(
+            f"New user created with default password. "
+            f"User must change password on first login. Email: {payload.email}"
+        )
+    # TODO: Implement email sending for membership invitations later
     return AddMembershipResponse(
         user_id=result.user_id,
         email=result.email,

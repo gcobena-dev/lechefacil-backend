@@ -10,7 +10,6 @@ from src.infrastructure.auth.jwt_service import JWTService
 from src.infrastructure.auth.password import PasswordHasher
 from src.infrastructure.db.session import create_engine, create_session_factory
 from src.infrastructure.email.providers.logging_provider import LoggingEmailService
-from src.infrastructure.email.providers.smtp_provider import SMTPEmailService
 from src.infrastructure.email.renderer.engine import EmailTemplateRenderer
 from src.interfaces.http.deps import get_app_settings
 from src.interfaces.http.routers import animals, dashboard, reports
@@ -58,18 +57,8 @@ def create_app(
         issuer=settings.jwt_issuer,
         audience=settings.jwt_audience,
     )
-    # Email service selection (default to logging provider)
-    if settings.email_provider == "smtp" and settings.smtp_host:
-        app.state.email_service = SMTPEmailService(
-            host=settings.smtp_host,
-            port=settings.smtp_port,
-            username=settings.smtp_username,
-            password=settings.smtp_password,
-            use_tls=settings.smtp_use_tls,
-            use_ssl=settings.smtp_use_ssl,
-        )
-    else:
-        app.state.email_service = LoggingEmailService()
+    # Email service (always use logging provider for now)
+    app.state.email_service = LoggingEmailService()
     # Email template renderer
     app.state.email_renderer = EmailTemplateRenderer.create_default()
     # Storage service (S3 only if configured)
