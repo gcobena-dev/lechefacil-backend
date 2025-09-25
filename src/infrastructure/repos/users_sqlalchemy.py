@@ -2,17 +2,16 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select, update, func, and_, or_
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
 from src.application.errors import ConflictError, InfrastructureError, NotFound
 from src.application.interfaces.repositories.users import UserRepository, UserWithRole
 from src.domain.models.user import User
 from src.domain.value_objects.role import Role
-from src.infrastructure.db.orm.user import UserORM
 from src.infrastructure.db.orm.membership import MembershipORM
+from src.infrastructure.db.orm.user import UserORM
 
 
 class UsersSQLAlchemyRepository(UserRepository):
@@ -76,7 +75,12 @@ class UsersSQLAlchemyRepository(UserRepository):
             raise InfrastructureError("Failed to update user status")
 
     async def list_by_tenant(
-        self, tenant_id: UUID, page: int = 1, limit: int = 10, role_filter: Role | None = None, search: str | None = None
+        self,
+        tenant_id: UUID,
+        page: int = 1,
+        limit: int = 10,
+        role_filter: Role | None = None,
+        search: str | None = None,
     ) -> tuple[list[UserWithRole], int]:
         base_query = (
             select(UserORM, MembershipORM.role)

@@ -20,7 +20,9 @@ class SelfRegisterResult:
     email: str
 
 
-async def execute(*, uow: UnitOfWork, payload: SelfRegisterInput, password_hasher: PasswordHasher) -> SelfRegisterResult:
+async def execute(
+    *, uow: UnitOfWork, payload: SelfRegisterInput, password_hasher: PasswordHasher
+) -> SelfRegisterResult:
     existing = await uow.users.get_by_email(payload.email)
     if existing:
         raise ConflictError("Email already registered")
@@ -29,4 +31,3 @@ async def execute(*, uow: UnitOfWork, payload: SelfRegisterInput, password_hashe
     created = await uow.users.add(user)
     await uow.commit()
     return SelfRegisterResult(user_id=str(created.id), email=created.email)
-

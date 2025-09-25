@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
 from uuid import UUID
 
 
@@ -9,7 +8,10 @@ async def test_create_milk_production_for_animal(
 ):
     admin_token = token_factory(seeded_memberships["admin"])
     manager_token = token_factory(seeded_memberships["manager"])
-    headers_admin = {"Authorization": f"Bearer {admin_token}", app.state.settings.tenant_header: str(tenant_id)}
+    headers_admin = {
+        "Authorization": f"Bearer {admin_token}",
+        app.state.settings.tenant_header: str(tenant_id),
+    }
     headers_manager = {
         "Authorization": f"Bearer {manager_token}",
         app.state.settings.tenant_header: str(tenant_id),
@@ -54,4 +56,3 @@ async def test_create_milk_production_for_animal(
     assert list_resp.status_code == 200
     items = list_resp.json()
     assert any(it["id"] == body["id"] for it in items)
-

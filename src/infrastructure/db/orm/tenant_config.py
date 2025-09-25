@@ -16,7 +16,9 @@ class TenantConfigORM(Base):
     default_buyer_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     default_density: Mapped[str] = mapped_column(DECIMAL(4, 2), nullable=False, default="1.03")
     default_delivery_input_unit: Mapped[str] = mapped_column(String(8), nullable=False, default="l")
-    default_production_input_unit: Mapped[str] = mapped_column(String(8), nullable=False, default="lb")
+    default_production_input_unit: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="lb"
+    )
     default_currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     default_price_per_l: Mapped[str | None] = mapped_column(DECIMAL(10, 4), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(

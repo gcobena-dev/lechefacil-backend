@@ -9,21 +9,19 @@ from src.config.settings import Settings, get_settings
 from src.infrastructure.auth.jwt_service import JWTService
 from src.infrastructure.auth.password import PasswordHasher
 from src.infrastructure.db.session import create_engine, create_session_factory
-from src.interfaces.http.deps import get_app_settings
-from src.interfaces.http.routers import animals
-from src.interfaces.http.routers import auth as auth_router
-from src.interfaces.http.routers import buyers as buyers_router
-from src.interfaces.http.routers import dashboard
-from src.interfaces.http.routers import milk_deliveries as deliveries_router
-from src.interfaces.http.routers import milk_prices as prices_router
-from src.interfaces.http.routers import milk_productions as productions_router
-from src.interfaces.http.routers import reports
-from src.interfaces.http.routers import settings as settings_router
-from src.interfaces.middleware.auth_middleware import AuthMiddleware
-from src.interfaces.middleware.error_handler import register_error_handlers
 from src.infrastructure.email.providers.logging_provider import LoggingEmailService
 from src.infrastructure.email.providers.smtp_provider import SMTPEmailService
 from src.infrastructure.email.renderer.engine import EmailTemplateRenderer
+from src.interfaces.http.deps import get_app_settings
+from src.interfaces.http.routers import animals, dashboard, reports
+from src.interfaces.http.routers import auth as auth_router
+from src.interfaces.http.routers import buyers as buyers_router
+from src.interfaces.http.routers import milk_deliveries as deliveries_router
+from src.interfaces.http.routers import milk_prices as prices_router
+from src.interfaces.http.routers import milk_productions as productions_router
+from src.interfaces.http.routers import settings as settings_router
+from src.interfaces.middleware.auth_middleware import AuthMiddleware
+from src.interfaces.middleware.error_handler import register_error_handlers
 
 
 @asynccontextmanager

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
 
-from src.application.errors import PermissionDenied, ConflictError, NotFound
+from src.application.errors import ConflictError, NotFound, PermissionDenied
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.value_objects.role import Role
 
@@ -39,7 +39,9 @@ async def execute(
             raise NotFound("User membership not found in this tenant")
 
         if target_role == Role.ADMIN:
-            requester_role_in_tenant = await uow.memberships.get_role(requester_id, payload.tenant_id)
+            requester_role_in_tenant = await uow.memberships.get_role(
+                requester_id, payload.tenant_id
+            )
             if requester_role_in_tenant != Role.ADMIN:
                 raise PermissionDenied("Only admins can remove other admin memberships")
 

@@ -15,4 +15,3 @@ class AccessRequestPayload(BaseModel):
 
 class AccessRequestResponse(BaseModel):
     status: str
-

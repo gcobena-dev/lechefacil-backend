@@ -80,6 +80,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
 
         if is_active is not None:
             from src.domain.models.animal import AnimalStatus
+
             if is_active:
                 stmt = stmt.where(AnimalORM.status == AnimalStatus.ACTIVE)
             else:
@@ -109,6 +110,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
 
         if is_active is not None:
             from src.domain.models.animal import AnimalStatus
+
             if is_active:
                 stmt = stmt.where(AnimalORM.status == AnimalStatus.ACTIVE)
             else:

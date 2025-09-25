@@ -1,17 +1,15 @@
 """Quick test of the new user management endpoints."""
 
-import asyncio
-import httpx
 from uuid import uuid4
+
+import httpx
+
 
 async def test_endpoints():
     base_url = "http://localhost:8000"
 
     # You would need to adjust these with valid JWT tokens and tenant IDs from your system
-    headers = {
-        "Authorization": "Bearer YOUR_JWT_TOKEN_HERE",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": "Bearer YOUR_JWT_TOKEN_HERE", "Content-Type": "application/json"}
 
     tenant_id = str(uuid4())  # Replace with actual tenant ID
 
@@ -21,7 +19,7 @@ async def test_endpoints():
         response = await client.get(
             f"{base_url}/tenants/{tenant_id}/users",
             headers=headers,
-            params={"page": 1, "limit": 10}
+            params={"page": 1, "limit": 10},
         )
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
@@ -32,7 +30,7 @@ async def test_endpoints():
         response = await client.get(
             f"{base_url}/tenants/{tenant_id}/users",
             headers=headers,
-            params={"page": 1, "limit": 5, "role": "admin", "search": "test"}
+            params={"page": 1, "limit": 5, "role": "admin", "search": "test"},
         )
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
@@ -44,10 +42,11 @@ async def test_endpoints():
         response = await client.delete(
             f"{base_url}/tenants/{tenant_id}/users/{user_id}/membership",
             headers=headers,
-            json={"reason": "User requested removal"}
+            json={"reason": "User requested removal"},
         )
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
+
 
 if __name__ == "__main__":
     print("This is a template test file. You need to:")

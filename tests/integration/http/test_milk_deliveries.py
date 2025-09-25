@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 
@@ -13,7 +13,10 @@ async def test_worker_creates_milk_delivery_with_price(
 ):
     admin_token = token_factory(seeded_memberships["admin"])
     worker_token = token_factory(seeded_memberships["worker"])
-    headers_admin = {"Authorization": f"Bearer {admin_token}", app.state.settings.tenant_header: str(tenant_id)}
+    headers_admin = {
+        "Authorization": f"Bearer {admin_token}",
+        app.state.settings.tenant_header: str(tenant_id),
+    }
     headers_worker = {
         "Authorization": f"Bearer {worker_token}",
         app.state.settings.tenant_header: str(tenant_id),
@@ -32,7 +35,9 @@ async def test_worker_creates_milk_delivery_with_price(
         "currency": "USD",
         "buyer_id": buyer["id"],
     }
-    price_resp = await client.post("/api/v1/milk-prices/", json=price_payload, headers=headers_admin)
+    price_resp = await client.post(
+        "/api/v1/milk-prices/", json=price_payload, headers=headers_admin
+    )
     assert price_resp.status_code == 201, price_resp.text
 
     # Create delivery as WORKER
@@ -53,4 +58,3 @@ async def test_worker_creates_milk_delivery_with_price(
     assert body["price_snapshot"] == "0.5"
     expected_amount = _round2(volume * Decimal("0.5"))
     assert body["amount"] == str(expected_amount)
-

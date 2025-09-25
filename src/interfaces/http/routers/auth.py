@@ -2,40 +2,50 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from src.application.use_cases.auth import change_password, get_me, login_user, register_user
-from src.application.use_cases.auth import bootstrap_tenant
-from src.application.use_cases.auth import manage_membership
-from src.application.use_cases.auth import register_account
-from src.application.use_cases.auth import list_tenant_users
-from src.application.use_cases.auth import remove_membership
+from src.application.use_cases.auth import (
+    bootstrap_tenant,
+    change_password,
+    get_me,
+    list_tenant_users,
+    login_user,
+    manage_membership,
+    register_account,
+    register_user,
+    remove_membership,
+)
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.auth.jwt_service import JWTService
 from src.infrastructure.auth.password import PasswordHasher
-from src.interfaces.http.deps import get_auth_context, get_jwt_service, get_password_hasher, get_uow
+from src.infrastructure.email.models import EmailMessage, EmailService
+from src.infrastructure.email.renderer.engine import EmailTemplateRenderer
+from src.interfaces.http.deps import (
+    get_app_settings,
+    get_auth_context,
+    get_jwt_service,
+    get_password_hasher,
+    get_uow,
+)
 from src.interfaces.http.schemas.auth import (
+    AddMembershipRequest,
+    AddMembershipResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
     LoginRequest,
     LoginResponse,
     MembershipSchema,
     MeResponse,
+    PaginationInfo,
     RegisterRequest,
     RegisterResponse,
     RegisterTenantRequest,
     RegisterTenantResponse,
-    AddMembershipRequest,
-    AddMembershipResponse,
-    SelfRegisterRequest,
-    SelfRegisterResponse,
-    UsersListResponse,
-    UserListResponse,
-    PaginationInfo,
     RemoveMembershipRequest,
     RemoveMembershipResponse,
+    SelfRegisterRequest,
+    SelfRegisterResponse,
+    UserListResponse,
+    UsersListResponse,
 )
-from src.infrastructure.email.models import EmailMessage, EmailService
-from src.infrastructure.email.renderer.engine import EmailTemplateRenderer
-from src.interfaces.http.deps import get_app_settings
 
 router = APIRouter(prefix="", tags=["auth"])
 
@@ -164,12 +174,15 @@ async def register_tenant_endpoint(
         ),
         password_hasher=password_hasher,
     )
-    return RegisterTenantResponse(user_id=result.user_id, email=result.email, tenant_id=result.tenant_id)
+    return RegisterTenantResponse(
+        user_id=result.user_id, email=result.email, tenant_id=result.tenant_id
+    )
 
 
 @router.get("/auth/my-tenants", response_model=list[MembershipSchema])
 async def my_tenants(request: Request, uow=Depends(get_uow)) -> list[MembershipSchema]:
     from src.application.errors import AuthError
+
     authorization = request.headers.get("Authorization")
     if not authorization:
         raise AuthError("Missing Authorization header")
@@ -223,7 +236,9 @@ async def add_membership_endpoint(
     # Send email to the user if we created a new account
     try:
         if result.created_user and payload.email:
-            renderer: EmailTemplateRenderer | None = getattr(request.app.state, "email_renderer", None)
+            renderer: EmailTemplateRenderer | None = getattr(
+                request.app.state, "email_renderer", None
+            )
             email_svc: EmailService | None = getattr(request.app.state, "email_service", None)
             if renderer and email_svc:
                 msg = renderer.render(
@@ -234,7 +249,8 @@ async def add_membership_endpoint(
                         "role": result.role.value,
                         "tenant_id": str(result.tenant_id),
                         "initial_password": result.generated_password or "(generada)",
-                        "instructions": "Inicia sesión y cambia tu contraseña en Perfil > Cambiar contraseña.",
+                        "instructions": "Inicia sesión y cambia tu "
+                        "contraseña en Perfil > Cambiar contraseña.",
                     },
                     locale=settings.email_default_locale,
                 )
@@ -262,7 +278,9 @@ async def add_membership_endpoint(
 
 
 @router.post("/auth/refresh", response_model=LoginResponse)
-async def refresh_token(request: Request, response: Response, uow=Depends(get_uow)) -> LoginResponse:
+async def refresh_token(
+    request: Request, response: Response, uow=Depends(get_uow)
+) -> LoginResponse:
     jwt_service: JWTService | None = getattr(request.app.state, "jwt_service", None)
     if jwt_service is None:
         raise RuntimeError("JWT service not configured")
@@ -338,6 +356,7 @@ async def list_tenant_users_endpoint(
     uow=Depends(get_uow),
 ) -> UsersListResponse:
     from uuid import UUID
+
     from src.domain.value_objects.role import Role
 
     tenant_uuid = UUID(tenant_id)
@@ -345,15 +364,17 @@ async def list_tenant_users_endpoint(
     # Check if user has access to this tenant
     if context.tenant_id != tenant_uuid:
         from src.application.errors import PermissionDenied
+
         raise PermissionDenied("Cannot access users from a different tenant")
 
     role_filter = None
     if role:
         try:
             role_filter = Role(role.upper())
-        except ValueError:
+        except ValueError as e:
             from src.application.errors import ValidationError
-            raise ValidationError(f"Invalid role: {role}")
+
+            raise ValidationError(f"Invalid role: {role}") from e
 
     result = await list_tenant_users.execute(
         uow=uow,
@@ -392,7 +413,9 @@ async def list_tenant_users_endpoint(
     )
 
 
-@router.delete("/tenants/{tenant_id}/users/{user_id}/membership", response_model=RemoveMembershipResponse)
+@router.delete(
+    "/tenants/{tenant_id}/users/{user_id}/membership", response_model=RemoveMembershipResponse
+)
 async def remove_membership_endpoint(
     tenant_id: str,
     user_id: str,
@@ -408,6 +431,7 @@ async def remove_membership_endpoint(
     # Check if user has access to this tenant
     if context.tenant_id != tenant_uuid:
         from src.application.errors import PermissionDenied
+
         raise PermissionDenied("Cannot manage memberships for a different tenant")
 
     result = await remove_membership.execute(

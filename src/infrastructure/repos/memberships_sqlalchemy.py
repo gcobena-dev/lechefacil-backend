@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select, delete, func
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.errors import NotFound
@@ -45,8 +45,7 @@ class MembershipsSQLAlchemyRepository(MembershipRepository):
 
     async def remove(self, user_id: UUID, tenant_id: UUID) -> None:
         stmt = delete(MembershipORM).where(
-            MembershipORM.user_id == user_id,
-            MembershipORM.tenant_id == tenant_id
+            MembershipORM.user_id == user_id, MembershipORM.tenant_id == tenant_id
         )
         result = await self.session.execute(stmt)
         if result.rowcount == 0:
@@ -54,8 +53,7 @@ class MembershipsSQLAlchemyRepository(MembershipRepository):
 
     async def count_admins_in_tenant(self, tenant_id: UUID) -> int:
         stmt = select(func.count()).where(
-            MembershipORM.tenant_id == tenant_id,
-            MembershipORM.role == Role.ADMIN
+            MembershipORM.tenant_id == tenant_id, MembershipORM.role == Role.ADMIN
         )
         result = await self.session.execute(stmt)
         return result.scalar() or 0

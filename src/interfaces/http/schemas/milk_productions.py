@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
 from datetime import date as DtDate
+from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MilkProductionCreate(BaseModel):

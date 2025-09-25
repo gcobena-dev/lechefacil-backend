@@ -42,5 +42,10 @@ class UserRepository(Protocol):
     async def set_active(self, user_id: UUID, is_active: bool) -> None: ...
 
     async def list_by_tenant(
-        self, tenant_id: UUID, page: int = 1, limit: int = 10, role_filter: Role | None = None, search: str | None = None
+        self,
+        tenant_id: UUID,
+        page: int = 1,
+        limit: int = 10,
+        role_filter: Role | None = None,
+        search: str | None = None,
     ) -> tuple[list[UserWithRole], int]: ...

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape, TemplateNotFound
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
 
 from src.config.settings import Settings
 from src.infrastructure.email.models import EmailMessage
@@ -16,7 +16,7 @@ class EmailTemplateRenderer:
     env: Environment
 
     @classmethod
-    def create_default(cls) -> "EmailTemplateRenderer":
+    def create_default(cls) -> EmailTemplateRenderer:
         base = Path(__file__).resolve().parent.parent / "templates"
         env = Environment(
             loader=FileSystemLoader(str(base)),
@@ -29,7 +29,14 @@ class EmailTemplateRenderer:
         # e.g. es/access_request/subject.txt.j2
         return f"{locale}/{template_key}/{name}"
 
-    def render(self, *, template_key: str, settings: Settings, context: dict[str, Any], locale: str | None = None) -> EmailMessage:
+    def render(
+        self,
+        *,
+        template_key: str,
+        settings: Settings,
+        context: dict[str, Any],
+        locale: str | None = None,
+    ) -> EmailMessage:
         loc = (locale or settings.email_default_locale or "es").lower()
         # Merge common variables
         common: dict[str, Any] = {
@@ -77,4 +84,3 @@ class EmailTemplateRenderer:
             text=text,
             html=html,
         )
-

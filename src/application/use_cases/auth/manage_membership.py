@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 from uuid import UUID
 
 from src.application.errors import ConflictError
@@ -16,10 +15,10 @@ from src.infrastructure.auth.password import PasswordHasher
 class AddMembershipInput:
     tenant_id: UUID
     role: Role
-    email: Optional[str] = None
-    user_id: Optional[UUID] = None
+    email: str | None = None
+    user_id: UUID | None = None
     create_if_missing: bool = False
-    initial_password: Optional[str] = None
+    initial_password: str | None = None
 
 
 @dataclass(slots=True)
@@ -29,7 +28,7 @@ class AddMembershipResult:
     tenant_id: UUID
     role: Role
     created_user: bool
-    generated_password: Optional[str]
+    generated_password: str | None
 
 
 async def execute(
@@ -43,7 +42,7 @@ async def execute(
         user = await uow.users.get_by_email(payload.email)
 
     created_user = False
-    generated_password: Optional[str] = None
+    generated_password: str | None = None
     if user is None:
         if not payload.create_if_missing:
             raise ConflictError("User not found and create_if_missing is false")
@@ -85,4 +84,3 @@ async def execute(
         created_user=created_user,
         generated_password=generated_password,
     )
-

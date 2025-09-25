@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import timezone, datetime, date as DtDate, time as DtTime
+from datetime import date as DtDate
+from datetime import datetime, timezone
+from datetime import time as DtTime
 from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -12,8 +14,8 @@ from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.milk_productions import (
     MilkProductionCreate,
     MilkProductionResponse,
-    MilkProductionUpdate,
     MilkProductionsBulkCreate,
+    MilkProductionUpdate,
 )
 
 router = APIRouter(prefix="/milk-productions", tags=["milk-productions"])
@@ -79,7 +81,9 @@ async def create_production(
         )
         cfg = await uow.tenant_config.upsert(cfg)
     density = payload.density if payload.density is not None else cfg.default_density
-    unit = payload.input_unit if payload.input_unit is not None else cfg.default_production_input_unit
+    unit = (
+        payload.input_unit if payload.input_unit is not None else cfg.default_production_input_unit
+    )
     vol_l, _ = _to_liters(unit, payload.input_quantity, density)
     # Resolve datetime from date/shift if date_time not provided
     dt = payload.date_time
@@ -136,7 +140,9 @@ async def create_production(
     return MilkProductionResponse.model_validate(created)
 
 
-@router.post("/bulk", response_model=list[MilkProductionResponse], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/bulk", response_model=list[MilkProductionResponse], status_code=status.HTTP_201_CREATED
+)
 async def create_productions_bulk(
     payload: MilkProductionsBulkCreate,
     context: AuthContext = Depends(get_auth_context),
@@ -159,7 +165,9 @@ async def create_productions_bulk(
         cfg = await uow.tenant_config.upsert(cfg)
     # Resolve shared parameters for the batch
     density_shared = payload.density if payload.density is not None else cfg.default_density
-    unit_shared = payload.input_unit if payload.input_unit is not None else cfg.default_production_input_unit
+    unit_shared = (
+        payload.input_unit if payload.input_unit is not None else cfg.default_production_input_unit
+    )
     # Resolve datetime from date/shift if date_time not provided
     dt_shared = payload.date_time
     if dt_shared is None:
@@ -197,7 +205,9 @@ async def create_productions_bulk(
     results: list[MilkProductionResponse] = []
     for item in payload.items:
         vol_l, _ = _to_liters(unit_shared, item.input_quantity, density_shared)
-        amount = (vol_l * price_shared).quantize(Decimal("0.01")) if price_shared is not None else None
+        amount = (
+            (vol_l * price_shared).quantize(Decimal("0.01")) if price_shared is not None else None
+        )
         mp = MilkProduction.create(
             tenant_id=context.tenant_id,
             animal_id=item.animal_id,

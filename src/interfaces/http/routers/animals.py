@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from datetime import date as DtDate
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response, status
-from datetime import date as DtDate
-from decimal import Decimal, ROUND_HALF_UP
 
 from src.application.use_cases.animals import (
     create_animal,

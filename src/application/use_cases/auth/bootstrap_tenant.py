@@ -48,4 +48,3 @@ async def execute(
 
     await uow.commit()
     return RegisterTenantResult(user_id=created.id, tenant_id=tenant_id, email=created.email)
-
