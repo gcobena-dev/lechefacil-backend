@@ -12,7 +12,7 @@ from src.application.use_cases.animals import (
     list_animals,
     update_animal,
 )
-from src.domain.models.animal import Animal, AnimalStatus
+from src.domain.models.animal import Animal
 from src.domain.value_objects.role import Role
 
 
@@ -73,7 +73,7 @@ async def test_create_animal_with_manager_succeeds():
         uow,
         uuid4(),
         Role.MANAGER,
-        create_animal.CreateAnimalInput(tag="TAG-2", status=AnimalStatus.ACTIVE),
+        create_animal.CreateAnimalInput(tag="TAG-2", status_id=None),
     )
     assert repo.add_called
     assert result.tag == "TAG-2"

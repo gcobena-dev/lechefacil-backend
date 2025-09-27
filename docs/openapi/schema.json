@@ -534,6 +534,20 @@
               ],
               "title": "Cursor"
             }
+          },
+          {
+            "name": "status_codes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Filter by status codes (e.g., LACTATING,DRY)",
+              "title": "Status Codes"
+            },
+            "description": "Filter by status codes (e.g., LACTATING,DRY)"
           }
         ],
         "responses": {
@@ -1025,6 +1039,55 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/animals/statuses/list": {
+      "get": {
+        "tags": [
+          "animal-statuses"
+        ],
+        "summary": "List Animal Statuses",
+        "operationId": "list_animal_statuses_api_v1_animals_statuses_list_get",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Language code (es, en)",
+              "default": "es",
+              "title": "Lang"
+            },
+            "description": "Language code (es, en)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnimalStatusResponse"
+                  },
+                  "title": "Response List Animal Statuses Api V1 Animals Statuses List Get"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -2857,9 +2920,17 @@
             ],
             "title": "Lot"
           },
-          "status": {
-            "$ref": "#/components/schemas/AnimalStatus",
-            "default": "active"
+          "status_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Id"
           },
           "photo_url": {
             "anyOf": [
@@ -2940,8 +3011,17 @@
             ],
             "title": "Lot"
           },
-          "status": {
-            "$ref": "#/components/schemas/AnimalStatus"
+          "status_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Id"
           },
           "photo_url": {
             "anyOf": [
@@ -3000,7 +3080,7 @@
           "breed",
           "birth_date",
           "lot",
-          "status",
+          "status_id",
           "photo_url",
           "created_at",
           "updated_at",
@@ -3008,15 +3088,46 @@
         ],
         "title": "AnimalResponse"
       },
-      "AnimalStatus": {
-        "type": "string",
-        "enum": [
-          "active",
-          "sold",
-          "dead",
-          "culled"
+      "AnimalStatusResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_system_default": {
+            "type": "boolean",
+            "title": "Is System Default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "description",
+          "is_system_default"
         ],
-        "title": "AnimalStatus"
+        "title": "AnimalStatusResponse"
       },
       "AnimalUpdate": {
         "properties": {
@@ -3069,15 +3180,17 @@
             ],
             "title": "Lot"
           },
-          "status": {
+          "status_id": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/AnimalStatus"
+                "type": "string",
+                "format": "uuid"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Status Id"
           },
           "photo_url": {
             "anyOf": [

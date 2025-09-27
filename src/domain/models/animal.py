@@ -2,15 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
-from enum import Enum
 from uuid import UUID, uuid4
-
-
-class AnimalStatus(str, Enum):
-    ACTIVE = "active"
-    SOLD = "sold"
-    DEAD = "dead"
-    CULLED = "culled"
 
 
 @dataclass(slots=True)
@@ -22,7 +14,7 @@ class Animal:
     breed: str | None = None
     birth_date: date | None = None
     lot: str | None = None
-    status: AnimalStatus = AnimalStatus.ACTIVE
+    status_id: UUID | None = None
     photo_url: str | None = None
     deleted_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -38,7 +30,7 @@ class Animal:
         breed: str | None = None,
         birth_date: date | None = None,
         lot: str | None = None,
-        status: AnimalStatus = AnimalStatus.ACTIVE,
+        status_id: UUID | None = None,
         photo_url: str | None = None,
     ) -> Animal:
         now = datetime.now(timezone.utc)
@@ -50,7 +42,7 @@ class Animal:
             breed=breed,
             birth_date=birth_date,
             lot=lot,
-            status=status,
+            status_id=status_id,
             photo_url=photo_url,
             created_at=now,
             updated_at=now,

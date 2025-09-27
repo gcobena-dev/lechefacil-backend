@@ -6,7 +6,7 @@ from uuid import UUID
 
 from src.application.errors import PermissionDenied
 from src.application.interfaces.unit_of_work import UnitOfWork
-from src.domain.models.animal import Animal, AnimalStatus
+from src.domain.models.animal import Animal
 from src.domain.value_objects.role import Role
 
 
@@ -17,7 +17,7 @@ class CreateAnimalInput:
     breed: str | None = None
     birth_date: date | None = None
     lot: str | None = None
-    status: AnimalStatus = AnimalStatus.ACTIVE
+    status_id: UUID | None = None
     photo_url: str | None = None
 
 
@@ -40,7 +40,7 @@ async def execute(
         breed=payload.breed,
         birth_date=payload.birth_date,
         lot=payload.lot,
-        status=payload.status,
+        status_id=payload.status_id,
         photo_url=payload.photo_url,
     )
     created = await uow.animals.add(animal)

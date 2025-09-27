@@ -20,8 +20,25 @@ async def execute(
     *,
     limit: int,
     cursor: UUID | None,
+    status_codes: list[str] | None = None,
 ) -> ListAnimalsResult:
     if limit <= 0 or limit > 100:
         raise ValidationError("limit must be between 1 and 100")
-    items, next_cursor = await uow.animals.list(tenant_id, limit=limit, cursor=cursor)
+
+    # Convert status codes to status IDs if provided
+    status_ids = None
+    if status_codes:
+        status_ids = []
+        for code in status_codes:
+            status = await uow.animal_statuses.get_by_code(tenant_id, code)
+            if status:
+                status_ids.append(status.id)
+        # If no valid statuses found, return empty result
+        if not status_ids:
+            return ListAnimalsResult(items=[], next_cursor=None)
+
+    items, next_cursor = await uow.animals.list(
+        tenant_id, limit=limit, cursor=cursor, status_ids=status_ids
+    )
+
     return ListAnimalsResult(items=items, next_cursor=next_cursor)

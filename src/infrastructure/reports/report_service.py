@@ -374,14 +374,24 @@ class ReportService:
             # Get all animals
             animals = await uow.animals.list(tenant_id)
 
+        # Load statuses for this tenant (including system defaults) to resolve status names
+        try:
+            statuses = await uow.animal_statuses.list_for_tenant(tenant_id)
+            status_name_by_id = {s.id: s.get_name("es") for s in statuses}
+            status_code_by_id = {s.id: s.code for s in statuses}
+        except Exception:
+            status_name_by_id = {}
+            status_code_by_id = {}
+
         # Apply include_inactive filter
-        from src.domain.models.animal import AnimalStatus
-
+        # TODO: Update to use new status_id system
         if request.filters and not request.filters.include_inactive:
-            animals = [a for a in animals if a.status == AnimalStatus.ACTIVE]
+            # For now, include all animals until status migration is complete
+            pass
 
-        active_animals = [a for a in animals if a.status == AnimalStatus.ACTIVE]
-        inactive_animals = [a for a in animals if a.status != AnimalStatus.ACTIVE]
+        # TODO: Update active/inactive logic to use status_id
+        active_animals = animals  # Temporary: treat all as active
+        inactive_animals = []  # Temporary: no inactive animals
 
         # Get production data for performance analysis
         if request.filters and request.filters.animal_ids:
@@ -426,18 +436,19 @@ class ReportService:
                 {"total_liters": Decimal("0"), "records_count": 0, "avg_per_record": Decimal("0")},
             )
 
-            status_display = {
-                AnimalStatus.ACTIVE: "Activo",
-                AnimalStatus.SOLD: "Vendido",
-                AnimalStatus.DEAD: "Muerto",
-                AnimalStatus.CULLED: "Descartado",
-            }.get(animal.status, "Desconocido")
+            # Resolve status name and code from status_id if present
+            status_display = "Sin estado"
+            status_code = None
+            if getattr(animal, "status_id", None):
+                status_display = status_name_by_id.get(animal.status_id, "Sin estado")
+                status_code = status_code_by_id.get(animal.status_id)
 
             animal_details.append(
                 {
                     "name": animal.name,
                     "tag": animal.tag,
                     "status": status_display,
+                    "status_code": status_code,
                     "total_liters": perf["total_liters"],
                     "records_count": perf["records_count"],
                     "avg_per_record": perf["avg_per_record"],
@@ -461,6 +472,7 @@ class ReportService:
                         "name": ad["name"],
                         "tag": ad["tag"],
                         "status": ad["status"],
+                        "status_code": ad.get("status_code"),
                         "total_liters": float(ad["total_liters"]),
                         "records_count": ad["records_count"],
                         "avg_per_record": float(ad["avg_per_record"]),

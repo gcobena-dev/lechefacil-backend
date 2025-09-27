@@ -25,7 +25,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             breed=orm.breed,
             birth_date=orm.birth_date,
             lot=orm.lot,
-            status=orm.status,
+            status_id=orm.status_id,
             photo_url=orm.photo_url,
             deleted_at=orm.deleted_at,
             created_at=orm.created_at,
@@ -42,7 +42,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             breed=animal.breed,
             birth_date=animal.birth_date,
             lot=animal.lot,
-            status=animal.status,
+            status_id=animal.status_id,
             photo_url=animal.photo_url,
             deleted_at=animal.deleted_at,
             created_at=animal.created_at,
@@ -74,17 +74,18 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         limit: int | None = None,
         cursor: UUID | None = None,
         is_active: bool | None = None,
+        status_ids: list[UUID] | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]:
         stmt = select(AnimalORM).where(AnimalORM.tenant_id == tenant_id)
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
 
-        if is_active is not None:
-            from src.domain.models.animal import AnimalStatus
-
-            if is_active:
-                stmt = stmt.where(AnimalORM.status == AnimalStatus.ACTIVE)
-            else:
-                stmt = stmt.where(AnimalORM.status != AnimalStatus.ACTIVE)
+        # Filter by status_ids if provided
+        if status_ids is not None:
+            stmt = stmt.where(AnimalORM.status_id.in_(status_ids))
+        elif is_active is not None:
+            # Legacy is_active filter - deprecated, use status_ids instead
+            # For now, this will not work until all animals have status_id populated
+            pass
 
         if cursor:
             stmt = stmt.where(AnimalORM.id > cursor)
@@ -109,12 +110,9 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
 
         if is_active is not None:
-            from src.domain.models.animal import AnimalStatus
-
-            if is_active:
-                stmt = stmt.where(AnimalORM.status == AnimalStatus.ACTIVE)
-            else:
-                stmt = stmt.where(AnimalORM.status != AnimalStatus.ACTIVE)
+            # Legacy is_active filter - deprecated, use status_ids instead
+            # For now, this will not work until all animals have status_id populated
+            pass
 
         result = await self.session.execute(stmt)
         return result.scalar() or 0

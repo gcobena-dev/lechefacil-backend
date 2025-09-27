@@ -12,7 +12,7 @@ class MilkPriceCreate(BaseModel):
     date: DtDate
     price_per_l: Decimal
     currency: str = "USD"
-    buyer_id: UUID | None = None
+    buyer_id: UUID  # required on creation
 
 
 class MilkPriceUpdate(BaseModel):

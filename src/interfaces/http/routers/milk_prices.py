@@ -42,6 +42,12 @@ async def create_price(
 ):
     if not context.role.can_create():
         raise PermissionDenied("Role not allowed to create prices")
+    # Enforce buyer_id present (schema already requires it, but double-check for clarity)
+    if payload.buyer_id is None:
+        from src.application.errors import ValidationError
+
+        raise ValidationError("buyer_id is required to register a price")
+
     existing = await uow.milk_prices.get_existing(context.tenant_id, payload.date, payload.buyer_id)
     if existing:
         updated = await uow.milk_prices.update(
@@ -61,14 +67,14 @@ async def create_price(
         created = await uow.milk_prices.add(price)
         result_price = created
 
-    # Update tenant config with most recent price info
-    if result_price and result_price.buyer_id:
+    # Update tenant config with most recent price info (even if buyer_id is None)
+    if result_price:
         tenant_config = await uow.tenant_config.get(context.tenant_id)
         if tenant_config:
             await uow.tenant_config.update(
                 context.tenant_id,
                 {
-                    "default_buyer_id": result_price.buyer_id,
+                    "default_buyer_id": result_price.buyer_id,  # may be None
                     "default_price_per_l": result_price.price_per_l,
                     "default_currency": result_price.currency,
                 },
@@ -116,13 +122,13 @@ async def update_price(
 
     # Check if this is the most recent price and update tenant config if needed
     most_recent = await uow.milk_prices.get_most_recent(context.tenant_id)
-    if most_recent and most_recent.id == updated.id and updated.buyer_id:
+    if most_recent and most_recent.id == updated.id:
         tenant_config = await uow.tenant_config.get(context.tenant_id)
         if tenant_config:
             await uow.tenant_config.update(
                 context.tenant_id,
                 {
-                    "default_buyer_id": updated.buyer_id,
+                    "default_buyer_id": updated.buyer_id,  # may be None
                     "default_price_per_l": updated.price_per_l,
                     "default_currency": updated.currency,
                 },

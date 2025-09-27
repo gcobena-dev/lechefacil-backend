@@ -6,7 +6,7 @@ from uuid import UUID
 
 from src.application.errors import ConflictError, NotFound, PermissionDenied, ValidationError
 from src.application.interfaces.unit_of_work import UnitOfWork
-from src.domain.models.animal import Animal, AnimalStatus
+from src.domain.models.animal import Animal
 from src.domain.value_objects.role import Role
 
 
@@ -17,7 +17,7 @@ class UpdateAnimalInput:
     breed: str | None = None
     birth_date: date | None = None
     lot: str | None = None
-    status: AnimalStatus | None = None
+    status_id: UUID | None = None
     photo_url: str | None = None
 
 
@@ -40,7 +40,7 @@ async def execute(
     if not existing:
         raise NotFound("Animal not found")
     data: dict = {}
-    for field_name in ("name", "breed", "birth_date", "lot", "status", "photo_url"):
+    for field_name in ("name", "breed", "birth_date", "lot", "status_id", "photo_url"):
         value = getattr(payload, field_name)
         if value is not None:
             data[field_name] = value

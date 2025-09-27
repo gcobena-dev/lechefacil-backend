@@ -6,8 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from src.domain.models.animal import AnimalStatus
-
 
 class AnimalBase(BaseModel):
     tag: str
@@ -15,12 +13,13 @@ class AnimalBase(BaseModel):
     breed: str | None = None
     birth_date: date | None = None
     lot: str | None = None
-    status: AnimalStatus = AnimalStatus.ACTIVE
+    status_id: UUID | None = None
     photo_url: str | None = None
 
 
 class AnimalCreate(AnimalBase):
-    pass
+    # Legacy support: allow status code string
+    status: str | None = None
 
 
 class AnimalUpdate(BaseModel):
@@ -29,7 +28,9 @@ class AnimalUpdate(BaseModel):
     breed: str | None = None
     birth_date: date | None = None
     lot: str | None = None
-    status: AnimalStatus | None = None
+    status_id: UUID | None = None
+    # Legacy support: allow status code string
+    status: str | None = None
     photo_url: str | None = None
 
 
@@ -43,7 +44,11 @@ class AnimalResponse(BaseModel):
     breed: str | None
     birth_date: date | None
     lot: str | None
-    status: AnimalStatus
+    status_id: UUID | None
+    # Derived fields
+    status_code: str | None = None
+    status: str | None = None
+    status_desc: str | None = None
     photo_url: str | None
     created_at: datetime
     updated_at: datetime

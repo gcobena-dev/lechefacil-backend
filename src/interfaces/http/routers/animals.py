@@ -37,17 +37,33 @@ router = APIRouter(prefix="/animals", tags=["animals"])
 async def list_animals_endpoint(
     limit: int = Query(20, ge=1, le=100),
     cursor: str | None = Query(None),
+    status_codes: list[str] = Query(
+        None, description="Filter by status codes. Repeat param or use comma-separated"
+    ),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalsListResponse:
     cursor_uuid = UUID(cursor) if cursor else None
+    # Normalize comma-separated single value into list
+    if status_codes and len(status_codes) == 1 and "," in status_codes[0]:
+        status_codes = [code.strip() for code in status_codes[0].split(",") if code.strip()]
+
     result = await list_animals.execute(
         uow,
         context.tenant_id,
         limit=limit,
         cursor=cursor_uuid,
+        status_codes=status_codes,
     )
-    # Enrich with primary_photo_url and photos_count
+    # Enrich with primary_photo_url, photos_count, and
+    # status fields (code, text, description)
+    # Load statuses if table exists; otherwise continue
+    # without them (tests may not have seeded/migrated)
+    try:
+        statuses = await uow.animal_statuses.list_for_tenant(context.tenant_id)
+        status_by_id = {s.id: s for s in statuses}
+    except Exception:
+        status_by_id = {}
     enriched_items = []
     for item in result.items:
         primary = await uow.attachments.get_primary_for_owner(
@@ -55,6 +71,18 @@ async def list_animals_endpoint(
         )
         count = await uow.attachments.count_for_owner(context.tenant_id, OwnerType.ANIMAL, item.id)
         data = AnimalResponse.model_validate(item).model_dump()
+        # add derived status details
+        sid = data.get("status_id")
+        if sid and sid in status_by_id:
+            status = status_by_id[sid]
+            data["status_code"] = status.code
+            # default to Spanish for now; later can use Accept-Language or query param
+            data["status"] = status.get_name("es")
+            data["status_desc"] = status.get_description("es")
+        else:
+            data["status_code"] = None
+            data["status"] = None
+            data["status_desc"] = None
         data["photo_url"] = primary.storage_key if primary else None  # backward compat
         data["primary_photo_url"] = primary.storage_key if primary else None
         data["photos_count"] = count
@@ -70,6 +98,17 @@ async def create_animal_endpoint(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalResponse:
+    # Try to resolve legacy status string to status_id if provided
+    status_id = payload.status_id
+    if status_id is None and getattr(payload, "status", None):
+        try:
+            s = await uow.animal_statuses.get_by_code(context.tenant_id, payload.status)  # type: ignore[arg-type]
+            if s:
+                status_id = s.id
+        except Exception:
+            # Ignore mapping errors in environments without statuses table
+            pass
+
     result = await create_animal.execute(
         uow,
         context.tenant_id,
@@ -80,11 +119,15 @@ async def create_animal_endpoint(
             breed=payload.breed,
             birth_date=payload.birth_date,
             lot=payload.lot,
-            status=payload.status,
+            status_id=status_id,
             photo_url=payload.photo_url,
         ),
     )
-    return AnimalResponse.model_validate(result)
+    # Enrich response with legacy status fallback if enrichment cannot be done later
+    data = AnimalResponse.model_validate(result).model_dump()
+    if data.get("status") is None and getattr(payload, "status", None):
+        data["status"] = payload.status
+    return AnimalResponse.model_validate(data)
 
 
 @router.get("/{animal_id}", response_model=AnimalResponse)
@@ -98,6 +141,19 @@ async def get_animal_endpoint(
         context.tenant_id, OwnerType.ANIMAL, animal_id
     )
     data = AnimalResponse.model_validate(result).model_dump()
+    # add derived status fields
+    if data.get("status_id"):
+        try:
+            statuses = await uow.animal_statuses.list_for_tenant(context.tenant_id)
+            status_by_id = {s.id: s for s in statuses}
+            s = status_by_id.get(data["status_id"])  # may be None if missing
+            if s:
+                data["status_code"] = s.code
+                data["status"] = s.get_name("es")
+                data["status_desc"] = s.get_description("es")
+        except Exception:
+            # If statuses table is missing in certain environments/tests, skip enrichment
+            pass
     data["photo_url"] = primary.storage_key if primary else None
     return AnimalResponse.model_validate(data)
 
@@ -109,6 +165,16 @@ async def update_animal_endpoint(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalResponse:
+    # Try to resolve legacy status string to status_id if provided
+    status_id = payload.status_id
+    if status_id is None and getattr(payload, "status", None):
+        try:
+            s = await uow.animal_statuses.get_by_code(context.tenant_id, payload.status)  # type: ignore[arg-type]
+            if s:
+                status_id = s.id
+        except Exception:
+            pass
+
     result = await update_animal.execute(
         uow,
         context.tenant_id,
@@ -120,11 +186,14 @@ async def update_animal_endpoint(
             breed=payload.breed,
             birth_date=payload.birth_date,
             lot=payload.lot,
-            status=payload.status,
+            status_id=status_id,
             photo_url=payload.photo_url,
         ),
     )
-    return AnimalResponse.model_validate(result)
+    data = AnimalResponse.model_validate(result).model_dump()
+    if data.get("status") is None and getattr(payload, "status", None):
+        data["status"] = payload.status
+    return AnimalResponse.model_validate(data)
 
 
 @router.delete("/{animal_id}", status_code=status.HTTP_204_NO_CONTENT)

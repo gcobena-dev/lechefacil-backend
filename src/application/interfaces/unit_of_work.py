@@ -10,10 +10,12 @@ from src.application.interfaces.repositories.milk_prices import MilkPricesReposi
 from src.application.interfaces.repositories.milk_productions import MilkProductionsRepository
 from src.application.interfaces.repositories.tenant_config import TenantConfigRepository
 from src.application.interfaces.repositories.users import UserRepository
+from src.domain.ports.animal_statuses_repo import AnimalStatusesRepo
 
 
 class UnitOfWork(Protocol):
     animals: AnimalRepository
+    animal_statuses: AnimalStatusesRepo
     users: UserRepository
     memberships: MembershipRepository
     attachments: any

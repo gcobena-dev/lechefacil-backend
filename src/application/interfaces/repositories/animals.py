@@ -18,6 +18,7 @@ class AnimalRepository(Protocol):
         limit: int | None = None,
         cursor: UUID | None = None,
         is_active: bool | None = None,
+        status_ids: list[UUID] | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]: ...
 
     async def count(self, tenant_id: UUID, *, is_active: bool | None = None) -> int: ...

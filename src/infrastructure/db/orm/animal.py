@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, Enum, Integer, String, UniqueConstraint, Uuid, func
+from sqlalchemy import Date, DateTime, Integer, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.domain.models.animal import AnimalStatus
 from src.infrastructure.db.base import Base
 
 
@@ -21,9 +20,7 @@ class AnimalORM(Base):
     breed: Mapped[str | None] = mapped_column(String(255), nullable=True)
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     lot: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    status: Mapped[AnimalStatus] = mapped_column(
-        Enum(AnimalStatus, native_enum=False), nullable=False
-    )
+    status_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

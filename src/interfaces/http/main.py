@@ -12,7 +12,7 @@ from src.infrastructure.db.session import create_engine, create_session_factory
 from src.infrastructure.email.providers.logging_provider import LoggingEmailService
 from src.infrastructure.email.renderer.engine import EmailTemplateRenderer
 from src.interfaces.http.deps import get_app_settings
-from src.interfaces.http.routers import animals, dashboard, reports
+from src.interfaces.http.routers import animal_statuses, animals, dashboard, reports
 from src.interfaces.http.routers import auth as auth_router
 from src.interfaces.http.routers import buyers as buyers_router
 from src.interfaces.http.routers import milk_deliveries as deliveries_router
@@ -78,6 +78,7 @@ def create_app(
     api = APIRouter(prefix="/api/v1")
     api.include_router(auth_router.router)
     api.include_router(animals.router)
+    api.include_router(animal_statuses.router)
     api.include_router(buyers_router.router)
     api.include_router(prices_router.router)
     api.include_router(productions_router.router)
