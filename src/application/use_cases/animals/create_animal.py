@@ -15,8 +15,11 @@ class CreateAnimalInput:
     tag: str
     name: str | None = None
     breed: str | None = None
+    breed_variant: str | None = None
+    breed_id: UUID | None = None
     birth_date: date | None = None
     lot: str | None = None
+    current_lot_id: UUID | None = None
     status_id: UUID | None = None
     photo_url: str | None = None
 
@@ -38,8 +41,11 @@ async def execute(
         tag=payload.tag,
         name=payload.name,
         breed=payload.breed,
+        breed_variant=payload.breed_variant,
+        breed_id=payload.breed_id,
         birth_date=payload.birth_date,
         lot=payload.lot,
+        current_lot_id=payload.current_lot_id,
         status_id=payload.status_id,
         photo_url=payload.photo_url,
     )

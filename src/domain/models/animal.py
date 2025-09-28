@@ -12,8 +12,11 @@ class Animal:
     tag: str
     name: str | None = None
     breed: str | None = None
+    breed_variant: str | None = None
+    breed_id: UUID | None = None
     birth_date: date | None = None
     lot: str | None = None
+    current_lot_id: UUID | None = None
     status_id: UUID | None = None
     photo_url: str | None = None
     deleted_at: datetime | None = None
@@ -28,8 +31,11 @@ class Animal:
         tag: str,
         name: str | None = None,
         breed: str | None = None,
+        breed_variant: str | None = None,
+        breed_id: UUID | None = None,
         birth_date: date | None = None,
         lot: str | None = None,
+        current_lot_id: UUID | None = None,
         status_id: UUID | None = None,
         photo_url: str | None = None,
     ) -> Animal:
@@ -40,8 +46,11 @@ class Animal:
             tag=tag,
             name=name,
             breed=breed,
+            breed_variant=breed_variant,
+            breed_id=breed_id,
             birth_date=birth_date,
             lot=lot,
+            current_lot_id=current_lot_id,
             status_id=status_id,
             photo_url=photo_url,
             created_at=now,

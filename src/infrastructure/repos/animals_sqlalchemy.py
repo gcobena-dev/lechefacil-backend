@@ -23,8 +23,11 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             tag=orm.tag,
             name=orm.name,
             breed=orm.breed,
+            breed_variant=orm.breed_variant,
+            breed_id=orm.breed_id,
             birth_date=orm.birth_date,
             lot=orm.lot,
+            current_lot_id=orm.current_lot_id,
             status_id=orm.status_id,
             photo_url=orm.photo_url,
             deleted_at=orm.deleted_at,
@@ -40,8 +43,11 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             tag=animal.tag,
             name=animal.name,
             breed=animal.breed,
+            breed_variant=animal.breed_variant,
+            breed_id=animal.breed_id,
             birth_date=animal.birth_date,
             lot=animal.lot,
+            current_lot_id=animal.current_lot_id,
             status_id=animal.status_id,
             photo_url=animal.photo_url,
             deleted_at=animal.deleted_at,
@@ -156,3 +162,25 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         except IntegrityError as exc:
             raise InfrastructureError("Failed to delete animal") from exc
         return result.scalar_one_or_none() is not None
+
+    async def count_by_breed_id_or_name(
+        self, tenant_id: UUID, *, breed_id: UUID | None = None, breed_name: str | None = None
+    ) -> int:
+        stmt = select(func.count(AnimalORM.id)).where(AnimalORM.tenant_id == tenant_id)
+        if breed_id is not None:
+            stmt = stmt.where(AnimalORM.breed_id == breed_id)
+        if breed_name is not None:
+            stmt = stmt.where(func.lower(AnimalORM.breed) == func.lower(breed_name))
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+
+    async def count_by_current_lot_id_or_name(
+        self, tenant_id: UUID, *, lot_id: UUID | None = None, lot_name: str | None = None
+    ) -> int:
+        stmt = select(func.count(AnimalORM.id)).where(AnimalORM.tenant_id == tenant_id)
+        if lot_id is not None:
+            stmt = stmt.where(AnimalORM.current_lot_id == lot_id)
+        if lot_name is not None:
+            stmt = stmt.where(func.lower(AnimalORM.lot) == func.lower(lot_name))
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0

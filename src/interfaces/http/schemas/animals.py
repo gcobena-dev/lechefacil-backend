@@ -11,8 +11,11 @@ class AnimalBase(BaseModel):
     tag: str
     name: str | None = None
     breed: str | None = None
+    breed_variant: str | None = None
+    breed_id: UUID | None = None  # optional FK
     birth_date: date | None = None
     lot: str | None = None
+    lot_id: UUID | None = None  # optional FK
     status_id: UUID | None = None
     photo_url: str | None = None
 
@@ -26,8 +29,11 @@ class AnimalUpdate(BaseModel):
     version: int
     name: str | None = None
     breed: str | None = None
+    breed_variant: str | None = None
+    breed_id: UUID | None = None
     birth_date: date | None = None
     lot: str | None = None
+    lot_id: UUID | None = None
     status_id: UUID | None = None
     # Legacy support: allow status code string
     status: str | None = None
@@ -42,8 +48,11 @@ class AnimalResponse(BaseModel):
     tag: str
     name: str | None
     breed: str | None
+    breed_variant: str | None = None
+    breed_id: UUID | None = None
     birth_date: date | None
     lot: str | None
+    lot_id: UUID | None = None
     status_id: UUID | None
     # Derived fields
     status_code: str | None = None

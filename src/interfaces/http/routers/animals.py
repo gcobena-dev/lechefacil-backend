@@ -64,6 +64,18 @@ async def list_animals_endpoint(
         status_by_id = {s.id: s for s in statuses}
     except Exception:
         status_by_id = {}
+    # Preload breeds and lots to enrich IDs by name (best-effort)
+    try:
+        breeds = await uow.breeds.list_for_tenant(context.tenant_id)
+        breed_by_name = {b.name.lower(): b for b in breeds}
+    except Exception:
+        breed_by_name = {}
+    try:
+        lots = await uow.lots.list_for_tenant(context.tenant_id)
+        lot_by_name = {lot.name.lower(): lot for lot in lots}
+    except Exception:
+        lot_by_name = {}
+
     enriched_items = []
     for item in result.items:
         primary = await uow.attachments.get_primary_for_owner(
@@ -84,6 +96,15 @@ async def list_animals_endpoint(
             data["status"] = None
             data["status_desc"] = None
         data["photo_url"] = primary.storage_key if primary else None  # backward compat
+        # Add breed_id / lot_id by name match (optional enrichment)
+        if data.get("breed"):
+            b = breed_by_name.get(str(data["breed"]).lower())
+            if b:
+                data["breed_id"] = b.id
+        if data.get("lot"):
+            lot_obj = lot_by_name.get(str(data["lot"]).lower())
+            if lot_obj:
+                data["lot_id"] = lot_obj.id
         data["primary_photo_url"] = primary.storage_key if primary else None
         data["photos_count"] = count
         enriched_items.append(AnimalResponse.model_validate(data))
@@ -109,6 +130,31 @@ async def create_animal_endpoint(
             # Ignore mapping errors in environments without statuses table
             pass
 
+    # Resolve optional breed_id / lot_id to legacy name fields
+    breed_name = payload.breed
+    try:
+        if getattr(payload, "breed_id", None):
+            b = await uow.breeds.get(context.tenant_id, payload.breed_id)
+            if not b or not b.active:
+                from fastapi import HTTPException
+
+                raise HTTPException(status_code=400, detail="Invalid breed_id")
+            breed_name = b.name
+    except Exception:
+        pass
+
+    lot_name = payload.lot
+    try:
+        if getattr(payload, "lot_id", None):
+            lot_obj = await uow.lots.get(context.tenant_id, payload.lot_id)
+            if not lot_obj or not lot_obj.active:
+                from fastapi import HTTPException
+
+                raise HTTPException(status_code=400, detail="Invalid lot_id")
+            lot_name = lot_obj.name
+    except Exception:
+        pass
+
     result = await create_animal.execute(
         uow,
         context.tenant_id,
@@ -116,9 +162,12 @@ async def create_animal_endpoint(
         create_animal.CreateAnimalInput(
             tag=payload.tag,
             name=payload.name,
-            breed=payload.breed,
+            breed=breed_name,
+            breed_variant=payload.breed_variant,
+            breed_id=getattr(payload, "breed_id", None),
             birth_date=payload.birth_date,
-            lot=payload.lot,
+            lot=lot_name,
+            current_lot_id=getattr(payload, "lot_id", None),
             status_id=status_id,
             photo_url=payload.photo_url,
         ),
@@ -127,6 +176,18 @@ async def create_animal_endpoint(
     data = AnimalResponse.model_validate(result).model_dump()
     if data.get("status") is None and getattr(payload, "status", None):
         data["status"] = payload.status
+    # best-effort IDs
+    try:
+        if data.get("breed"):
+            b = await uow.breeds.find_by_name(context.tenant_id, data["breed"])  # type: ignore[arg-type]
+            if b:
+                data["breed_id"] = b.id
+        if data.get("lot"):
+            lot = await uow.lots.find_by_name(context.tenant_id, data["lot"])  # type: ignore[arg-type]
+            if lot:
+                data["lot_id"] = lot.id
+    except Exception:
+        pass
     return AnimalResponse.model_validate(data)
 
 
@@ -175,24 +236,105 @@ async def update_animal_endpoint(
         except Exception:
             pass
 
+    # Resolve optional breed_id / lot_id
+    updates = {
+        "version": payload.version,
+        "name": payload.name,
+        "breed": payload.breed,
+        "breed_variant": payload.breed_variant,
+        "breed_id": getattr(payload, "breed_id", None),
+        "birth_date": payload.birth_date,
+        "lot": payload.lot,
+        "current_lot_id": getattr(payload, "lot_id", None),
+        "status_id": status_id,
+        "photo_url": payload.photo_url,
+    }
+    try:
+        if getattr(payload, "breed_id", None):
+            b = await uow.breeds.get(context.tenant_id, payload.breed_id)
+            if not b or not b.active:
+                from fastapi import HTTPException
+
+                raise HTTPException(status_code=400, detail="Invalid breed_id")
+            updates["breed"] = b.name
+    except Exception:
+        pass
+    try:
+        if getattr(payload, "lot_id", None):
+            lot_obj = await uow.lots.get(context.tenant_id, payload.lot_id)
+            if not lot_obj or not lot_obj.active:
+                from fastapi import HTTPException
+
+                raise HTTPException(status_code=400, detail="Invalid lot_id")
+            updates["lot"] = lot_obj.name
+    except Exception:
+        pass
+
+    result = await update_animal.execute(
+        uow,
+        context.tenant_id,
+        context.role,
+        animal_id,
+        update_animal.UpdateAnimalInput(**updates),
+    )
+    data = AnimalResponse.model_validate(result).model_dump()
+    if data.get("status") is None and getattr(payload, "status", None):
+        data["status"] = payload.status
+    # best-effort IDs
+    try:
+        if data.get("breed"):
+            b = await uow.breeds.find_by_name(context.tenant_id, data["breed"])  # type: ignore[arg-type]
+            if b:
+                data["breed_id"] = b.id
+        if data.get("lot"):
+            lot = await uow.lots.find_by_name(context.tenant_id, data["lot"])  # type: ignore[arg-type]
+            if lot:
+                data["lot_id"] = lot.id
+    except Exception:
+        pass
+    return AnimalResponse.model_validate(data)
+
+
+@router.put("/{animal_id}/lot", response_model=AnimalResponse)
+async def set_animal_lot(
+    animal_id: UUID,
+    payload: dict,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> AnimalResponse:
+    from pydantic import BaseModel
+
+    class SetLotPayload(BaseModel):
+        lot_id: UUID | None
+        version: int
+
+    req = SetLotPayload(**payload)
+    lot_name: str | None = None
+    if req.lot_id is not None:
+        lot = await uow.lots.get(context.tenant_id, req.lot_id)
+        if not lot or not lot.active:
+            from src.application.errors import ValidationError
+
+            raise ValidationError("Invalid lot_id")
+        lot_name = lot.name
+
     result = await update_animal.execute(
         uow,
         context.tenant_id,
         context.role,
         animal_id,
         update_animal.UpdateAnimalInput(
-            version=payload.version,
-            name=payload.name,
-            breed=payload.breed,
-            birth_date=payload.birth_date,
-            lot=payload.lot,
-            status_id=status_id,
-            photo_url=payload.photo_url,
+            version=req.version,
+            lot=lot_name,
+            current_lot_id=req.lot_id,
         ),
     )
     data = AnimalResponse.model_validate(result).model_dump()
-    if data.get("status") is None and getattr(payload, "status", None):
-        data["status"] = payload.status
+    # Enrich lot_id
+    if lot_name:
+        data["lot_id"] = req.lot_id
+    else:
+        data["lot_id"] = None
     return AnimalResponse.model_validate(data)
 
 

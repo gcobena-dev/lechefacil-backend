@@ -15,8 +15,11 @@ class UpdateAnimalInput:
     version: int
     name: str | None = None
     breed: str | None = None
+    breed_variant: str | None = None
+    breed_id: UUID | None = None
     birth_date: date | None = None
     lot: str | None = None
+    current_lot_id: UUID | None = None
     status_id: UUID | None = None
     photo_url: str | None = None
 
@@ -40,7 +43,17 @@ async def execute(
     if not existing:
         raise NotFound("Animal not found")
     data: dict = {}
-    for field_name in ("name", "breed", "birth_date", "lot", "status_id", "photo_url"):
+    for field_name in (
+        "name",
+        "breed",
+        "breed_variant",
+        "breed_id",
+        "birth_date",
+        "lot",
+        "current_lot_id",
+        "status_id",
+        "photo_url",
+    ):
         value = getattr(payload, field_name)
         if value is not None:
             data[field_name] = value

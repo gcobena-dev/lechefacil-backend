@@ -34,13 +34,17 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.tenant_config = None
         self.milk_productions = None
         self.milk_deliveries = None
+        self.breeds = None
+        self.lots = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
         from src.infrastructure.repos.animal_statuses_sqlalchemy import AnimalStatusesSqlAlchemyRepo
         from src.infrastructure.repos.animals_sqlalchemy import AnimalsSQLAlchemyRepository
         from src.infrastructure.repos.attachments_sqlalchemy import AttachmentsSQLAlchemyRepository
+        from src.infrastructure.repos.breeds_sqlalchemy import BreedsSQLAlchemyRepository
         from src.infrastructure.repos.buyers_sqlalchemy import BuyersSQLAlchemyRepository
+        from src.infrastructure.repos.lots_sqlalchemy import LotsSQLAlchemyRepository
         from src.infrastructure.repos.memberships_sqlalchemy import MembershipsSQLAlchemyRepository
         from src.infrastructure.repos.milk_deliveries_sqlalchemy import (
             MilkDeliveriesSQLAlchemyRepository,
@@ -64,6 +68,8 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.tenant_config = TenantConfigSQLAlchemyRepository(self.session)
         self.milk_productions = MilkProductionsSQLAlchemyRepository(self.session)
         self.milk_deliveries = MilkDeliveriesSQLAlchemyRepository(self.session)
+        self.breeds = BreedsSQLAlchemyRepository(self.session)
+        self.lots = LotsSQLAlchemyRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -85,6 +91,8 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.tenant_config = None
             self.milk_productions = None
             self.milk_deliveries = None
+            self.breeds = None
+            self.lots = None
 
     async def commit(self) -> None:
         if not self.session:
