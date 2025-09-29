@@ -44,6 +44,7 @@ class MilkProductionResponse(BaseModel):
     animal_id: UUID | None
     buyer_id: UUID | None
     date_time: datetime
+    shift: str
     input_unit: str
     input_quantity: Decimal
     density: Decimal
