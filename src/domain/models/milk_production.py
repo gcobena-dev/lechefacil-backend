@@ -14,6 +14,7 @@ class MilkProduction:
     buyer_id: UUID | None
     date_time: datetime
     date: date
+    shift: str
     input_unit: str  # 'kg' | 'lb' | 'l'
     input_quantity: Decimal
     density: Decimal  # e.g., 1.03
@@ -35,6 +36,7 @@ class MilkProduction:
         animal_id: UUID | None,
         buyer_id: UUID | None,
         date_time: datetime,
+        shift: str,
         input_unit: str,
         input_quantity: Decimal,
         density: Decimal,
@@ -54,6 +56,7 @@ class MilkProduction:
             buyer_id=buyer_id,
             date_time=date_time,
             date=date_time.date(),
+            shift=shift,
             input_unit=input_unit,
             input_quantity=input_quantity,
             density=density,

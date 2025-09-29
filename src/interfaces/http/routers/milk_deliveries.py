@@ -81,6 +81,15 @@ async def create_delivery(
     dt = payload.date_time
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
+    # Prevent duplicate delivery for same buyer and local day
+    existing_same_day = await uow.milk_deliveries.list(
+        context.tenant_id, date_from=dt.date(), date_to=dt.date(), buyer_id=buyer_id
+    )
+    if existing_same_day:
+        from src.application.errors import ValidationError
+
+        raise ValidationError("Ya registró la entrega de leche para este comprador en esta fecha")
+
     mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), buyer_id)
     if mp is None:
         mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), None)
@@ -146,6 +155,17 @@ async def update_delivery(
         dt = updates.get("date_time", existing.date_time)
         bid = updates.get("buyer_id", existing.buyer_id)
         vol = updates.get("volume_l", existing.volume_l)
+
+        # Prevent duplicate after update (same buyer and date on a different record)
+        same_day = await uow.milk_deliveries.list(
+            context.tenant_id, date_from=dt.date(), date_to=dt.date(), buyer_id=bid
+        )
+        if any(d.id != existing.id for d in same_day):
+            from src.application.errors import ValidationError
+
+            raise ValidationError(
+                "Ya registró la entrega de leche para este comprador en esta fecha"
+            )
         mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), bid)
         if mp is None:
             mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), None)

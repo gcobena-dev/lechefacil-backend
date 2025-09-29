@@ -89,9 +89,27 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         if status_ids is not None:
             stmt = stmt.where(AnimalORM.status_id.in_(status_ids))
         elif is_active is not None:
-            # Legacy is_active filter - deprecated, use status_ids instead
-            # For now, this will not work until all animals have status_id populated
-            pass
+            # Legacy is_active filter - implemented using status codes
+            # Get inactive status IDs (SOLD, DEAD, CULLED)
+            from .animal_statuses_sqlalchemy import AnimalStatusORM
+
+            inactive_statuses_stmt = select(AnimalStatusORM.id).where(
+                AnimalStatusORM.code.in_(["SOLD", "DEAD", "CULLED"])
+            )
+            inactive_status_result = await self.session.execute(inactive_statuses_stmt)
+            inactive_status_ids = [row[0] for row in inactive_status_result.fetchall()]
+
+            if is_active:
+                # Include animals that are NOT in inactive statuses (or have null status_id)
+                if inactive_status_ids:
+                    stmt = stmt.where(
+                        (AnimalORM.status_id.is_(None))
+                        | (~AnimalORM.status_id.in_(inactive_status_ids))
+                    )
+            else:
+                # Only include animals with inactive statuses
+                if inactive_status_ids:
+                    stmt = stmt.where(AnimalORM.status_id.in_(inactive_status_ids))
 
         if cursor:
             stmt = stmt.where(AnimalORM.id > cursor)
@@ -116,9 +134,27 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
 
         if is_active is not None:
-            # Legacy is_active filter - deprecated, use status_ids instead
-            # For now, this will not work until all animals have status_id populated
-            pass
+            # Legacy is_active filter - implemented using status codes
+            # Get inactive status IDs (SOLD, DEAD, CULLED)
+            from .animal_statuses_sqlalchemy import AnimalStatusORM
+
+            inactive_statuses_stmt = select(AnimalStatusORM.id).where(
+                AnimalStatusORM.code.in_(["SOLD", "DEAD", "CULLED"])
+            )
+            inactive_status_result = await self.session.execute(inactive_statuses_stmt)
+            inactive_status_ids = [row[0] for row in inactive_status_result.fetchall()]
+
+            if is_active:
+                # Exclude animals with inactive statuses
+                # Also include animals with null status_id (treated as active)
+                stmt = stmt.where(
+                    (AnimalORM.status_id.is_(None))
+                    | (~AnimalORM.status_id.in_(inactive_status_ids))
+                )
+            else:
+                # Only include animals with inactive statuses
+                if inactive_status_ids:
+                    stmt = stmt.where(AnimalORM.status_id.in_(inactive_status_ids))
 
         result = await self.session.execute(stmt)
         return result.scalar() or 0

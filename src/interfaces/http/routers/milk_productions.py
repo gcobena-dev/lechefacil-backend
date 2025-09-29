@@ -49,6 +49,11 @@ async def list_productions(
 
     df = DtDate.fromisoformat(date_from) if date_from else None
     dt = DtDate.fromisoformat(date_to) if date_to else None
+    # Include UTC spillover by extending date_to by +1 day
+    if dt is not None:
+        from datetime import timedelta as _Td
+
+        dt = dt + _Td(days=1)
     aid = _UUID(animal_id) if animal_id else None
     items = await uow.milk_productions.list(
         context.tenant_id,
@@ -121,11 +126,45 @@ async def create_production(
             currency = most_recent_price.currency
     amount = (vol_l * price).quantize(Decimal("0.01")) if price is not None else None
 
+    # Determine shift to persist
+    shift_val = (payload.shift or ("AM" if dt.hour < 12 else "PM")).upper()
+    # Prevent duplicate per animal/day/shift
+    existing_same = await uow.milk_productions.list(
+        context.tenant_id, date_from=dt.date(), date_to=dt.date(), animal_id=payload.animal_id
+    )
+    dup = next(
+        (
+            e
+            for e in existing_same
+            if getattr(e, "shift", ("AM" if e.date_time.hour < 12 else "PM")) == shift_val
+        ),
+        None,
+    )
+    if dup is not None:
+        from src.application.errors import ValidationError
+
+        raise ValidationError(
+            "Ya existe un registro para este animal en el mismo día y turno",
+            details={
+                "conflicts": [
+                    {
+                        "animal_id": str(payload.animal_id),
+                        "date": str(dt.date()),
+                        "shift": shift_val,
+                        "input_quantity": str(payload.input_quantity),
+                        "existing_date_time": dup.date_time.isoformat(),
+                        "existing_volume_l": str(dup.volume_l),
+                    }
+                ]
+            },
+        )
+
     mp = MilkProduction.create(
         tenant_id=context.tenant_id,
         animal_id=payload.animal_id,
         buyer_id=buyer_id,
         date_time=dt,
+        shift=shift_val,
         input_unit=unit,
         input_quantity=payload.input_quantity,
         density=density,
@@ -203,16 +242,48 @@ async def create_productions_bulk(
             currency_shared = most_recent_price.currency
 
     results: list[MilkProductionResponse] = []
+    conflicts: list[dict] = []
     for item in payload.items:
         vol_l, _ = _to_liters(unit_shared, item.input_quantity, density_shared)
         amount = (
             (vol_l * price_shared).quantize(Decimal("0.01")) if price_shared is not None else None
         )
+        # Compute shift to persist
+        shift_val = (payload.shift or ("AM" if dt_shared.hour < 12 else "PM")).upper()
+        # Validate duplicates per animal/day/shift
+        existing_same = await uow.milk_productions.list(
+            context.tenant_id,
+            date_from=dt_shared.date(),
+            date_to=dt_shared.date(),
+            animal_id=item.animal_id,
+        )
+        dup = next(
+            (
+                e
+                for e in existing_same
+                if getattr(e, "shift", ("AM" if e.date_time.hour < 12 else "PM")) == shift_val
+            ),
+            None,
+        )
+        if dup is not None:
+            conflicts.append(
+                {
+                    "animal_id": str(item.animal_id),
+                    "date": str(dt_shared.date()),
+                    "shift": shift_val,
+                    "input_quantity": str(item.input_quantity),
+                    "existing_date_time": dup.date_time.isoformat(),
+                    "existing_volume_l": str(dup.volume_l),
+                }
+            )
+            continue
+
         mp = MilkProduction.create(
             tenant_id=context.tenant_id,
             animal_id=item.animal_id,
             buyer_id=buyer_shared,
             date_time=dt_shared,
+            shift=shift_val,
             input_unit=unit_shared,
             input_quantity=item.input_quantity,
             density=density_shared,
@@ -224,6 +295,14 @@ async def create_productions_bulk(
         )
         created = await uow.milk_productions.add(mp)
         results.append(MilkProductionResponse.model_validate(created))
+    # If there were conflicts, abort with detailed validation error
+    if conflicts:
+        from src.application.errors import ValidationError
+
+        raise ValidationError(
+            "Algunos animales ya tienen registro para ese día/turno",
+            details={"conflicts": conflicts},
+        )
     await uow.commit()
     return results
 
@@ -260,6 +339,10 @@ async def update_production(
             dt_override = dt_override.replace(tzinfo=timezone.utc)
         updates["date_time"] = dt_override
         updates["date"] = dt_override.date()
+        # If shift not explicitly provided, recompute from new date_time
+        updates["shift"] = "AM" if dt_override.hour < 12 else "PM"
+    if payload.shift is not None:
+        updates["shift"] = payload.shift
     if payload.animal_id is not None:
         updates["animal_id"] = payload.animal_id
     if payload.buyer_id is not None:
@@ -283,13 +366,31 @@ async def update_production(
         vol_l, _ = _to_liters(unit, qty, den)
         updates["volume_l"] = vol_l
     # If date/buyer/volume changed, recompute price snapshot and amount
-    if {"date_time", "buyer_id", "volume_l"} & updates.keys():
+    if {"date_time", "buyer_id", "volume_l", "shift"} & updates.keys():
         existing = await uow.milk_productions.get(context.tenant_id, _UUID(production_id))
         if not existing:
             from src.application.errors import NotFound
 
             raise NotFound("Production not found")
         dt = updates.get("date_time", existing.date_time)
+        sh = updates.get(
+            "shift", getattr(existing, "shift", ("AM" if existing.date_time.hour < 12 else "PM"))
+        )
+        # Prevent duplicate per animal/day/shift after update
+        same = await uow.milk_productions.list(
+            context.tenant_id,
+            date_from=dt.date(),
+            date_to=dt.date(),
+            animal_id=updates.get("animal_id", existing.animal_id),
+        )
+        if any(
+            r.id != existing.id
+            and getattr(r, "shift", ("AM" if r.date_time.hour < 12 else "PM")) == sh
+            for r in same
+        ):
+            from src.application.errors import ValidationError
+
+            raise ValidationError("Ya existe un registro para este animal en ese día/turno")
         bid = updates.get("buyer_id", existing.buyer_id)
         vol = updates.get("volume_l", existing.volume_l)
         price = None

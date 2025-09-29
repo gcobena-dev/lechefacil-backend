@@ -18,6 +18,7 @@ class MilkProductionORM(Base):
     buyer_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     date_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    shift: Mapped[str] = mapped_column(String(2), nullable=False, default="AM")
     input_unit: Mapped[str] = mapped_column(String(4), nullable=False)
     input_quantity: Mapped[str] = mapped_column(DECIMAL(12, 3), nullable=False)
     density: Mapped[str] = mapped_column(DECIMAL(4, 2), nullable=False)

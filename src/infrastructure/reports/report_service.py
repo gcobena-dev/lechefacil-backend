@@ -385,13 +385,33 @@ class ReportService:
 
         # Apply include_inactive filter
         # TODO: Update to use new status_id system
+        # First, filter animals based on include_inactive setting
         if request.filters and not request.filters.include_inactive:
-            # For now, include all animals until status migration is complete
-            pass
+            # Filter out inactive animals before processing
+            pass  # Will filter after status lookup
 
-        # TODO: Update active/inactive logic to use status_id
-        active_animals = animals  # Temporary: treat all as active
-        inactive_animals = []  # Temporary: no inactive animals
+        # Filter animals by active/inactive status based on status codes
+        # Inactive statuses: SOLD, DEAD, CULLED
+        # All other statuses are considered active
+        active_animals = []
+        inactive_animals = []
+
+        # Get all animal statuses to resolve status codes
+        all_statuses = await uow.animal_statuses.list_for_tenant(tenant_id)
+        status_lookup = {status.id: status.code for status in all_statuses}
+
+        for animal in animals:
+            status_code = status_lookup.get(animal.status_id) if animal.status_id else None
+            if status_code in ["SOLD", "DEAD", "CULLED"]:
+                inactive_animals.append(animal)
+            else:
+                active_animals.append(animal)
+
+        # Apply include_inactive filter
+        if request.filters and not request.filters.include_inactive:
+            animals = active_animals  # Only include active animals
+        else:
+            animals = active_animals + inactive_animals  # Include all animals
 
         # Get production data for performance analysis
         if request.filters and request.filters.animal_ids:
