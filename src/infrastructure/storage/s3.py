@@ -50,9 +50,9 @@ class S3StorageService(StorageService):
         # Generate presigned URL for private buckets (default 1 hour expiration)
         try:
             url = self._s3.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': self.bucket, 'Key': full_key},
-                ExpiresIn=3600  # 1 hour
+                "get_object",
+                Params={"Bucket": self.bucket, "Key": full_key},
+                ExpiresIn=3600,  # 1 hour
             )
             return url
         except Exception:

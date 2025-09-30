@@ -468,6 +468,7 @@ async def presign_photo_upload(
     uow=Depends(get_uow),
 ) -> PresignUploadResponse:
     import uuid
+
     # Generate unique file ID for the upload
     file_id = uuid.uuid4()
     storage_key = f"tenants/{context.tenant_id}/animals/{animal_id}/uploads/{file_id}"
