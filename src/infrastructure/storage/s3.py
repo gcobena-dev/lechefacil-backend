@@ -35,17 +35,31 @@ class S3StorageService(StorageService):
             Conditions=conditions,
             ExpiresIn=expires_seconds or self.signed_url_expires,
         )
-        return PresignedUpload(upload_url=post["url"], storage_key=full_key, fields=post["fields"])
+        # Force regional URL format for consistency
+        upload_url = post["url"]
+        if self.region == "us-east-1" and ".s3.amazonaws.com" in upload_url:
+            upload_url = upload_url.replace(".s3.amazonaws.com", f".s3.{self.region}.amazonaws.com")
+
+        return PresignedUpload(upload_url=upload_url, storage_key=full_key, fields=post["fields"])
 
     async def get_public_url(self, key: str) -> str:
         full_key = f"{self.prefix}{key}" if self.prefix and not key.startswith(self.prefix) else key
         if self.public_url_base:
             base = self.public_url_base.rstrip("/")
             return f"{base}/{full_key}"
-        # default AWS URL
-        if self.region == "us-east-1":
-            return f"https://{self.bucket}.s3.amazonaws.com/{full_key}"
-        return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{full_key}"
+        # Generate presigned URL for private buckets (default 1 hour expiration)
+        try:
+            url = self._s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.bucket, 'Key': full_key},
+                ExpiresIn=3600  # 1 hour
+            )
+            return url
+        except Exception:
+            # Fallback to direct URL if presigning fails (for public buckets)
+            if self.region == "us-east-1":
+                return f"https://{self.bucket}.s3.amazonaws.com/{full_key}"
+            return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{full_key}"
 
     async def put_object(self, key: str, data: bytes, content_type: str) -> None:
         full_key = f"{self.prefix}{key}" if self.prefix else key

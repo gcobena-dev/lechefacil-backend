@@ -33,6 +33,53 @@ from src.interfaces.http.schemas.attachments import (
 router = APIRouter(prefix="/animals", tags=["animals"])
 
 
+@router.get("/next-tag")
+async def get_next_tag(
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> dict[str, str]:
+    """Generate next available tag number for the tenant."""
+    # Get all animals for tenant using pagination
+    all_animals = []
+    cursor = None
+
+    while True:
+        result = await list_animals.execute(
+            uow,
+            context.tenant_id,
+            limit=100,
+            cursor=cursor,
+            status_codes=None,
+        )
+        all_animals.extend(result.items)
+
+        if result.next_cursor is None:
+            break
+        cursor = result.next_cursor
+
+    # Find numeric tags and get the maximum
+    numeric_tags = []
+    for animal in all_animals:
+        try:
+            # Try to parse tag as integer
+            tag_num = int(animal.tag)
+            numeric_tags.append(tag_num)
+        except (ValueError, AttributeError):
+            # Skip non-numeric tags
+            pass
+
+    # Generate next tag
+    if numeric_tags:
+        next_num = max(numeric_tags) + 1
+    else:
+        next_num = 1
+
+    # Format with leading zeros (e.g., "001", "002", etc.)
+    next_tag = str(next_num).zfill(3)
+
+    return {"next_tag": next_tag}
+
+
 @router.get("/", response_model=AnimalsListResponse)
 async def list_animals_endpoint(
     limit: int = Query(20, ge=1, le=100),
@@ -420,10 +467,10 @@ async def presign_photo_upload(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> PresignUploadResponse:
-    # For MVP we return a storage key scheme and a stub upload URL
-    # placeholder for future injection of real storage service
-    # Generate storage_key (no-op here, client will upload externally)
-    storage_key = f"tenants/{context.tenant_id}/animals/{animal_id}/uploads/{{uuid}}"
+    import uuid
+    # Generate unique file ID for the upload
+    file_id = uuid.uuid4()
+    storage_key = f"tenants/{context.tenant_id}/animals/{animal_id}/uploads/{file_id}"
     try:
         svc = request.app.state.storage_service
     except AttributeError as exc:
@@ -527,6 +574,7 @@ async def update_photo(
     animal_id: UUID,
     photo_id: UUID,
     payload: CreatePhotoRequest,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AttachmentResponse:
@@ -549,9 +597,10 @@ async def update_photo(
     if payload.is_primary:
         await uow.attachments.set_primary(context.tenant_id, OwnerType.ANIMAL, animal_id, photo_id)
         await uow.commit()
-    from src.infrastructure.storage.dev_stub import DevStubStorage
-
-    svc = DevStubStorage()
+    try:
+        svc = request.app.state.storage_service
+    except AttributeError as exc:
+        raise RuntimeError("Storage service not configured") from exc
     url = await svc.get_public_url(updated.storage_key)
     return AttachmentResponse(
         id=updated.id,

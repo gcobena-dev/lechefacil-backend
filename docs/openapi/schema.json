@@ -499,6 +499,32 @@
         }
       }
     },
+    "/api/v1/animals/next-tag": {
+      "get": {
+        "tags": [
+          "animals"
+        ],
+        "summary": "Get Next Tag",
+        "description": "Generate next available tag number for the tenant.",
+        "operationId": "get_next_tag_api_v1_animals_next_tag_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Get Next Tag Api V1 Animals Next Tag Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/animals/": {
       "get": {
         "tags": [
@@ -5198,6 +5224,10 @@
             "format": "date-time",
             "title": "Date Time"
           },
+          "shift": {
+            "type": "string",
+            "title": "Shift"
+          },
           "input_unit": {
             "type": "string",
             "title": "Input Unit"
@@ -5272,6 +5302,7 @@
           "animal_id",
           "buyer_id",
           "date_time",
+          "shift",
           "input_unit",
           "input_quantity",
           "density",
