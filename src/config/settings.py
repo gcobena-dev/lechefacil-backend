@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     email_from_address: str = "no-reply@lechefacil.local"
     email_admin_recipients: str = "gcobena.dev@gmail.com"
     email_default_locale: str = "es"
+    # Auth cookies (for refresh token)
+    cookie_samesite: str = "lax"  # options: 'lax', 'none', 'strict'
+    cookie_secure: bool = False  # set True when served over HTTPS
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

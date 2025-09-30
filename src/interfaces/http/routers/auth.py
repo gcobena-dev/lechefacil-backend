@@ -79,6 +79,7 @@ async def login(
     uow=Depends(get_uow),
     password_hasher: PasswordHasher = Depends(get_password_hasher),
     jwt_service: JWTService = Depends(get_jwt_service),
+    settings=Depends(get_app_settings),
 ) -> LoginResponse:
     result = await login_user.execute(
         uow=uow,
@@ -97,8 +98,8 @@ async def login(
         key="refresh_token",
         value=refresh,
         httponly=True,
-        samesite="lax",
-        secure=False,  # consider True in production with HTTPS
+        samesite=settings.cookie_samesite,
+        secure=settings.cookie_secure,
         path="/",
     )
     return LoginResponse(
@@ -257,7 +258,7 @@ async def add_membership_endpoint(
 
 @router.post("/auth/refresh", response_model=LoginResponse)
 async def refresh_token(
-    request: Request, response: Response, uow=Depends(get_uow)
+    request: Request, response: Response, uow=Depends(get_uow), settings=Depends(get_app_settings)
 ) -> LoginResponse:
     jwt_service: JWTService | None = getattr(request.app.state, "jwt_service", None)
     if jwt_service is None:
@@ -286,8 +287,8 @@ async def refresh_token(
         key="refresh_token",
         value=new_refresh,
         httponly=True,
-        samesite="lax",
-        secure=False,
+        samesite=settings.cookie_samesite,
+        secure=settings.cookie_secure,
         path="/",
     )
     return LoginResponse(
