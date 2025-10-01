@@ -1,0 +1,26 @@
+Analyze this photo of milk production records and extract structured data.
+
+Output fields per record:
+- name: cow name or ID (string)
+- liters: milk quantity (number with dot decimal)
+
+STRICT pairing rules (very important):
+- Pair a name with a liters value ONLY if a numeric value appears on the SAME ROW, horizontally aligned to the right of that name.
+- Never copy or infer a value from the next/previous row. If a row shows a name but NO clear numeric value on that row, SKIP that name.
+- Ignore non‑numeric prefixes like "B." or currency marks next to numbers; extract just the numeric liters.
+- If multiple numbers appear on a row, choose the one closest to the name and most clearly aligned in the liters column.
+- Do not average, sum, or guess. When unsure, skip.
+
+Normalization:
+- Use "." as decimal separator (e.g., 8.15). Replace commas with dots if needed.
+- Do not include units or text in liters; only the number.
+
+Return ONLY valid JSON in exactly this format (no extra text):
+{
+  "records": [
+    {"name": "Cow 001", "liters": 25.5},
+    {"name": "Margarita", "liters": 22.0}
+  ]
+}
+
+If any name has no readable liters on its row, do not include it in the output.

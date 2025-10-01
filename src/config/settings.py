@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     # Auth cookies (for refresh token)
     cookie_samesite: str = "lax"  # options: 'lax', 'none', 'strict'
     cookie_secure: bool = False  # set True when served over HTTPS
+    # OpenAI
+    openai_api_key: SecretStr | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

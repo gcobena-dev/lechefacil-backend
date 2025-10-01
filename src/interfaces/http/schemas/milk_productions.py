@@ -81,3 +81,33 @@ class MilkProductionListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# OCR-related schemas
+class ProcessOcrRequest(BaseModel):
+    storage_key: str
+    mime_type: str
+    size_bytes: int | None = None
+
+
+class OcrMatchedResult(BaseModel):
+    animal_id: UUID
+    animal_name: str
+    animal_tag: str
+    liters: Decimal
+    match_confidence: float
+    extracted_name: str
+
+
+class OcrUnmatchedResult(BaseModel):
+    extracted_name: str
+    liters: Decimal
+    suggestions: list[dict] = Field(default_factory=list)
+
+
+class ProcessOcrResponse(BaseModel):
+    image_url: str
+    attachment_id: UUID
+    matched: list[OcrMatchedResult]
+    unmatched: list[OcrUnmatchedResult]
+    total_extracted: int

@@ -1871,6 +1871,29 @@
               ],
               "title": "Animal Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
           }
         ],
         "responses": {
@@ -1879,11 +1902,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MilkProductionResponse"
-                  },
-                  "title": "Response List Productions Api V1 Milk Productions  Get"
+                  "$ref": "#/components/schemas/MilkProductionListResponse"
                 }
               }
             }
@@ -2056,6 +2075,90 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/milk-productions/ocr/uploads": {
+      "post": {
+        "tags": [
+          "milk-productions"
+        ],
+        "summary": "Presign Ocr Upload",
+        "description": "Generate presigned URL for OCR image upload.",
+        "operationId": "presign_ocr_upload_api_v1_milk_productions_ocr_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresignUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresignUploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/milk-productions/ocr/process": {
+      "post": {
+        "tags": [
+          "milk-productions"
+        ],
+        "summary": "Process Ocr Image",
+        "description": "Process OCR image with OpenAI and match with animals in lactation.",
+        "operationId": "process_ocr_image_api_v1_milk_productions_ocr_process_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessOcrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessOcrResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -5188,6 +5291,37 @@
         ],
         "title": "MilkProductionCreate"
       },
+      "MilkProductionListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MilkProductionResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "MilkProductionListResponse"
+      },
       "MilkProductionResponse": {
         "properties": {
           "id": {
@@ -5548,6 +5682,71 @@
         ],
         "title": "MilkProductionsBulkCreate"
       },
+      "OcrMatchedResult": {
+        "properties": {
+          "animal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Animal Id"
+          },
+          "animal_name": {
+            "type": "string",
+            "title": "Animal Name"
+          },
+          "animal_tag": {
+            "type": "string",
+            "title": "Animal Tag"
+          },
+          "liters": {
+            "type": "string",
+            "title": "Liters"
+          },
+          "match_confidence": {
+            "type": "number",
+            "title": "Match Confidence"
+          },
+          "extracted_name": {
+            "type": "string",
+            "title": "Extracted Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "animal_id",
+          "animal_name",
+          "animal_tag",
+          "liters",
+          "match_confidence",
+          "extracted_name"
+        ],
+        "title": "OcrMatchedResult"
+      },
+      "OcrUnmatchedResult": {
+        "properties": {
+          "extracted_name": {
+            "type": "string",
+            "title": "Extracted Name"
+          },
+          "liters": {
+            "type": "string",
+            "title": "Liters"
+          },
+          "suggestions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "extracted_name",
+          "liters"
+        ],
+        "title": "OcrUnmatchedResult"
+      },
       "PaginationInfo": {
         "properties": {
           "page": {
@@ -5624,6 +5823,75 @@
           "storage_key"
         ],
         "title": "PresignUploadResponse"
+      },
+      "ProcessOcrRequest": {
+        "properties": {
+          "storage_key": {
+            "type": "string",
+            "title": "Storage Key"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "storage_key",
+          "mime_type"
+        ],
+        "title": "ProcessOcrRequest"
+      },
+      "ProcessOcrResponse": {
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "title": "Image Url"
+          },
+          "attachment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Attachment Id"
+          },
+          "matched": {
+            "items": {
+              "$ref": "#/components/schemas/OcrMatchedResult"
+            },
+            "type": "array",
+            "title": "Matched"
+          },
+          "unmatched": {
+            "items": {
+              "$ref": "#/components/schemas/OcrUnmatchedResult"
+            },
+            "type": "array",
+            "title": "Unmatched"
+          },
+          "total_extracted": {
+            "type": "integer",
+            "title": "Total Extracted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image_url",
+          "attachment_id",
+          "matched",
+          "unmatched",
+          "total_extracted"
+        ],
+        "title": "ProcessOcrResponse"
       },
       "RegisterRequest": {
         "properties": {

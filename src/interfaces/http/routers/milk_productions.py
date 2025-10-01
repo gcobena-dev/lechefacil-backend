@@ -5,18 +5,22 @@ from datetime import datetime, timezone
 from datetime import time as DtTime
 from decimal import ROUND_HALF_UP, Decimal
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from src.application.errors import PermissionDenied
 from src.domain.models.milk_production import MilkProduction
+from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import get_auth_context, get_uow
+from src.interfaces.http.schemas.attachments import PresignUploadRequest, PresignUploadResponse
 from src.interfaces.http.schemas.milk_productions import (
     MilkProductionCreate,
     MilkProductionListResponse,
     MilkProductionResponse,
     MilkProductionsBulkCreate,
     MilkProductionUpdate,
+    ProcessOcrRequest,
+    ProcessOcrResponse,
 )
 
 router = APIRouter(prefix="/milk-productions", tags=["milk-productions"])
@@ -461,3 +465,200 @@ async def delete_production(
         raise NotFound("Production not found")
     await uow.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# OCR endpoints
+@router.post("/ocr/uploads", response_model=PresignUploadResponse)
+async def presign_ocr_upload(
+    payload: PresignUploadRequest,
+    request: Request,
+    context: AuthContext = Depends(get_auth_context),
+) -> PresignUploadResponse:
+    """Generate presigned URL for OCR image upload."""
+    import uuid
+
+    # Generate unique file ID for the upload
+    file_id = uuid.uuid4()
+    file_ext = payload.content_type.split("/")[-1] if "/" in payload.content_type else "jpg"
+    storage_key = (
+        f"tenants/{context.tenant_id}/"
+        f"milk-productions/ocr/{file_id}.{file_ext}"
+    )
+    try:
+        svc = request.app.state.storage_service
+    except AttributeError as exc:
+        raise RuntimeError("Storage service not configured") from exc
+    presigned = await svc.get_presigned_upload(storage_key, payload.content_type)
+    return PresignUploadResponse(
+        upload_url=presigned.upload_url,
+        storage_key=presigned.storage_key,
+        fields=presigned.fields,
+    )
+
+
+@router.post("/ocr/process", response_model=ProcessOcrResponse, status_code=status.HTTP_200_OK)
+async def process_ocr_image(
+    payload: ProcessOcrRequest,
+    request: Request,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> ProcessOcrResponse:
+    """Process OCR image with OpenAI and match with animals in lactation."""
+    import re
+    from decimal import Decimal
+    from uuid import UUID
+
+    from src.application.errors import ValidationError
+    from src.config.settings import get_settings
+    from src.domain.models.attachment import Attachment
+    from src.infrastructure.services.openai_service import OpenAIService
+
+    if not context.role.can_create():
+        raise PermissionDenied("Role not allowed to process OCR")
+
+    settings = get_settings()
+
+    # Extract file UUID from storage_key to use as owner_id
+    # storage_key format: "{env}/tenants/{tenant_id}/milk-productions/ocr/{file_uuid}.{ext}"
+    # The key contains at least two UUIDs; we want the one after "ocr/" (the last one)
+    uuid_pattern = r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+    all_uuids = re.findall(uuid_pattern, payload.storage_key, flags=re.IGNORECASE)
+    if not all_uuids:
+        raise ValidationError("Invalid storage_key format: UUID not found")
+    try:
+        file_uuid = UUID(all_uuids[-1])
+    except Exception:
+        raise ValidationError("Invalid storage_key format: Bad UUID segment")
+
+    # Create attachment record
+    attachment = Attachment.create(
+        tenant_id=context.tenant_id,
+        owner_type=OwnerType.MILK_PRODUCTION_OCR,
+        owner_id=file_uuid,  # Use S3 file UUID as owner_id
+        kind="photo",
+        storage_key=payload.storage_key,
+        mime_type=payload.mime_type,
+        size_bytes=payload.size_bytes,
+        title="OCR Milk Production",
+        description="Photo processed for milk production OCR",
+        is_primary=False,
+        position=0,
+    )
+    created_attachment = await uow.attachments.add(attachment)
+
+    # Get public URL for the image
+    try:
+        svc = request.app.state.storage_service
+    except AttributeError as exc:
+        raise RuntimeError("Storage service not configured") from exc
+    image_url = await svc.get_public_url(payload.storage_key)
+
+    # Extract milk records using OpenAI Vision API
+    if not settings.openai_api_key:
+        raise ValidationError("OpenAI API key not configured")
+
+    openai_service = OpenAIService(api_key=settings.openai_api_key.get_secret_value())
+
+    try:
+        extracted_records = await openai_service.extract_milk_records(image_url)
+    except ValueError as e:
+        raise ValidationError(f"Failed to process image: {str(e)}") from e
+    except Exception as e:
+        raise ValidationError(f"OpenAI processing error: {str(e)}") from e
+
+    # Get animals in lactation for matching
+    # First get the LACTATING status ID
+    statuses = await uow.animal_statuses.list_for_tenant(context.tenant_id)
+    lactating_status = next((s for s in statuses if s.code == "LACTATING"), None)
+
+    if lactating_status:
+        animals_result = await uow.animals.list(
+            context.tenant_id, status_ids=[lactating_status.id], limit=None
+        )
+        # Handle tuple return (list with cursor)
+        animals = animals_result[0] if isinstance(animals_result, tuple) else animals_result
+    else:
+        # Fallback: get all animals if LACTATING status not found
+        animals_result = await uow.animals.list(context.tenant_id, limit=None)
+        animals = animals_result[0] if isinstance(animals_result, tuple) else animals_result
+
+    # Perform fuzzy name matching
+    from src.interfaces.http.schemas.milk_productions import (
+        OcrMatchedResult,
+        OcrUnmatchedResult,
+    )
+
+    matched = []
+    unmatched = []
+
+    for extracted in extracted_records:
+        best_match = None
+        best_score = 0.0
+
+        # Simple name matching (TODO: improve with fuzzy matching library like fuzzywuzzy)
+        for animal in animals:
+            # Check both name and tag
+            name_lower = (animal.name or "").lower()
+            tag_lower = (animal.tag or "").lower()
+            extracted_lower = extracted["name"].lower()
+
+            # Exact match
+            if extracted_lower == name_lower or extracted_lower == tag_lower:
+                best_match = animal
+                best_score = 1.0
+                break
+
+            # Partial match
+            if extracted_lower in name_lower or name_lower in extracted_lower:
+                score = 0.8
+                if score > best_score:
+                    best_match = animal
+                    best_score = score
+
+        if best_match and best_score > 0.7:
+            matched.append(
+                OcrMatchedResult(
+                    animal_id=best_match.id,
+                    animal_name=best_match.name or "",
+                    animal_tag=best_match.tag or "",
+                    liters=Decimal(str(extracted["liters"])),
+                    match_confidence=best_score,
+                    extracted_name=extracted["name"],
+                )
+            )
+        else:
+            # Find suggestions (top 3 closest matches)
+            suggestions = []
+            for animal in animals[:3]:
+                suggestions.append(
+                    {
+                        "animal_id": str(animal.id),
+                        "name": animal.name or "",
+                        "similarity": 0.5,
+                    }
+                )
+            unmatched.append(
+                OcrUnmatchedResult(
+                    extracted_name=extracted["name"],
+                    liters=Decimal(str(extracted["liters"])),
+                    suggestions=suggestions,
+                )
+            )
+
+    # Update attachment metadata with OCR results
+    await uow.attachments.update_metadata(
+        context.tenant_id,
+        created_attachment.id,
+        title="OCR Milk Production - Processed",
+        description=f"Extracted {len(extracted_records)} records, matched {len(matched)}",
+    )
+
+    await uow.commit()
+
+    return ProcessOcrResponse(
+        image_url=image_url,
+        attachment_id=created_attachment.id,
+        matched=matched,
+        unmatched=unmatched,
+        total_extracted=len(extracted_records),
+    )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,6 +34,23 @@ async def lifespan(app: FastAPI):
             await engine.dispose()
 
 
+def _configure_logging(level_name: str) -> None:
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    root = logging.getLogger()
+    # Avoid adding duplicate handlers on reload
+    if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            fmt="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        )
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+    root.setLevel(level)
+    # Align common libraries
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "sqlalchemy.engine", "httpx"):
+        logging.getLogger(name).setLevel(level)
+
+
 def create_app(
     *,
     settings: Settings | None = None,
@@ -40,6 +58,7 @@ def create_app(
     jwt_service: JWTService | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
+    _configure_logging(settings.log_level)
     app = FastAPI(
         title="LecheFacil Backend",
         version="0.1.0",
