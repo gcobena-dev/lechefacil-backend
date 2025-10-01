@@ -49,10 +49,12 @@ async def test_create_milk_production_for_animal(
     assert body["density"] == "1.03"
     assert body["volume_l"] == "9.709"
 
-    # List by animal should include the record
+    # List by animal should include the record (paginated)
     list_resp = await client.get(
         f"/api/v1/milk-productions/?animal_id={animal_id}", headers=headers_manager
     )
     assert list_resp.status_code == 200
-    items = list_resp.json()
-    assert any(it["id"] == body["id"] for it in items)
+    payload = list_resp.json()
+    assert "items" in payload and isinstance(payload["items"], list)
+    assert payload["total"] >= 1
+    assert any(it["id"] == body["id"] for it in payload["items"])

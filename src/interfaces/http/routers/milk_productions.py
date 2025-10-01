@@ -13,6 +13,7 @@ from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.milk_productions import (
     MilkProductionCreate,
+    MilkProductionListResponse,
     MilkProductionResponse,
     MilkProductionsBulkCreate,
     MilkProductionUpdate,
@@ -36,11 +37,13 @@ def _to_liters(input_unit: str, quantity: Decimal, density: Decimal) -> tuple[De
     return (vol.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP), warnings)
 
 
-@router.get("/", response_model=list[MilkProductionResponse])
+@router.get("/", response_model=MilkProductionListResponse)
 async def list_productions(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     animal_id: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
@@ -55,13 +58,26 @@ async def list_productions(
 
         dt = dt + _Td(days=1)
     aid = _UUID(animal_id) if animal_id else None
-    items = await uow.milk_productions.list(
+    total = await uow.milk_productions.count(
         context.tenant_id,
         date_from=df,
         date_to=dt,
         animal_id=aid,
     )
-    return [MilkProductionResponse.model_validate(item) for item in items]
+    items = await uow.milk_productions.list(
+        context.tenant_id,
+        date_from=df,
+        date_to=dt,
+        animal_id=aid,
+        limit=limit,
+        offset=offset,
+    )
+    return MilkProductionListResponse(
+        items=[MilkProductionResponse.model_validate(item) for item in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("/", response_model=MilkProductionResponse, status_code=status.HTTP_201_CREATED)

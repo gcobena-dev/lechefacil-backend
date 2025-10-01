@@ -74,3 +74,10 @@ class MilkProductionsBulkCreate(BaseModel):
     notes: str | None = None
     # Items with only animal and quantity
     items: list[MilkProductionBulkItem]
+
+
+class MilkProductionListResponse(BaseModel):
+    items: list[MilkProductionResponse]
+    total: int
+    limit: int
+    offset: int

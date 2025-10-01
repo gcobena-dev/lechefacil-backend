@@ -17,7 +17,17 @@ class MilkProductionsRepository(Protocol):
         date_from: date | None,
         date_to: date | None,
         animal_id: UUID | None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[MilkProduction]: ...
+    async def count(
+        self,
+        tenant_id: UUID,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+        animal_id: UUID | None,
+    ) -> int: ...
     async def update(
         self, tenant_id: UUID, production_id: UUID, data: dict
     ) -> MilkProduction | None: ...

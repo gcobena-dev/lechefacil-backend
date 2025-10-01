@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.repositories.milk_productions import MilkProductionsRepository
@@ -82,6 +82,8 @@ class MilkProductionsSQLAlchemyRepository(MilkProductionsRepository):
         date_from: date | None,
         date_to: date | None,
         animal_id: UUID | None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[MilkProduction]:
         conds = [MilkProductionORM.tenant_id == tenant_id, MilkProductionORM.deleted_at.is_(None)]
         if date_from:
@@ -90,8 +92,32 @@ class MilkProductionsSQLAlchemyRepository(MilkProductionsRepository):
             conds.append(MilkProductionORM.date <= date_to)
         if animal_id is not None:
             conds.append(MilkProductionORM.animal_id == animal_id)
-        result = await self.session.execute(select(MilkProductionORM).where(and_(*conds)))
+        stmt = select(MilkProductionORM).where(and_(*conds))
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        if offset is not None:
+            stmt = stmt.offset(offset)
+        result = await self.session.execute(stmt)
         return [self._to_domain(r) for r in result.scalars().all()]
+
+    async def count(
+        self,
+        tenant_id: UUID,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+        animal_id: UUID | None,
+    ) -> int:
+        conds = [MilkProductionORM.tenant_id == tenant_id, MilkProductionORM.deleted_at.is_(None)]
+        if date_from:
+            conds.append(MilkProductionORM.date >= date_from)
+        if date_to:
+            conds.append(MilkProductionORM.date <= date_to)
+        if animal_id is not None:
+            conds.append(MilkProductionORM.animal_id == animal_id)
+        stmt = select(func.count()).select_from(MilkProductionORM).where(and_(*conds))
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
 
     async def update(
         self, tenant_id: UUID, production_id: UUID, data: dict
