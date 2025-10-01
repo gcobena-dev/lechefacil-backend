@@ -480,10 +480,7 @@ async def presign_ocr_upload(
     # Generate unique file ID for the upload
     file_id = uuid.uuid4()
     file_ext = payload.content_type.split("/")[-1] if "/" in payload.content_type else "jpg"
-    storage_key = (
-        f"tenants/{context.tenant_id}/"
-        f"milk-productions/ocr/{file_id}.{file_ext}"
-    )
+    storage_key = f"tenants/{context.tenant_id}/" f"milk-productions/ocr/{file_id}.{file_ext}"
     try:
         svc = request.app.state.storage_service
     except AttributeError as exc:
@@ -527,8 +524,8 @@ async def process_ocr_image(
         raise ValidationError("Invalid storage_key format: UUID not found")
     try:
         file_uuid = UUID(all_uuids[-1])
-    except Exception:
-        raise ValidationError("Invalid storage_key format: Bad UUID segment")
+    except Exception as e:
+        raise ValidationError("Invalid storage_key format: Bad UUID segment") from e
 
     # Create attachment record
     attachment = Attachment.create(

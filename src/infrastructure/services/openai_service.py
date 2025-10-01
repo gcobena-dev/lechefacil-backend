@@ -109,7 +109,7 @@ class OpenAIService:
 
                 try:
                     liters_float = float(liters_val)
-                except Exception as conv_e:
+                except Exception:
                     logger.debug("Skipping record idx=%s: cannot convert liters", idx)
                     continue
 
