@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     s3_signed_url_expires: int = 600
     jwt_audience: str | None = None
     # CORS
-    cors_allow_origins: list[str] = ["*"]
+    cors_allow_origins: str = "*"
     # Email (disabled for now)
     email_provider: str = "logging"  # logging only
     email_from_name: str = "LecheFacil"
@@ -48,13 +48,12 @@ class Settings(BaseSettings):
             return value.replace("postgresql://", "postgresql+asyncpg://", 1)
         return value
 
-    @field_validator("cors_allow_origins", mode="before")
-    @classmethod
-    def parse_cors_list(cls, value):  # type: ignore[no-untyped-def]
-        if isinstance(value, str):
-            # Support comma-separated env values
-            return [v.strip() for v in value.split(",") if v.strip()]
-        return value
+    @property
+    def cors_allow_origins_list(self) -> list[str]:
+        """Convert cors_allow_origins string to list"""
+        if isinstance(self.cors_allow_origins, str):
+            return [v.strip() for v in self.cors_allow_origins.split(",") if v.strip()]
+        return self.cors_allow_origins
 
     @property
     def email_admin_recipients_list(self) -> list[str]:
