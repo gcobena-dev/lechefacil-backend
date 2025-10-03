@@ -22,6 +22,7 @@ from src.interfaces.http.routers import (
     dashboard,
     lactations,
     lots,
+    mobile,
     reports,
 )
 from src.interfaces.http.routers import auth as auth_router
@@ -120,6 +121,7 @@ def create_app(
     api.include_router(settings_router.router)
     api.include_router(dashboard.router)
     api.include_router(reports.router)
+    api.include_router(mobile.router)
     from src.interfaces.http.routers import access_requests as access_requests_router
 
     api.include_router(access_requests_router.router)

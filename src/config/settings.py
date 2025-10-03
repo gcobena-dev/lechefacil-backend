@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     s3_prefix: str = ""  # e.g. "dev/" or "prod/"
     s3_public_url_base: str | None = None
     s3_signed_url_expires: int = 600
+    # S3 mobile deployments (separate bucket)
+    s3_mobile_bucket: str | None = None
+    s3_mobile_public_url_base: str | None = None
     jwt_audience: str | None = None
     # CORS
     cors_allow_origins: str = "*"
