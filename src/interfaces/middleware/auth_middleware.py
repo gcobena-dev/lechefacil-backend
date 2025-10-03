@@ -24,6 +24,7 @@ PUBLIC_PATHS: Iterable[str] = (
     "/api/v1/auth/logout",
     "/api/v1/auth/my-tenants",
     "/api/v1/access-requests",
+    "/api/v1/mobile",  # Mobile update endpoints (no auth required)
     # memberships is admin-only and requires tenant header; do not list here
     "/docs",
     "/openapi.json",
