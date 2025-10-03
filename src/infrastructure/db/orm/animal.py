@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, Integer, String, UniqueConstraint, Uuid, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.db.base import Base
@@ -25,6 +25,22 @@ class AnimalORM(Base):
     current_lot_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     status_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+    # Genealogy fields
+    sex: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    dam_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("animals.id"), nullable=True
+    )
+    sire_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("animals.id"), nullable=True
+    )
+    external_sire_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_sire_registry: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # Disposition fields
+    disposition_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disposition_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

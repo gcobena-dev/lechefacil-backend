@@ -22,6 +22,10 @@ from src.infrastructure.db.orm import (
     milk_production,  # noqa: F401
     tenant_config,  # noqa: F401
     user,  # noqa: F401
+    animal_event,  # noqa: F401
+    animal_parentage,  # noqa: F401
+    animal_certificate,  # noqa: F401
+    lactation,  # noqa: F401
 )
 
 config = context.config

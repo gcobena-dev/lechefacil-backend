@@ -26,6 +26,10 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.session: AsyncSession | None = None
         self.animals = None
         self.animal_statuses = None
+        self.lactations = None
+        self.animal_events = None
+        self.animal_parentage = None
+        self.animal_certificates = None
         self.users = None
         self.memberships = None
         self.attachments = None
@@ -39,11 +43,21 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
+        from src.infrastructure.repos.animal_certificates_sqlalchemy import (
+            AnimalCertificatesSQLAlchemyRepository,
+        )
+        from src.infrastructure.repos.animal_events_sqlalchemy import (
+            AnimalEventsSQLAlchemyRepository,
+        )
+        from src.infrastructure.repos.animal_parentage_sqlalchemy import (
+            AnimalParentageSQLAlchemyRepository,
+        )
         from src.infrastructure.repos.animal_statuses_sqlalchemy import AnimalStatusesSqlAlchemyRepo
         from src.infrastructure.repos.animals_sqlalchemy import AnimalsSQLAlchemyRepository
         from src.infrastructure.repos.attachments_sqlalchemy import AttachmentsSQLAlchemyRepository
         from src.infrastructure.repos.breeds_sqlalchemy import BreedsSQLAlchemyRepository
         from src.infrastructure.repos.buyers_sqlalchemy import BuyersSQLAlchemyRepository
+        from src.infrastructure.repos.lactations_sqlalchemy import LactationsSQLAlchemyRepository
         from src.infrastructure.repos.lots_sqlalchemy import LotsSQLAlchemyRepository
         from src.infrastructure.repos.memberships_sqlalchemy import MembershipsSQLAlchemyRepository
         from src.infrastructure.repos.milk_deliveries_sqlalchemy import (
@@ -60,6 +74,10 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
 
         self.animals = AnimalsSQLAlchemyRepository(self.session)
         self.animal_statuses = AnimalStatusesSqlAlchemyRepo(self.session)
+        self.lactations = LactationsSQLAlchemyRepository(self.session)
+        self.animal_events = AnimalEventsSQLAlchemyRepository(self.session)
+        self.animal_parentage = AnimalParentageSQLAlchemyRepository(self.session)
+        self.animal_certificates = AnimalCertificatesSQLAlchemyRepository(self.session)
         self.users = UsersSQLAlchemyRepository(self.session)
         self.memberships = MembershipsSQLAlchemyRepository(self.session)
         self.attachments = AttachmentsSQLAlchemyRepository(self.session)
@@ -83,6 +101,10 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.session = None
             self.animals = None
             self.animal_statuses = None
+            self.lactations = None
+            self.animal_events = None
+            self.animal_parentage = None
+            self.animal_certificates = None
             self.users = None
             self.memberships = None
             self.attachments = None

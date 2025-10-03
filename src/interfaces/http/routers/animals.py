@@ -217,6 +217,12 @@ async def create_animal_endpoint(
             current_lot_id=getattr(payload, "lot_id", None),
             status_id=status_id,
             photo_url=payload.photo_url,
+            # Genealogy fields
+            sex=payload.sex,
+            dam_id=payload.dam_id,
+            sire_id=payload.sire_id,
+            external_sire_code=payload.external_sire_code,
+            external_sire_registry=payload.external_sire_registry,
         ),
     )
     # Enrich response with legacy status fallback if enrichment cannot be done later
@@ -295,6 +301,12 @@ async def update_animal_endpoint(
         "current_lot_id": getattr(payload, "lot_id", None),
         "status_id": status_id,
         "photo_url": payload.photo_url,
+        # Genealogy fields
+        "sex": payload.sex,
+        "dam_id": payload.dam_id,
+        "sire_id": payload.sire_id,
+        "external_sire_code": payload.external_sire_code,
+        "external_sire_registry": payload.external_sire_registry,
     }
     try:
         if getattr(payload, "breed_id", None):

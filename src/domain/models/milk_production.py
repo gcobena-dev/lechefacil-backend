@@ -19,6 +19,7 @@ class MilkProduction:
     input_quantity: Decimal
     density: Decimal  # e.g., 1.03
     volume_l: Decimal
+    lactation_id: UUID | None = None
     price_snapshot: Decimal | None = None
     currency: str = "USD"
     amount: Decimal | None = None
@@ -35,6 +36,7 @@ class MilkProduction:
         tenant_id: UUID,
         animal_id: UUID | None,
         buyer_id: UUID | None,
+        lactation_id: UUID | None = None,
         date_time: datetime,
         shift: str,
         input_unit: str,
@@ -54,6 +56,7 @@ class MilkProduction:
             tenant_id=tenant_id,
             animal_id=animal_id,
             buyer_id=buyer_id,
+            lactation_id=lactation_id,
             date_time=date_time,
             date=date_time.date(),
             shift=shift,
