@@ -12,6 +12,7 @@ from src.domain.models.animal import Animal
 class ListAnimalsResult:
     items: list[Animal]
     next_cursor: UUID | None
+    total: int | None = None
 
 
 async def execute(
@@ -19,7 +20,8 @@ async def execute(
     tenant_id: UUID,
     *,
     limit: int,
-    cursor: UUID | None,
+    cursor: UUID | None = None,
+    offset: int | None = None,
     status_codes: list[str] | None = None,
 ) -> ListAnimalsResult:
     if limit <= 0 or limit > 100:
@@ -35,10 +37,15 @@ async def execute(
                 status_ids.append(status.id)
         # If no valid statuses found, return empty result
         if not status_ids:
-            return ListAnimalsResult(items=[], next_cursor=None)
+            return ListAnimalsResult(items=[], next_cursor=None, total=0)
 
     items, next_cursor = await uow.animals.list(
-        tenant_id, limit=limit, cursor=cursor, status_ids=status_ids
+        tenant_id, limit=limit, cursor=cursor, offset=offset, status_ids=status_ids
     )
 
-    return ListAnimalsResult(items=items, next_cursor=next_cursor)
+    # Get total count when using offset pagination
+    total = None
+    if offset is not None:
+        total = await uow.animals.count(tenant_id, status_ids=status_ids)
+
+    return ListAnimalsResult(items=items, next_cursor=next_cursor, total=total)

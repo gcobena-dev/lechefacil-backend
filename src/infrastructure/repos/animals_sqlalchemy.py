@@ -30,6 +30,13 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             current_lot_id=orm.current_lot_id,
             status_id=orm.status_id,
             photo_url=orm.photo_url,
+            sex=orm.sex,
+            dam_id=orm.dam_id,
+            sire_id=orm.sire_id,
+            external_sire_code=orm.external_sire_code,
+            external_sire_registry=orm.external_sire_registry,
+            disposition_at=orm.disposition_at,
+            disposition_reason=orm.disposition_reason,
             deleted_at=orm.deleted_at,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
@@ -50,6 +57,13 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             current_lot_id=animal.current_lot_id,
             status_id=animal.status_id,
             photo_url=animal.photo_url,
+            sex=animal.sex,
+            dam_id=animal.dam_id,
+            sire_id=animal.sire_id,
+            external_sire_code=animal.external_sire_code,
+            external_sire_registry=animal.external_sire_registry,
+            disposition_at=animal.disposition_at,
+            disposition_reason=animal.disposition_reason,
             deleted_at=animal.deleted_at,
             created_at=animal.created_at,
             updated_at=animal.updated_at,
@@ -79,6 +93,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         *,
         limit: int | None = None,
         cursor: UUID | None = None,
+        offset: int | None = None,
         is_active: bool | None = None,
         status_ids: list[UUID] | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]:
@@ -111,29 +126,61 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
                 if inactive_status_ids:
                     stmt = stmt.where(AnimalORM.status_id.in_(inactive_status_ids))
 
-        if cursor:
-            stmt = stmt.where(AnimalORM.id > cursor)
-
         stmt = stmt.order_by(AnimalORM.id)
 
-        if limit is not None:
-            stmt = stmt.limit(limit + 1)
+        # Use offset-based pagination if offset is provided
+        if offset is not None:
+            stmt = stmt.offset(offset)
+            if limit is not None:
+                stmt = stmt.limit(limit)
             result = await self.session.execute(stmt)
             rows = result.scalars().all()
-            has_more = len(rows) > limit
-            items = rows[:limit]
-            next_cursor = items[-1].id if has_more else None
-            return [self._to_domain(item) for item in items], next_cursor
+            # For offset pagination, return items and None cursor
+            return [self._to_domain(item) for item in rows], None
+        # Use cursor-based pagination otherwise
+        elif cursor:
+            stmt = stmt.where(AnimalORM.id > cursor)
+            if limit is not None:
+                stmt = stmt.limit(limit + 1)
+                result = await self.session.execute(stmt)
+                rows = result.scalars().all()
+                has_more = len(rows) > limit
+                items = rows[:limit]
+                next_cursor = items[-1].id if has_more else None
+                return [self._to_domain(item) for item in items], next_cursor
+            else:
+                result = await self.session.execute(stmt)
+                rows = result.scalars().all()
+                return [self._to_domain(item) for item in rows], None
         else:
-            result = await self.session.execute(stmt)
-            rows = result.scalars().all()
-            return [self._to_domain(item) for item in rows]
+            # No pagination specified
+            if limit is not None:
+                stmt = stmt.limit(limit + 1)
+                result = await self.session.execute(stmt)
+                rows = result.scalars().all()
+                has_more = len(rows) > limit
+                items = rows[:limit]
+                next_cursor = items[-1].id if has_more else None
+                return [self._to_domain(item) for item in items], next_cursor
+            else:
+                result = await self.session.execute(stmt)
+                rows = result.scalars().all()
+                return [self._to_domain(item) for item in rows]
 
-    async def count(self, tenant_id: UUID, *, is_active: bool | None = None) -> int:
+    async def count(
+        self,
+        tenant_id: UUID,
+        *,
+        is_active: bool | None = None,
+        status_ids: list[UUID] | None = None,
+    ) -> int:
         stmt = select(func.count(AnimalORM.id)).where(AnimalORM.tenant_id == tenant_id)
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
 
-        if is_active is not None:
+        # Filter by status_ids if provided
+        if status_ids is not None:
+            stmt = stmt.where(AnimalORM.status_id.in_(status_ids))
+        elif is_active is not None:
             # Legacy is_active filter - implemented using status codes
             # Get inactive status IDs (SOLD, DEAD, CULLED)
             from .animal_statuses_sqlalchemy import AnimalStatusORM

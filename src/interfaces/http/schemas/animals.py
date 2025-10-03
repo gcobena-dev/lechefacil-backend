@@ -19,6 +19,13 @@ class AnimalBase(BaseModel):
     status_id: UUID | None = None
     photo_url: str | None = None
 
+    # Genealogy fields
+    sex: str | None = None
+    dam_id: UUID | None = None
+    sire_id: UUID | None = None
+    external_sire_code: str | None = None
+    external_sire_registry: str | None = None
+
 
 class AnimalCreate(AnimalBase):
     # Legacy support: allow status code string
@@ -38,6 +45,13 @@ class AnimalUpdate(BaseModel):
     # Legacy support: allow status code string
     status: str | None = None
     photo_url: str | None = None
+
+    # Genealogy fields
+    sex: str | None = None
+    dam_id: UUID | None = None
+    sire_id: UUID | None = None
+    external_sire_code: str | None = None
+    external_sire_registry: str | None = None
 
 
 class AnimalResponse(BaseModel):
@@ -59,6 +73,18 @@ class AnimalResponse(BaseModel):
     status: str | None = None
     status_desc: str | None = None
     photo_url: str | None
+
+    # Genealogy fields
+    sex: str | None = None
+    dam_id: UUID | None = None
+    sire_id: UUID | None = None
+    external_sire_code: str | None = None
+    external_sire_registry: str | None = None
+
+    # Disposition fields (read-only, set by events)
+    disposition_at: datetime | None = None
+    disposition_reason: str | None = None
+
     created_at: datetime
     updated_at: datetime
     version: int
@@ -70,6 +96,7 @@ class AnimalResponse(BaseModel):
 class AnimalsListResponse(BaseModel):
     items: list[AnimalResponse]
     next_cursor: str | None = None
+    total: int | None = None
 
 
 class AnimalValueResponse(BaseModel):

@@ -22,6 +22,12 @@ class UpdateAnimalInput:
     current_lot_id: UUID | None = None
     status_id: UUID | None = None
     photo_url: str | None = None
+    # Genealogy fields
+    sex: str | None = None
+    dam_id: UUID | None = None
+    sire_id: UUID | None = None
+    external_sire_code: str | None = None
+    external_sire_registry: str | None = None
 
 
 def ensure_can_update(role: Role) -> None:
@@ -53,6 +59,12 @@ async def execute(
         "current_lot_id",
         "status_id",
         "photo_url",
+        # Genealogy fields
+        "sex",
+        "dam_id",
+        "sire_id",
+        "external_sire_code",
+        "external_sire_registry",
     ):
         value = getattr(payload, field_name)
         if value is not None:

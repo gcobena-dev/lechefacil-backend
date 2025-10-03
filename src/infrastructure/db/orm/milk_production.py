@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import DECIMAL, Date, DateTime, String, Uuid, func
+from sqlalchemy import DECIMAL, Date, DateTime, Index, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.db.base import Base
@@ -11,11 +11,16 @@ from src.infrastructure.db.base import Base
 
 class MilkProductionORM(Base):
     __tablename__ = "milk_productions"
+    __table_args__ = (
+        Index("ix_milk_productions_tenant_animal_date", "tenant_id", "animal_id", "date"),
+        Index("ix_milk_productions_lactation", "lactation_id"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), index=True, nullable=False)
     animal_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True, index=True)
     buyer_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    lactation_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     date_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     shift: Mapped[str] = mapped_column(String(2), nullable=False, default="AM")
