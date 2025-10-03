@@ -96,6 +96,7 @@ class AnimalResponse(BaseModel):
 class AnimalsListResponse(BaseModel):
     items: list[AnimalResponse]
     next_cursor: str | None = None
+    total: int | None = None
 
 
 class AnimalValueResponse(BaseModel):

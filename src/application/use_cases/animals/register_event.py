@@ -234,11 +234,11 @@ async def _handle_birth_event(
     if calf_sex not in ["MALE", "FEMALE"]:
         raise ValidationError("calf_sex must be MALE or FEMALE")
 
-    # Get CALF status
+    # Get CALF status or use provided status_id
     calf_status = await uow.animal_statuses.get_by_code(tenant_id, "CALF")
     calf_status_id = calf_status.id if calf_status else None
 
-    # Create the calf
+    # Create the calf with breed information
     calf = Animal.create(
         tenant_id=tenant_id,
         tag=calf_tag,
@@ -247,6 +247,10 @@ async def _handle_birth_event(
         birth_date=event.occurred_at.date(),
         dam_id=animal.id,  # Mother is the animal that had the birth event
         status_id=calf_status_id,
+        breed=event.data.get("breed"),
+        breed_variant=event.data.get("breed_variant"),
+        breed_id=event.data.get("breed_id"),
+        current_lot_id=event.data.get("current_lot_id"),
     )
 
     calf_created = await uow.animals.add(calf)

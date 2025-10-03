@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.repositories.animal_events import AnimalEventsRepository
@@ -69,6 +69,31 @@ class AnimalEventsSQLAlchemyRepository(AnimalEventsRepository):
         )
         result = await self.session.execute(stmt)
         return [self._to_domain(orm) for orm in result.scalars().all()]
+
+    async def list_by_animal_paginated(
+        self, tenant_id: UUID, animal_id: UUID, offset: int, limit: int
+    ) -> list[AnimalEvent]:
+        stmt = (
+            select(AnimalEventORM)
+            .where(AnimalEventORM.tenant_id == tenant_id)
+            .where(AnimalEventORM.animal_id == animal_id)
+            .order_by(AnimalEventORM.occurred_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [self._to_domain(orm) for orm in result.scalars().all()]
+
+    async def count_by_animal(self, tenant_id: UUID, animal_id: UUID) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(AnimalEventORM)
+            .where(AnimalEventORM.tenant_id == tenant_id)
+            .where(AnimalEventORM.animal_id == animal_id)
+        )
+        result = await self.session.execute(stmt)
+        count = result.scalar_one()
+        return int(count or 0)
 
     async def last_of_type(
         self, tenant_id: UUID, animal_id: UUID, event_type: str

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from src.application.use_cases.animals import list_events, register_event
 from src.infrastructure.auth.context import AuthContext
@@ -57,7 +57,8 @@ async def create_animal_event(
     status_code = None
     if result.new_status_id:
         async with uow:
-            animal_status = await uow.animal_statuses.get(context.tenant_id, result.new_status_id)
+            # Repo exposes get_by_id and get_by_code; use get_by_id here
+            animal_status = await uow.animal_statuses.get_by_id(result.new_status_id)
             if animal_status:
                 status_code = animal_status.code
 
@@ -82,15 +83,27 @@ async def create_animal_event(
 )
 async def get_animal_events(
     animal_id: UUID,
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(10, ge=1, le=100, description="Items per page"),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalEventsListResponse:
-    """Get the timeline of events for an animal."""
-    events = await list_events.execute(
+    """Get the timeline of events for an animal (paginated)."""
+    # Optional: constrain per_page to frontend options 10,20,30,50 while allowing API flexibility
+    if per_page not in (10, 20, 30, 50):
+        per_page = 10
+
+    result = await list_events.execute(
         uow=uow,
         tenant_id=context.tenant_id,
         role=context.role,
         animal_id=animal_id,
+        page=page,
+        per_page=per_page,
     )
-
-    return AnimalEventsListResponse(items=[AnimalEventResponse.model_validate(e) for e in events])
+    return AnimalEventsListResponse(
+        items=[AnimalEventResponse.model_validate(e) for e in result.items],
+        total=result.total,
+        page=result.page,
+        per_page=result.per_page,
+    )

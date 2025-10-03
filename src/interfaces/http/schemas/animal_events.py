@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -18,7 +18,8 @@ class AnimalEventCreate(BaseModel):
     - SERVICE: { sire_id?: UUID, external_sire_code?: string,
     external_sire_registry?: string, method?: string }
     - EMBRYO_TRANSFER: { donor_id?: UUID, recipient_id?: UUID, embryo_code?: string }
-    - BIRTH: { calf_tag: string, calf_sex: string, calf_name?: string, birth_weight?: number }
+    - BIRTH: { calf_tag: string, calf_sex: string, calf_name?: string, birth_weight?: number,
+    breed?: string, breed_variant?: string, breed_id?: UUID, current_lot_id?: UUID }
     - ABORTION: { cause?: string, gestation_days?: number }
     - TRANSFER: { from_lot?: string, to_lot?: string, reason?: string }
     """
@@ -49,6 +50,19 @@ class AnimalEventCreate(BaseModel):
             raise ValueError(f"Invalid event type. Must be one of: {', '.join(valid_types)}")
         return v
 
+    @field_validator("occurred_at")
+    def ensure_aware_utc(cls, v: datetime) -> datetime:
+        """Ensure `occurred_at` is timezone-aware and in UTC.
+
+        If a naive datetime is provided (no offset in the payload), we
+        interpret it as UTC to avoid comparisons between naive and aware
+        datetimes downstream.
+        """
+        if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
+            return v.replace(tzinfo=timezone.utc)
+        # Normalize to UTC in case an offset was provided
+        return v.astimezone(timezone.utc)
+
 
 class AnimalEventResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -68,6 +82,9 @@ class AnimalEventResponse(BaseModel):
 
 class AnimalEventsListResponse(BaseModel):
     items: list[AnimalEventResponse]
+    total: int
+    page: int
+    per_page: int
 
 
 class AnimalEventEffects(BaseModel):
@@ -93,6 +110,12 @@ class BirthEventData(BaseModel):
     birth_weight: float | None = None
     assisted: bool = False
     notes: str | None = None
+    # Breed information
+    breed: str | None = None
+    breed_variant: str | None = None
+    breed_id: UUID | None = None
+    # Lot assignment
+    current_lot_id: UUID | None = None
 
 
 class ServiceEventData(BaseModel):

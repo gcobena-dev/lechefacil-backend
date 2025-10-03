@@ -84,6 +84,7 @@ async def get_next_tag(
 async def list_animals_endpoint(
     limit: int = Query(20, ge=1, le=100),
     cursor: str | None = Query(None),
+    offset: int | None = Query(None, ge=0),
     status_codes: list[str] = Query(
         None, description="Filter by status codes. Repeat param or use comma-separated"
     ),
@@ -100,6 +101,7 @@ async def list_animals_endpoint(
         context.tenant_id,
         limit=limit,
         cursor=cursor_uuid,
+        offset=offset,
         status_codes=status_codes,
     )
     # Enrich with primary_photo_url, photos_count, and
@@ -157,7 +159,7 @@ async def list_animals_endpoint(
         enriched_items.append(AnimalResponse.model_validate(data))
     items = enriched_items
     next_cursor = str(result.next_cursor) if result.next_cursor else None
-    return AnimalsListResponse(items=items, next_cursor=next_cursor)
+    return AnimalsListResponse(items=items, next_cursor=next_cursor, total=result.total)
 
 
 @router.post("/", response_model=AnimalResponse, status_code=status.HTTP_201_CREATED)

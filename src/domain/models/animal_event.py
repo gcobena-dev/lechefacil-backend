@@ -45,6 +45,12 @@ class AnimalEvent:
         new_status_id: UUID | None = None,
     ) -> AnimalEvent:
         now = datetime.now(timezone.utc)
+        # Ensure occurred_at is timezone-aware and in UTC
+        if occurred_at.tzinfo is None or occurred_at.tzinfo.utcoffset(occurred_at) is None:
+            occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+        else:
+            occurred_at = occurred_at.astimezone(timezone.utc)
+
         return cls(
             id=uuid4(),
             tenant_id=tenant_id,

@@ -562,6 +562,23 @@
             }
           },
           {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          },
+          {
             "name": "status_codes",
             "in": "query",
             "required": false,
@@ -1241,7 +1258,7 @@
           "animal-events"
         ],
         "summary": "Get Animal Events",
-        "description": "Get the timeline of events for an animal.",
+        "description": "Get the timeline of events for an animal (paginated).",
         "operationId": "get_animal_events_api_v1_animals__animal_id__events_get",
         "parameters": [
           {
@@ -1253,6 +1270,33 @@
               "format": "uuid",
               "title": "Animal Id"
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-based)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-based)"
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 10,
+              "title": "Per Page"
+            },
+            "description": "Items per page"
           }
         ],
         "responses": {
@@ -4501,7 +4545,7 @@
           "occurred_at"
         ],
         "title": "AnimalEventCreate",
-        "description": "Schema for creating animal events.\n\nEvent types and their required data fields:\n- CALVING: No extra data required (automatically manages lactations)\n- DRY_OFF: No extra data required\n- SALE: { buyer?: string, price?: number, notes?: string }\n- DEATH: { cause?: string, notes?: string }\n- CULL: { reason: string, notes?: string }\n- SERVICE: { sire_id?: UUID, external_sire_code?: string,\nexternal_sire_registry?: string, method?: string }\n- EMBRYO_TRANSFER: { donor_id?: UUID, recipient_id?: UUID, embryo_code?: string }\n- BIRTH: { calf_tag: string, calf_sex: string, calf_name?: string, birth_weight?: number }\n- ABORTION: { cause?: string, gestation_days?: number }\n- TRANSFER: { from_lot?: string, to_lot?: string, reason?: string }"
+        "description": "Schema for creating animal events.\n\nEvent types and their required data fields:\n- CALVING: No extra data required (automatically manages lactations)\n- DRY_OFF: No extra data required\n- SALE: { buyer?: string, price?: number, notes?: string }\n- DEATH: { cause?: string, notes?: string }\n- CULL: { reason: string, notes?: string }\n- SERVICE: { sire_id?: UUID, external_sire_code?: string,\nexternal_sire_registry?: string, method?: string }\n- EMBRYO_TRANSFER: { donor_id?: UUID, recipient_id?: UUID, embryo_code?: string }\n- BIRTH: { calf_tag: string, calf_sex: string, calf_name?: string, birth_weight?: number,\nbreed?: string, breed_variant?: string, breed_id?: UUID, current_lot_id?: UUID }\n- ABORTION: { cause?: string, gestation_days?: number }\n- TRANSFER: { from_lot?: string, to_lot?: string, reason?: string }"
       },
       "AnimalEventEffects": {
         "properties": {
@@ -4707,11 +4751,26 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
           }
         },
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "total",
+          "page",
+          "per_page"
         ],
         "title": "AnimalEventsListResponse"
       },
@@ -5290,6 +5349,17 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           }
         },
         "type": "object",
