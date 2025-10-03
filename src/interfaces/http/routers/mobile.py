@@ -32,7 +32,7 @@ async def get_version(settings: Settings = Depends(get_app_settings)) -> dict:
             return resp.json()
         except httpx.HTTPError as e:
             logger.error(f"Failed to fetch version: {e}")
-            raise HTTPException(status_code=503, detail="Version info unavailable")
+            raise HTTPException(status_code=503, detail="Version info unavailable") from str(e)
 
 
 @router.get("/check-update")

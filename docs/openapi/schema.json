@@ -3524,6 +3524,75 @@
         }
       }
     },
+    "/api/v1/mobile/version": {
+      "get": {
+        "tags": [
+          "mobile"
+        ],
+        "summary": "Get Version",
+        "description": "Get latest mobile app version from S3",
+        "operationId": "get_version_api_v1_mobile_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Version Api V1 Mobile Version Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mobile/check-update": {
+      "get": {
+        "tags": [
+          "mobile"
+        ],
+        "summary": "Check Update",
+        "description": "Check if update is available for given version",
+        "operationId": "check_update_api_v1_mobile_check_update_get",
+        "parameters": [
+          {
+            "name": "current_version",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Current Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Check Update Api V1 Mobile Check Update Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/access-requests/": {
       "post": {
         "tags": [
