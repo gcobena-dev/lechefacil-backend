@@ -22,6 +22,7 @@ class UpdateAnimalInput:
     current_lot_id: UUID | None = None
     status_id: UUID | None = None
     photo_url: str | None = None
+    labels: list[str] | None = None
     # Genealogy fields
     sex: str | None = None
     dam_id: UUID | None = None
@@ -59,6 +60,7 @@ async def execute(
         "current_lot_id",
         "status_id",
         "photo_url",
+        "labels",
         # Genealogy fields
         "sex",
         "dam_id",

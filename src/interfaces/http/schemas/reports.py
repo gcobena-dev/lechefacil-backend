@@ -30,6 +30,10 @@ class ReportDefinitionsResponse(BaseModel):
 class ReportFilters(BaseModel):
     animal_ids: list[UUID] | None = None
     buyer_ids: list[UUID] | None = None
+    labels: list[str] | None = None
+    breed_ids: list[UUID] | None = None
+    lot_ids: list[UUID] | None = None
+    status_ids: list[UUID] | None = None
     include_inactive: bool = False
 
 

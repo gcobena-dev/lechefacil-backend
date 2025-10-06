@@ -22,6 +22,7 @@ class CreateAnimalInput:
     current_lot_id: UUID | None = None
     status_id: UUID | None = None
     photo_url: str | None = None
+    labels: list[str] | None = None
     # Genealogy fields
     sex: str | None = None
     dam_id: UUID | None = None
@@ -54,6 +55,7 @@ async def execute(
         current_lot_id=payload.current_lot_id,
         status_id=payload.status_id,
         photo_url=payload.photo_url,
+        labels=payload.labels,
         # Genealogy fields
         sex=payload.sex,
         dam_id=payload.dam_id,

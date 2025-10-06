@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class AnimalBase(BaseModel):
@@ -18,6 +18,7 @@ class AnimalBase(BaseModel):
     lot_id: UUID | None = None  # optional FK
     status_id: UUID | None = None
     photo_url: str | None = None
+    labels: list[str] = Field(default_factory=list, max_length=6)
 
     # Genealogy fields
     sex: str | None = None
@@ -25,6 +26,35 @@ class AnimalBase(BaseModel):
     sire_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
+
+    @field_validator("labels")
+    @classmethod
+    def validate_labels(cls, v: list[str]) -> list[str]:
+        if len(v) > 6:
+            raise ValueError("Maximum 6 labels allowed")
+
+        # Normalize and validate each label
+        normalized = []
+        for label in v:
+            # Remove special characters, keep only alphanumeric
+            clean_label = "".join(c for c in label if c.isalnum() or c.isspace()).strip()
+            if not clean_label:
+                continue
+            # Max 30 characters per label
+            if len(clean_label) > 30:
+                raise ValueError("Each label must be 30 characters or less")
+            normalized.append(clean_label)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique = []
+        for label in normalized:
+            label_lower = label.lower()
+            if label_lower not in seen:
+                seen.add(label_lower)
+                unique.append(label)
+
+        return unique
 
 
 class AnimalCreate(AnimalBase):
@@ -45,6 +75,7 @@ class AnimalUpdate(BaseModel):
     # Legacy support: allow status code string
     status: str | None = None
     photo_url: str | None = None
+    labels: list[str] | None = None
 
     # Genealogy fields
     sex: str | None = None
@@ -52,6 +83,37 @@ class AnimalUpdate(BaseModel):
     sire_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
+
+    @field_validator("labels")
+    @classmethod
+    def validate_labels(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if len(v) > 6:
+            raise ValueError("Maximum 6 labels allowed")
+
+        # Normalize and validate each label
+        normalized = []
+        for label in v:
+            # Remove special characters, keep only alphanumeric
+            clean_label = "".join(c for c in label if c.isalnum() or c.isspace()).strip()
+            if not clean_label:
+                continue
+            # Max 30 characters per label
+            if len(clean_label) > 30:
+                raise ValueError("Each label must be 30 characters or less")
+            normalized.append(clean_label)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique = []
+        for label in normalized:
+            label_lower = label.lower()
+            if label_lower not in seen:
+                seen.add(label_lower)
+                unique.append(label)
+
+        return unique
 
 
 class AnimalResponse(BaseModel):
@@ -73,6 +135,7 @@ class AnimalResponse(BaseModel):
     status: str | None = None
     status_desc: str | None = None
     photo_url: str | None
+    labels: list[str]
 
     # Genealogy fields
     sex: str | None = None

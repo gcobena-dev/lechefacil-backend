@@ -14,16 +14,72 @@ class ReportService:
     def __init__(self, pdf_generator: PDFGenerator):
         self.pdf_generator = pdf_generator
 
+    async def _get_filtered_animal_ids(
+        self, tenant_id: UUID, request: ReportRequest, uow: UnitOfWork
+    ) -> list[UUID] | None:
+        """Get animal IDs based on filters (labels, breed, lot, status, or specific animal_ids)"""
+        if not request.filters:
+            return None
+
+        # If specific animal_ids provided, use those
+        if request.filters.animal_ids:
+            return request.filters.animal_ids
+
+        # If any other filters provided, get all animals and filter
+        if (
+            request.filters.labels
+            or request.filters.breed_ids
+            or request.filters.lot_ids
+            or request.filters.status_ids
+        ):
+            animals = await uow.animals.list(tenant_id)
+            filtered_animals = []
+
+            for animal in animals:
+                # Filter by labels
+                if request.filters.labels:
+                    if not animal.labels or not any(
+                        label in animal.labels for label in request.filters.labels
+                    ):
+                        continue
+
+                # Filter by breed_ids
+                if request.filters.breed_ids:
+                    if not animal.breed_id or animal.breed_id not in request.filters.breed_ids:
+                        continue
+
+                # Filter by lot_ids
+                if request.filters.lot_ids:
+                    if (
+                        not animal.current_lot_id
+                        or animal.current_lot_id not in request.filters.lot_ids
+                    ):
+                        continue
+
+                # Filter by status_ids
+                if request.filters.status_ids:
+                    if not animal.status_id or animal.status_id not in request.filters.status_ids:
+                        continue
+
+                filtered_animals.append(animal.id)
+
+            return filtered_animals if filtered_animals else None
+
+        return None
+
     async def generate_production_report(
         self, tenant_id: UUID, request: ReportRequest, uow: UnitOfWork
     ) -> ReportResponse:
         """Generate production report"""
         report_id = str(uuid.uuid4())
 
+        # Get filtered animal IDs
+        animal_ids = await self._get_filtered_animal_ids(tenant_id, request, uow)
+
         # Get production data - if specific animals requested, process multiple queries
-        if request.filters and request.filters.animal_ids:
+        if animal_ids:
             all_productions = []
-            for animal_id in request.filters.animal_ids:
+            for animal_id in animal_ids:
                 animal_productions = await uow.milk_productions.list(
                     tenant_id,
                     date_from=request.date_from,
@@ -96,6 +152,48 @@ class ReportService:
                 )
 
         if request.format == "json":
+            # Build daily production by animal matrix
+            daily_by_animal = {}
+            for prod in productions:
+                if prod.animal_id:
+                    date_key = prod.date.strftime("%d/%m") if prod.date else "Unknown"
+                    animal_id = str(prod.animal_id)
+
+                    if date_key not in daily_by_animal:
+                        daily_by_animal[date_key] = {}
+
+                    if animal_id not in daily_by_animal[date_key]:
+                        daily_by_animal[date_key][animal_id] = {
+                            "weight_lb": 0.0,
+                            "total_liters": 0.0,
+                        }
+
+                    # Sum weight (input_quantity) and liters
+                    if hasattr(prod, "input_quantity") and prod.input_quantity:
+                        daily_by_animal[date_key][animal_id]["weight_lb"] += float(
+                            prod.input_quantity
+                        )
+                    daily_by_animal[date_key][animal_id]["total_liters"] += float(prod.volume_l)
+
+            # Build animal info list for table headers
+            animal_info = []
+            for animal_id, animal in animals_dict.items():
+                # Only include animals that have production in this period
+                has_production = any(
+                    str(animal_id) in daily_data for daily_data in daily_by_animal.values()
+                )
+                if has_production:
+                    animal_info.append(
+                        {
+                            "id": str(animal_id),
+                            "tag": animal.tag,
+                            "name": animal.name,
+                        }
+                    )
+
+            # Sort animals by tag
+            animal_info.sort(key=lambda x: x["tag"])
+
             data = {
                 "summary": {
                     "total_liters_produced": float(total_liters_produced),
@@ -118,6 +216,8 @@ class ReportService:
                     }
                     for tp in top_producers
                 ],
+                "daily_by_animal": daily_by_animal,
+                "animals": animal_info,
             }
 
             return ReportResponse(
@@ -365,11 +465,14 @@ class ReportService:
         """Generate animals report"""
         report_id = str(uuid.uuid4())
 
+        # Get filtered animal IDs
+        animal_ids = await self._get_filtered_animal_ids(tenant_id, request, uow)
+
         # Get animals data with filters
-        if request.filters and request.filters.animal_ids:
+        if animal_ids:
             # Filter specific animals
             all_animals = await uow.animals.list(tenant_id)
-            animals = [a for a in all_animals if a.id in request.filters.animal_ids]
+            animals = [a for a in all_animals if a.id in animal_ids]
         else:
             # Get all animals
             animals = await uow.animals.list(tenant_id)
@@ -414,9 +517,9 @@ class ReportService:
             animals = active_animals + inactive_animals  # Include all animals
 
         # Get production data for performance analysis
-        if request.filters and request.filters.animal_ids:
+        if animal_ids:
             all_productions = []
-            for animal_id in request.filters.animal_ids:
+            for animal_id in animal_ids:
                 animal_productions = await uow.milk_productions.list(
                     tenant_id,
                     date_from=request.date_from,

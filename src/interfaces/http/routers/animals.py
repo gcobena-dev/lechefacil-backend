@@ -219,6 +219,7 @@ async def create_animal_endpoint(
             current_lot_id=getattr(payload, "lot_id", None),
             status_id=status_id,
             photo_url=payload.photo_url,
+            labels=payload.labels,
             # Genealogy fields
             sex=payload.sex,
             dam_id=payload.dam_id,
@@ -303,6 +304,7 @@ async def update_animal_endpoint(
         "current_lot_id": getattr(payload, "lot_id", None),
         "status_id": status_id,
         "photo_url": payload.photo_url,
+        "labels": payload.labels,
         # Genealogy fields
         "sex": payload.sex,
         "dam_id": payload.dam_id,
@@ -648,3 +650,41 @@ async def delete_photo(
         raise NotFound("Photo not found")
     await uow.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/labels/suggestions")
+async def get_label_suggestions(
+    q: str = Query("", description="Search query for labels"),
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> list[str]:
+    """Get label suggestions based on existing labels across all animals."""
+    # Get all animals and collect unique labels
+    all_labels: set[str] = set()
+    cursor = None
+
+    while True:
+        result = await list_animals.execute(
+            uow,
+            context.tenant_id,
+            limit=10,
+            cursor=cursor,
+            status_codes=None,
+        )
+        for animal in result.items:
+            if hasattr(animal, "labels") and animal.labels:
+                all_labels.update(animal.labels)
+
+        if result.next_cursor is None:
+            break
+        cursor = result.next_cursor
+
+    # Filter labels based on query (case-insensitive)
+    if q:
+        query_lower = q.lower()
+        filtered = [label for label in all_labels if query_lower in label.lower()]
+    else:
+        filtered = list(all_labels)
+
+    # Sort by popularity (you can enhance this later with actual counts)
+    return sorted(filtered)[:20]  # Return top 20 matches

@@ -1,12 +1,43 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, TypeDecorator, UniqueConstraint, Uuid, func
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.db.base import Base
+
+
+class StringList(TypeDecorator):
+    """Stores a list of strings as ARRAY in PostgreSQL, JSON in SQLite."""
+
+    impl = Text
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(ARRAY(String))
+        else:
+            return dialect.type_descriptor(Text)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            value = []
+        if dialect.name == 'postgresql':
+            return value
+        else:
+            return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if dialect.name == 'postgresql':
+            return value if value is not None else []
+        else:
+            if value is None:
+                return []
+            return json.loads(value) if value else []
 
 
 class AnimalORM(Base):
@@ -25,6 +56,7 @@ class AnimalORM(Base):
     current_lot_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     status_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    labels: Mapped[list[str]] = mapped_column(StringList, nullable=False, server_default="[]")
 
     # Genealogy fields
     sex: Mapped[str | None] = mapped_column(String(6), nullable=True)

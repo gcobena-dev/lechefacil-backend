@@ -19,6 +19,7 @@ class Animal:
     current_lot_id: UUID | None = None
     status_id: UUID | None = None
     photo_url: str | None = None
+    labels: list[str] = field(default_factory=list)
 
     # Genealogy fields
     sex: str | None = None
@@ -50,6 +51,7 @@ class Animal:
         current_lot_id: UUID | None = None,
         status_id: UUID | None = None,
         photo_url: str | None = None,
+        labels: list[str] | None = None,
         sex: str | None = None,
         dam_id: UUID | None = None,
         sire_id: UUID | None = None,
@@ -70,6 +72,7 @@ class Animal:
             current_lot_id=current_lot_id,
             status_id=status_id,
             photo_url=photo_url,
+            labels=labels or [],
             sex=sex,
             dam_id=dam_id,
             sire_id=sire_id,

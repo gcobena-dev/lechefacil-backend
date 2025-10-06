@@ -1151,6 +1151,56 @@
         }
       }
     },
+    "/api/v1/animals/labels/suggestions": {
+      "get": {
+        "tags": [
+          "animals"
+        ],
+        "summary": "Get Label Suggestions",
+        "description": "Get label suggestions based on existing labels across all animals.",
+        "operationId": "get_label_suggestions_api_v1_animals_labels_suggestions_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Search query for labels",
+              "default": "",
+              "title": "Q"
+            },
+            "description": "Search query for labels"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Label Suggestions Api V1 Animals Labels Suggestions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/animals/statuses/list": {
       "get": {
         "tags": [
@@ -4508,6 +4558,14 @@
             ],
             "title": "Photo Url"
           },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Labels"
+          },
           "sex": {
             "anyOf": [
               {
@@ -4995,6 +5053,13 @@
             ],
             "title": "Photo Url"
           },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Labels"
+          },
           "sex": {
             "anyOf": [
               {
@@ -5123,6 +5188,7 @@
           "lot",
           "status_id",
           "photo_url",
+          "labels",
           "created_at",
           "updated_at",
           "version"
@@ -5289,6 +5355,20 @@
               }
             ],
             "title": "Photo Url"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
           },
           "sex": {
             "anyOf": [
@@ -7740,6 +7820,65 @@
               }
             ],
             "title": "Buyer Ids"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "breed_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breed Ids"
+          },
+          "lot_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Ids"
+          },
+          "status_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Ids"
           },
           "include_inactive": {
             "type": "boolean",
