@@ -4,7 +4,18 @@ import json
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, TypeDecorator, UniqueConstraint, Uuid, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    TypeDecorator,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,7 +29,7 @@ class StringList(TypeDecorator):
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
-        if dialect.name == 'postgresql':
+        if dialect.name == "postgresql":
             return dialect.type_descriptor(ARRAY(String))
         else:
             return dialect.type_descriptor(Text)
@@ -26,13 +37,13 @@ class StringList(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             value = []
-        if dialect.name == 'postgresql':
+        if dialect.name == "postgresql":
             return value
         else:
             return json.dumps(value)
 
     def process_result_value(self, value, dialect):
-        if dialect.name == 'postgresql':
+        if dialect.name == "postgresql":
             return value if value is not None else []
         else:
             if value is None:

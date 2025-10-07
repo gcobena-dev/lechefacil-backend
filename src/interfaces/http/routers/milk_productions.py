@@ -11,6 +11,7 @@ from src.application.errors import PermissionDenied
 from src.domain.models.milk_production import MilkProduction
 from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.auth.context import AuthContext
+from src.infrastructure.services.notification_service import NotificationService
 from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.attachments import PresignUploadRequest, PresignUploadResponse
 from src.interfaces.http.schemas.milk_productions import (
@@ -195,6 +196,67 @@ async def create_production(
         notes=payload.notes,
     )
     created = await uow.milk_productions.add(mp)
+
+    # Get animal details for notification
+    animal = await uow.animals.get(context.tenant_id, payload.animal_id)
+
+    # Create notification service with the current session
+    from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
+    from src.interfaces.http.routers.notifications import connection_manager
+
+    notification_repo = NotificationsSQLAlchemyRepository(uow.session)
+    notification_service = NotificationService(
+        notification_repo=notification_repo, connection_manager=connection_manager
+    )
+
+    # Send notification for production record
+    notification_type = "production_recorded"
+    title = f"Producción registrada: {animal.tag if animal else 'Animal'}"
+    message = f"Se registró {vol_l}L de leche - Turno {shift_val}"
+
+    # Check for low production: below this animal's recent average (last 30 days, excluding today)
+    from datetime import timedelta
+
+    try:
+        date_from = dt.date() - timedelta(days=30)
+        date_to = dt.date() - timedelta(days=1)
+        history = await uow.milk_productions.list(
+            context.tenant_id,
+            date_from=date_from,
+            date_to=date_to,
+            animal_id=payload.animal_id,
+        )
+        if history:
+            total_hist = sum(h.volume_l for h in history)
+            avg_hist = (total_hist / len(history)) if len(history) > 0 else None
+            if avg_hist is not None and vol_l < avg_hist:
+                notification_type = "production_low"
+                title = f"⚠️ Producción baja: {animal.tag if animal else 'Animal'}"
+                message = f"{vol_l}L vs prom. {avg_hist:.2f}L - Turno {shift_val}"
+    except Exception:
+        # If averaging fails, fallback to normal notification without raising
+        pass
+
+    # Send to all users in tenant except the actor
+    users_with_roles, _total = await uow.users.list_by_tenant(context.tenant_id, page=1, limit=1000)
+    for uwr in users_with_roles:
+        if uwr.user.id == context.user_id:
+            continue
+        await notification_service.send_notification(
+            tenant_id=context.tenant_id,
+            user_id=uwr.user.id,
+            type=notification_type,
+            title=title,
+            message=message,
+            data={
+                "animal_id": str(payload.animal_id),
+                "production_id": str(created.id),
+                "volume_l": str(vol_l),
+                "shift": shift_val,
+                "date": str(dt.date()),
+            },
+        )
+
     await uow.commit()
     return MilkProductionResponse.model_validate(created)
 
@@ -323,6 +385,38 @@ async def create_productions_bulk(
             "Algunos animales ya tienen registro para ese día/turno",
             details={"conflicts": conflicts},
         )
+
+    # Send summary notification for bulk creation
+    total_volume = sum(Decimal(r.volume_l) for r in results)
+    shift_val = (payload.shift or ("AM" if dt_shared.hour < 12 else "PM")).upper()
+
+    # Create notification service with the current session
+    from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
+    from src.interfaces.http.routers.notifications import connection_manager
+
+    notification_repo = NotificationsSQLAlchemyRepository(uow.session)
+    notification_service = NotificationService(
+        notification_repo=notification_repo, connection_manager=connection_manager
+    )
+
+    users_with_roles, _total = await uow.users.list_by_tenant(context.tenant_id, page=1, limit=1000)
+    for uwr in users_with_roles:
+        if uwr.user.id == context.user_id:
+            continue
+        await notification_service.send_notification(
+            tenant_id=context.tenant_id,
+            user_id=uwr.user.id,
+            type="production_bulk_recorded",
+            title=f"Registro masivo completado - Turno {shift_val}",
+            message=f"Se registraron {len(results)} animales con {total_volume}L totales",
+            data={
+                "count": len(results),
+                "total_volume_l": str(total_volume),
+                "shift": shift_val,
+                "date": str(dt_shared.date()),
+            },
+        )
+
     await uow.commit()
     return results
 

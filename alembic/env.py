@@ -26,6 +26,7 @@ from src.infrastructure.db.orm import (
     animal_parentage,  # noqa: F401
     animal_certificate,  # noqa: F401
     lactation,  # noqa: F401
+    notification,  # noqa: F401
 )
 
 config = context.config

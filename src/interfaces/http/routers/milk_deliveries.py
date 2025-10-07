@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from src.application.errors import PermissionDenied
 from src.domain.models.milk_delivery import MilkDelivery
 from src.infrastructure.auth.context import AuthContext
+from src.infrastructure.services.notification_service import NotificationService
 from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.milk_deliveries import (
     DeliverySummaryItem,
@@ -119,6 +120,42 @@ async def create_delivery(
         notes=payload.notes,
     )
     created = await uow.milk_deliveries.add(delivery)
+
+    # Get buyer details for notification
+    buyer = await uow.buyers.get(context.tenant_id, buyer_id)
+    buyer_name = buyer.name if buyer else "Comprador"
+
+    # Create notification service with the current session
+    from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
+    from src.interfaces.http.routers.notifications import connection_manager
+
+    notification_repo = NotificationsSQLAlchemyRepository(uow.session)
+    notification_service = NotificationService(
+        notification_repo=notification_repo, connection_manager=connection_manager
+    )
+
+    # Send notification to all users in the tenant except the actor
+    users_with_roles, _total = await uow.users.list_by_tenant(context.tenant_id, page=1, limit=1000)
+    for uwr in users_with_roles:
+        if uwr.user.id == context.user_id:
+            continue
+        await notification_service.send_notification(
+            tenant_id=context.tenant_id,
+            user_id=uwr.user.id,
+            type="delivery_recorded",
+            title=f"Entrega registrada: {buyer_name}",
+            message=f"Se entregaron {payload.volume_l}L por {currency} {amount}",
+            data={
+                "delivery_id": str(created.id),
+                "buyer_id": str(buyer_id),
+                "buyer_name": buyer_name,
+                "volume_l": str(payload.volume_l),
+                "amount": str(amount),
+                "currency": currency,
+                "date": str(dt.date()),
+            },
+        )
+
     await uow.commit()
     return MilkDeliveryResponse.model_validate(created)
 

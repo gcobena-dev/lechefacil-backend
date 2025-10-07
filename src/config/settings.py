@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     jwt_access_token_expires_minutes: int = 60
     jwt_refresh_token_expires_days: int = 30
     jwt_issuer: str | None = None
+    jwt_leeway_seconds: int = 10
     # S3 storage (minimal)
     s3_bucket: str | None = None
     s3_region: str | None = None

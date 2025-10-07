@@ -3643,6 +3643,134 @@
         }
       }
     },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "Get user's notifications.",
+        "operationId": "list_notifications_api_v1_notifications_get",
+        "parameters": [
+          {
+            "name": "unread_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unread Only"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/mark-read": {
+      "patch": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark Notifications As Read",
+        "description": "Mark specific notifications as read.",
+        "operationId": "mark_notifications_as_read_api_v1_notifications_mark_read_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkAsReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkAsReadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/mark-all-read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark All Notifications As Read",
+        "description": "Mark all user's notifications as read.",
+        "operationId": "mark_all_notifications_as_read_api_v1_notifications_mark_all_read_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkAsReadResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/access-requests/": {
       "post": {
         "tags": [
@@ -6433,6 +6561,36 @@
         "type": "object",
         "title": "LotUpdate"
       },
+      "MarkAsReadRequest": {
+        "properties": {
+          "notification_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Notification Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notification_ids"
+        ],
+        "title": "MarkAsReadRequest"
+      },
+      "MarkAsReadResponse": {
+        "properties": {
+          "marked_count": {
+            "type": "integer",
+            "title": "Marked Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "marked_count"
+        ],
+        "title": "MarkAsReadResponse"
+      },
       "MeResponse": {
         "properties": {
           "user_id": {
@@ -7359,6 +7517,108 @@
           "items"
         ],
         "title": "MilkProductionsBulkCreate"
+      },
+      "NotificationListResponse": {
+        "properties": {
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationSchema"
+            },
+            "type": "array",
+            "title": "Notifications"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "unread_count": {
+            "type": "integer",
+            "title": "Unread Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notifications",
+          "total",
+          "unread_count"
+        ],
+        "title": "NotificationListResponse"
+      },
+      "NotificationSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tenant_id",
+          "user_id",
+          "type",
+          "title",
+          "message",
+          "read",
+          "created_at"
+        ],
+        "title": "NotificationSchema"
       },
       "OcrMatchedResult": {
         "properties": {

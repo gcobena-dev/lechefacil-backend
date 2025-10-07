@@ -5,7 +5,7 @@ from typing import Any, Mapping
 from uuid import UUID
 
 from jose import jwt
-from jose.exceptions import JWTError
+from jose.exceptions import ExpiredSignatureError, JWTError
 
 from src.application.errors import AuthError
 
@@ -56,6 +56,8 @@ class JWTService:
                 issuer=self.issuer,
                 audience=self.audience,
             )
+        except ExpiredSignatureError as exc:
+            raise AuthError("Token expired") from exc
         except JWTError as exc:
             raise AuthError("Token validation failed") from exc
 
