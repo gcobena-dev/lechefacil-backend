@@ -124,6 +124,9 @@ def create_app(
     api.include_router(reports.router)
     api.include_router(mobile.router)
     api.include_router(notifications.router)
+    from src.interfaces.http.routers import devices as devices_router
+
+    api.include_router(devices_router.router)
     from src.interfaces.http.routers import access_requests as access_requests_router
 
     api.include_router(access_requests_router.router)

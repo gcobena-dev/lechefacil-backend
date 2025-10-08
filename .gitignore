@@ -65,6 +65,11 @@ env/
 env.bak/
 venv.bak/
 
+# Firebase credentials
+*firebase*.json
+*service-account*.json
+google-services.json
+
 # IDEs
 .vscode/
 .idea/

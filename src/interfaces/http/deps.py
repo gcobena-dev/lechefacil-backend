@@ -10,6 +10,9 @@ from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.auth.jwt_service import JWTService
 from src.infrastructure.auth.password import PasswordHasher
 from src.infrastructure.db.session import SQLAlchemyUnitOfWork
+from src.infrastructure.push.fcm import FCMClient
+from src.infrastructure.push.fcm_v1 import FCMv1Client
+from src.infrastructure.repos.device_tokens_sqlalchemy import DeviceTokensSQLAlchemyRepository
 from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
 from src.infrastructure.services.notification_service import NotificationService
 from src.infrastructure.websocket.connection_manager import ConnectionManager
@@ -65,10 +68,24 @@ async def get_notification_service(request: Request) -> AsyncIterator[Notificati
     if session_factory is None:
         raise RuntimeError("Session factory not configured")
 
-    uow = SQLAlchemyUnitOfWork(session_factory)
-
-    async with uow.session() as session:
+    # Open a transient session for the notification service
+    async with session_factory() as session:
         notification_repo = NotificationsSQLAlchemyRepository(session)
+        device_tokens_repo = DeviceTokensSQLAlchemyRepository(session)
+        # Configure optional push sender (FCM) if server key is provided
+        push_sender = None
+        settings = get_settings()
+        # Prefer HTTP v1 if configured (from direct json or file path/inline)
+        sa_json = settings.get_fcm_service_account_json()
+        if settings.fcm_project_id and sa_json:
+            push_sender = FCMv1Client(
+                project_id=settings.fcm_project_id, service_account_json=sa_json
+            )
+        elif settings.fcm_server_key:
+            push_sender = FCMClient(settings.fcm_server_key.get_secret_value())
         yield NotificationService(
-            notification_repo=notification_repo, connection_manager=connection_manager
+            notification_repo=notification_repo,
+            connection_manager=connection_manager,
+            device_tokens_repo=device_tokens_repo,
+            push_sender=push_sender,
         )

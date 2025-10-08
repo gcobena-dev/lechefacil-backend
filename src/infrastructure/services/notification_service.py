@@ -4,6 +4,7 @@ import logging
 from uuid import UUID
 
 from src.domain.models.notification import Notification
+from src.infrastructure.repos.device_tokens_sqlalchemy import DeviceTokensSQLAlchemyRepository
 from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
 from src.infrastructure.websocket.connection_manager import ConnectionManager
 from src.interfaces.http.schemas.notifications import (
@@ -21,9 +22,13 @@ class NotificationService:
         self,
         notification_repo: NotificationsSQLAlchemyRepository,
         connection_manager: ConnectionManager,
+        device_tokens_repo: DeviceTokensSQLAlchemyRepository | None = None,
+        push_sender: object | None = None,
     ) -> None:
         self.notification_repo = notification_repo
         self.connection_manager = connection_manager
+        self.device_tokens_repo = device_tokens_repo
+        self.push_sender = push_sender
 
     async def send_notification(
         self,
@@ -63,6 +68,9 @@ class NotificationService:
                 f"tenant={tenant_id} user={user_id}"
             )
 
+        # Also attempt push delivery if configured
+        await self._send_via_push(saved_notification)
+
         return saved_notification
 
     async def _send_via_websocket(self, notification: Notification) -> None:
@@ -101,3 +109,32 @@ class NotificationService:
 
         except Exception as e:
             logger.error(f"Error sending notification via WebSocket: {e}", exc_info=True)
+
+    async def _send_via_push(self, notification: Notification) -> None:
+        if not self.push_sender or not self.device_tokens_repo:
+            return
+        try:
+            # Load user's device tokens
+            tokens = [
+                dt.token
+                for dt in await self.device_tokens_repo.list_for_user(user_id=notification.user_id)
+                if not dt.disabled
+            ]
+            if not tokens:
+                return
+            data = {
+                "notification_id": str(notification.id),
+                "type": notification.type,
+                "tenant_id": str(notification.tenant_id),
+                "user_id": str(notification.user_id),
+            }
+            # push_sender must expose send_to_tokens
+            await self.push_sender.send_to_tokens(
+                tokens=tokens,
+                title=notification.title,
+                body=notification.message,
+                data=data,
+            )
+            logger.info("Notification sent via Push: id=%s tokens=%s", notification.id, len(tokens))
+        except Exception as e:
+            logger.error("Error sending notification via Push: %s", e, exc_info=True)

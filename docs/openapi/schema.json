@@ -3771,6 +3771,86 @@
         }
       }
     },
+    "/api/v1/devices/tokens": {
+      "post": {
+        "tags": [
+          "devices"
+        ],
+        "summary": "Register Device Token",
+        "operationId": "register_device_token_api_v1_devices_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterDeviceTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "devices"
+        ],
+        "summary": "Delete Device Token",
+        "operationId": "delete_device_token_api_v1_devices_tokens_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteDeviceTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterDeviceTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/access-requests/": {
       "post": {
         "tags": [
@@ -6202,6 +6282,19 @@
         ],
         "title": "DashboardAlert"
       },
+      "DeleteDeviceTokenRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "DeleteDeviceTokenRequest"
+      },
       "DeliverySummaryItem": {
         "properties": {
           "period": {
@@ -7830,6 +7923,57 @@
           "total_extracted"
         ],
         "title": "ProcessOcrResponse"
+      },
+      "RegisterDeviceTokenRequest": {
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android",
+              "web"
+            ],
+            "title": "Platform",
+            "description": "Device platform"
+          },
+          "token": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 10,
+            "title": "Token"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform",
+          "token"
+        ],
+        "title": "RegisterDeviceTokenRequest"
+      },
+      "RegisterDeviceTokenResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "RegisterDeviceTokenResponse"
       },
       "RegisterRequest": {
         "properties": {

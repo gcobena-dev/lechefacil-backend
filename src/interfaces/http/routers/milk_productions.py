@@ -12,7 +12,7 @@ from src.domain.models.milk_production import MilkProduction
 from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.services.notification_service import NotificationService
-from src.interfaces.http.deps import get_auth_context, get_uow
+from src.interfaces.http.deps import get_app_settings, get_auth_context, get_uow
 from src.interfaces.http.schemas.attachments import PresignUploadRequest, PresignUploadResponse
 from src.interfaces.http.schemas.milk_productions import (
     MilkProductionCreate,
@@ -90,6 +90,7 @@ async def create_production(
     payload: MilkProductionCreate,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
+    settings=Depends(get_app_settings),
 ):
     if not context.role.can_create():
         raise PermissionDenied("Role not allowed to create productions")
@@ -197,17 +198,32 @@ async def create_production(
     )
     created = await uow.milk_productions.add(mp)
 
-    # Get animal details for notification
-    animal = await uow.animals.get(context.tenant_id, payload.animal_id)
-
-    # Create notification service with the current session
+    # Build NotificationService using the same DB session to avoid SQLite locks
+    from src.infrastructure.push.fcm import FCMClient
+    from src.infrastructure.push.fcm_v1 import FCMv1Client
+    from src.infrastructure.repos.device_tokens_sqlalchemy import DeviceTokensSQLAlchemyRepository
     from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
     from src.interfaces.http.routers.notifications import connection_manager
 
     notification_repo = NotificationsSQLAlchemyRepository(uow.session)
+    device_tokens_repo = DeviceTokensSQLAlchemyRepository(uow.session)
+    push_sender = None
+    sa_json = settings.get_fcm_service_account_json()
+    if settings.fcm_project_id and sa_json:
+        push_sender = FCMv1Client(project_id=settings.fcm_project_id, service_account_json=sa_json)
+    elif settings.fcm_server_key:
+        push_sender = FCMClient(settings.fcm_server_key.get_secret_value())
     notification_service = NotificationService(
-        notification_repo=notification_repo, connection_manager=connection_manager
+        notification_repo=notification_repo,
+        connection_manager=connection_manager,
+        device_tokens_repo=device_tokens_repo,
+        push_sender=push_sender,
     )
+
+    # Get animal details for notification
+    animal = await uow.animals.get(context.tenant_id, payload.animal_id)
+
+    # Notification service injected via FastAPI deps (WS + Push if configured)
 
     # Send notification for production record
     notification_type = "production_recorded"
@@ -268,6 +284,7 @@ async def create_productions_bulk(
     payload: MilkProductionsBulkCreate,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
+    settings=Depends(get_app_settings),
 ) -> list[MilkProductionResponse]:
     if not context.role.can_create():
         raise PermissionDenied("Role not allowed to create productions")
@@ -390,13 +407,26 @@ async def create_productions_bulk(
     total_volume = sum(Decimal(r.volume_l) for r in results)
     shift_val = (payload.shift or ("AM" if dt_shared.hour < 12 else "PM")).upper()
 
-    # Create notification service with the current session
+    # Build NotificationService using the same DB session
+    from src.infrastructure.push.fcm import FCMClient
+    from src.infrastructure.push.fcm_v1 import FCMv1Client
+    from src.infrastructure.repos.device_tokens_sqlalchemy import DeviceTokensSQLAlchemyRepository
     from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
     from src.interfaces.http.routers.notifications import connection_manager
 
     notification_repo = NotificationsSQLAlchemyRepository(uow.session)
+    device_tokens_repo = DeviceTokensSQLAlchemyRepository(uow.session)
+    push_sender = None
+    sa_json = settings.get_fcm_service_account_json()
+    if settings.fcm_project_id and sa_json:
+        push_sender = FCMv1Client(project_id=settings.fcm_project_id, service_account_json=sa_json)
+    elif settings.fcm_server_key:
+        push_sender = FCMClient(settings.fcm_server_key.get_secret_value())
     notification_service = NotificationService(
-        notification_repo=notification_repo, connection_manager=connection_manager
+        notification_repo=notification_repo,
+        connection_manager=connection_manager,
+        device_tokens_repo=device_tokens_repo,
+        push_sender=push_sender,
     )
 
     users_with_roles, _total = await uow.users.list_by_tenant(context.tenant_id, page=1, limit=1000)

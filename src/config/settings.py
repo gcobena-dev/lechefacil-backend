@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     cookie_secure: bool = False  # set True when served over HTTPS
     # OpenAI
     openai_api_key: SecretStr | None = None
+    # Push (FCM)
+    fcm_server_key: SecretStr | None = None  # Legacy HTTP API key
+    fcm_project_id: str | None = None  # For HTTP v1
+    fcm_service_account_json: SecretStr | None = None  # Service Account JSON (HTTP v1)
+    fcm_service_account_file: str | None = None  # Path or inline JSON (HTTP v1)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -65,6 +70,27 @@ class Settings(BaseSettings):
         if not self.email_admin_recipients:
             return []
         return [email.strip() for email in self.email_admin_recipients.split(",") if email.strip()]
+
+    def get_fcm_service_account_json(self) -> str | None:
+        """
+        Return the Service Account JSON string for FCM v1 from either
+        fcm_service_account_json (direct JSON) or fcm_service_account_file.
+        If fcm_service_account_file starts with '{', treat as inline JSON; otherwise read file.
+        """
+        if self.fcm_service_account_json:
+            return self.fcm_service_account_json.get_secret_value()
+        if self.fcm_service_account_file:
+            content = self.fcm_service_account_file
+            content = content.strip()
+            if content.startswith("{"):
+                return content
+            # treat as path
+            try:
+                with open(content, encoding="utf-8") as f:
+                    return f.read()
+            except Exception:
+                return None
+        return None
 
 
 @lru_cache(maxsize=1)
