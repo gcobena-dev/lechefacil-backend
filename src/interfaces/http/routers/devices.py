@@ -33,16 +33,16 @@ async def register_device_token(
     context: AuthContext = Depends(get_auth_context),
     uow: SQLAlchemyUnitOfWork = Depends(get_uow),
 ) -> RegisterDeviceTokenResponse:
-    async with uow.session() as session:
-        repo = DeviceTokensSQLAlchemyRepository(session)
-        await repo.upsert(
-            tenant_id=context.tenant_id,
-            user_id=context.user_id,
-            platform=payload.platform,
-            token=payload.token,
-            app_version=payload.app_version,
-        )
-        await session.commit()
+    session = uow.session
+    repo = DeviceTokensSQLAlchemyRepository(session)
+    await repo.upsert(
+        tenant_id=context.tenant_id,
+        user_id=context.user_id,
+        platform=payload.platform,
+        token=payload.token,
+        app_version=payload.app_version,
+    )
+    await session.commit()
     return RegisterDeviceTokenResponse(status="ok")
 
 
@@ -52,8 +52,8 @@ async def delete_device_token(
     context: AuthContext = Depends(get_auth_context),
     uow: SQLAlchemyUnitOfWork = Depends(get_uow),
 ) -> RegisterDeviceTokenResponse:
-    async with uow.session() as session:
-        repo = DeviceTokensSQLAlchemyRepository(session)
-        await repo.remove_by_token(user_id=context.user_id, token=payload.token)
-        await session.commit()
+    session = uow.session
+    repo = DeviceTokensSQLAlchemyRepository(session)
+    await repo.remove_by_token(user_id=context.user_id, token=payload.token)
+    await session.commit()
     return RegisterDeviceTokenResponse(status="ok")
