@@ -5,14 +5,22 @@ from datetime import datetime, timezone
 from datetime import time as DtTime
 from decimal import ROUND_HALF_UP, Decimal
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response, status
 
 from src.application.errors import PermissionDenied
+from src.application.events.dispatcher import dispatch_events
+from src.application.events.models import (
+    ProductionBulkRecordedEvent,
+    ProductionLowEvent,
+    ProductionRecordedEvent,
+)
 from src.domain.models.milk_production import MilkProduction
 from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.auth.context import AuthContext
-from src.infrastructure.services.notification_service import NotificationService
-from src.interfaces.http.deps import get_app_settings, get_auth_context, get_uow
+from src.interfaces.http.deps import (
+    get_auth_context,
+    get_uow,
+)
 from src.interfaces.http.schemas.attachments import PresignUploadRequest, PresignUploadResponse
 from src.interfaces.http.schemas.milk_productions import (
     MilkProductionCreate,
@@ -88,9 +96,10 @@ async def list_productions(
 @router.post("/", response_model=MilkProductionResponse, status_code=status.HTTP_201_CREATED)
 async def create_production(
     payload: MilkProductionCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
-    settings=Depends(get_app_settings),
 ):
     if not context.role.can_create():
         raise PermissionDenied("Role not allowed to create productions")
@@ -198,37 +207,19 @@ async def create_production(
     )
     created = await uow.milk_productions.add(mp)
 
-    # Build NotificationService using the same DB session to avoid SQLite locks
-    from src.infrastructure.push.fcm import FCMClient
-    from src.infrastructure.push.fcm_v1 import FCMv1Client
-    from src.infrastructure.repos.device_tokens_sqlalchemy import DeviceTokensSQLAlchemyRepository
-    from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
-    from src.interfaces.http.routers.notifications import connection_manager
-
-    notification_repo = NotificationsSQLAlchemyRepository(uow.session)
-    device_tokens_repo = DeviceTokensSQLAlchemyRepository(uow.session)
-    push_sender = None
-    sa_json = settings.get_fcm_service_account_json()
-    if settings.fcm_project_id and sa_json:
-        push_sender = FCMv1Client(project_id=settings.fcm_project_id, service_account_json=sa_json)
-    elif settings.fcm_server_key:
-        push_sender = FCMClient(settings.fcm_server_key.get_secret_value())
-    notification_service = NotificationService(
-        notification_repo=notification_repo,
-        connection_manager=connection_manager,
-        device_tokens_repo=device_tokens_repo,
-        push_sender=push_sender,
-    )
-
     # Get animal details for notification
-    animal = await uow.animals.get(context.tenant_id, payload.animal_id)
+    await uow.animals.get(context.tenant_id, payload.animal_id)
 
-    # Notification service injected via FastAPI deps (WS + Push if configured)
-
-    # Send notification for production record
-    notification_type = "production_recorded"
-    title = f"Producción registrada: {animal.tag if animal else 'Animal'}"
-    message = f"Se registró {vol_l}L de leche - Turno {shift_val}"
+    # Default event: production recorded
+    event: ProductionRecordedEvent | ProductionLowEvent = ProductionRecordedEvent(
+        tenant_id=context.tenant_id,
+        actor_user_id=context.user_id,
+        production_id=created.id,
+        animal_id=payload.animal_id,
+        volume_l=vol_l,
+        shift=shift_val,
+        date=dt.date(),
+    )
 
     # Check for low production: below this animal's recent average (last 30 days, excluding today)
     from datetime import timedelta
@@ -246,34 +237,29 @@ async def create_production(
             total_hist = sum(h.volume_l for h in history)
             avg_hist = (total_hist / len(history)) if len(history) > 0 else None
             if avg_hist is not None and vol_l < avg_hist:
-                notification_type = "production_low"
-                title = f"⚠️ Producción baja: {animal.tag if animal else 'Animal'}"
-                message = f"{vol_l}L vs prom. {avg_hist:.2f}L - Turno {shift_val}"
+                event = ProductionLowEvent(
+                    tenant_id=context.tenant_id,
+                    actor_user_id=context.user_id,
+                    production_id=created.id,
+                    animal_id=payload.animal_id,
+                    volume_l=vol_l,
+                    avg_hist=float(f"{avg_hist:.2f}"),
+                    shift=shift_val,
+                    date=dt.date(),
+                )
     except Exception:
         # If averaging fails, fallback to normal notification without raising
         pass
 
-    # Send to all users in tenant except the actor
-    users_with_roles, _total = await uow.users.list_by_tenant(context.tenant_id, page=1, limit=1000)
-    for uwr in users_with_roles:
-        if uwr.user.id == context.user_id:
-            continue
-        await notification_service.send_notification(
-            tenant_id=context.tenant_id,
-            user_id=uwr.user.id,
-            type=notification_type,
-            title=title,
-            message=message,
-            data={
-                "animal_id": str(payload.animal_id),
-                "production_id": str(created.id),
-                "volume_l": str(vol_l),
-                "shift": shift_val,
-                "date": str(dt.date()),
-            },
-        )
-
+    # Emit event and commit
+    uow.add_event(event)
+    events = uow.drain_events()
     await uow.commit()
+
+    # Dispatch post-commit in background
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory is not None:
+        background_tasks.add_task(dispatch_events, session_factory, events)
     return MilkProductionResponse.model_validate(created)
 
 
@@ -282,9 +268,10 @@ async def create_production(
 )
 async def create_productions_bulk(
     payload: MilkProductionsBulkCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
-    settings=Depends(get_app_settings),
 ) -> list[MilkProductionResponse]:
     if not context.role.can_create():
         raise PermissionDenied("Role not allowed to create productions")
@@ -403,51 +390,27 @@ async def create_productions_bulk(
             details={"conflicts": conflicts},
         )
 
-    # Send summary notification for bulk creation
+    # Emitir evento de registro masivo
     total_volume = sum(Decimal(r.volume_l) for r in results)
-    shift_val = (payload.shift or ("AM" if dt_shared.hour < 12 else "PM")).upper()
-
-    # Build NotificationService using the same DB session
-    from src.infrastructure.push.fcm import FCMClient
-    from src.infrastructure.push.fcm_v1 import FCMv1Client
-    from src.infrastructure.repos.device_tokens_sqlalchemy import DeviceTokensSQLAlchemyRepository
-    from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
-    from src.interfaces.http.routers.notifications import connection_manager
-
-    notification_repo = NotificationsSQLAlchemyRepository(uow.session)
-    device_tokens_repo = DeviceTokensSQLAlchemyRepository(uow.session)
-    push_sender = None
-    sa_json = settings.get_fcm_service_account_json()
-    if settings.fcm_project_id and sa_json:
-        push_sender = FCMv1Client(project_id=settings.fcm_project_id, service_account_json=sa_json)
-    elif settings.fcm_server_key:
-        push_sender = FCMClient(settings.fcm_server_key.get_secret_value())
-    notification_service = NotificationService(
-        notification_repo=notification_repo,
-        connection_manager=connection_manager,
-        device_tokens_repo=device_tokens_repo,
-        push_sender=push_sender,
+    uow.add_event(
+        ProductionBulkRecordedEvent(
+            tenant_id=context.tenant_id,
+            actor_user_id=context.user_id,
+            count=len(results),
+            total_volume_l=str(total_volume),
+            shift=shift_val,
+            date=dt_shared.date(),
+        )
     )
 
-    users_with_roles, _total = await uow.users.list_by_tenant(context.tenant_id, page=1, limit=1000)
-    for uwr in users_with_roles:
-        if uwr.user.id == context.user_id:
-            continue
-        await notification_service.send_notification(
-            tenant_id=context.tenant_id,
-            user_id=uwr.user.id,
-            type="production_bulk_recorded",
-            title=f"Registro masivo completado - Turno {shift_val}",
-            message=f"Se registraron {len(results)} animales con {total_volume}L totales",
-            data={
-                "count": len(results),
-                "total_volume_l": str(total_volume),
-                "shift": shift_val,
-                "date": str(dt_shared.date()),
-            },
-        )
-
+    events = uow.drain_events()
     await uow.commit()
+
+    # Despachar post-commit en background
+    if request is not None:
+        session_factory = getattr(request.app.state, "session_factory", None)
+        if session_factory is not None:
+            background_tasks.add_task(dispatch_events, session_factory, events)
     return results
 
 

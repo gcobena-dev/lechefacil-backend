@@ -24,6 +24,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
     def __init__(self, session_factory: Callable[[], AsyncSession]) -> None:
         self._session_factory = session_factory
         self.session: AsyncSession | None = None
+        self.events: list[object] = []
         self.animals = None
         self.animal_statuses = None
         self.lactations = None
@@ -99,6 +100,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         finally:
             await self.session.close()
             self.session = None
+            self.events = []
             self.animals = None
             self.animal_statuses = None
             self.lactations = None
@@ -125,3 +127,10 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         if not self.session:
             return
         await self.session.rollback()
+
+    def add_event(self, event: object) -> None:
+        self.events.append(event)
+
+    def drain_events(self) -> list[object]:
+        events, self.events = self.events, []
+        return events

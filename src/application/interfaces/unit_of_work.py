@@ -36,6 +36,8 @@ class UnitOfWork(Protocol):
     milk_productions: MilkProductionsRepository
     milk_deliveries: MilkDeliveriesRepository
     tenant_config: TenantConfigRepository
+    # Domain events collected during the transaction
+    events: list
 
     async def __aenter__(self) -> UnitOfWork: ...
 
@@ -44,3 +46,9 @@ class UnitOfWork(Protocol):
     async def commit(self) -> None: ...
 
     async def rollback(self) -> None: ...
+
+    # Record a domain event during the transaction
+    def add_event(self, event: object) -> None: ...
+
+    # Drain collected events (used for post-commit dispatch)
+    def drain_events(self) -> list: ...

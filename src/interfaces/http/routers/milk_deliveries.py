@@ -4,13 +4,17 @@ from datetime import date as DtDate
 from datetime import timezone
 from decimal import ROUND_HALF_UP, Decimal
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response, status
 
 from src.application.errors import PermissionDenied
+from src.application.events.dispatcher import dispatch_events
+from src.application.events.models import DeliveryRecordedEvent
 from src.domain.models.milk_delivery import MilkDelivery
 from src.infrastructure.auth.context import AuthContext
-from src.infrastructure.services.notification_service import NotificationService
-from src.interfaces.http.deps import get_app_settings, get_auth_context, get_uow
+from src.interfaces.http.deps import (
+    get_auth_context,
+    get_uow,
+)
 from src.interfaces.http.schemas.milk_deliveries import (
     DeliverySummaryItem,
     MilkDeliveryCreate,
@@ -50,9 +54,10 @@ async def list_deliveries(
 @router.post("/", response_model=MilkDeliveryResponse, status_code=status.HTTP_201_CREATED)
 async def create_delivery(
     payload: MilkDeliveryCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
-    settings=Depends(get_app_settings),
 ):
     # Allow ADMIN, MANAGER, and WORKER to register deliveries
     from src.domain.value_objects.role import Role
@@ -123,54 +128,31 @@ async def create_delivery(
     created = await uow.milk_deliveries.add(delivery)
 
     # Get buyer details for notification
-    buyer = await uow.buyers.get(context.tenant_id, buyer_id)
-    buyer_name = buyer.name if buyer else "Comprador"
+    await uow.buyers.get(context.tenant_id, buyer_id)
 
-    # Build NotificationService using the same DB session to avoid SQLite locks
-    from src.infrastructure.push.fcm import FCMClient
-    from src.infrastructure.push.fcm_v1 import FCMv1Client
-    from src.infrastructure.repos.device_tokens_sqlalchemy import DeviceTokensSQLAlchemyRepository
-    from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
-    from src.interfaces.http.routers.notifications import connection_manager
-
-    notification_repo = NotificationsSQLAlchemyRepository(uow.session)
-    device_tokens_repo = DeviceTokensSQLAlchemyRepository(uow.session)
-    push_sender = None
-    sa_json = settings.get_fcm_service_account_json()
-    if settings.fcm_project_id and sa_json:
-        push_sender = FCMv1Client(project_id=settings.fcm_project_id, service_account_json=sa_json)
-    elif settings.fcm_server_key:
-        push_sender = FCMClient(settings.fcm_server_key.get_secret_value())
-    notification_service = NotificationService(
-        notification_repo=notification_repo,
-        connection_manager=connection_manager,
-        device_tokens_repo=device_tokens_repo,
-        push_sender=push_sender,
+    # Emit domain event
+    uow.add_event(
+        DeliveryRecordedEvent(
+            tenant_id=context.tenant_id,
+            actor_user_id=context.user_id,
+            delivery_id=created.id,
+            buyer_id=buyer_id,
+            volume_l=payload.volume_l,
+            amount=amount,
+            currency=currency,
+            date=dt.date(),
+        )
     )
 
-    # Send notification to all users in the tenant except the actor
-    users_with_roles, _total = await uow.users.list_by_tenant(context.tenant_id, page=1, limit=1000)
-    for uwr in users_with_roles:
-        if uwr.user.id == context.user_id:
-            continue
-        await notification_service.send_notification(
-            tenant_id=context.tenant_id,
-            user_id=uwr.user.id,
-            type="delivery_recorded",
-            title=f"Entrega registrada: {buyer_name}",
-            message=f"Se entregaron {payload.volume_l}L por {currency} {amount}",
-            data={
-                "delivery_id": str(created.id),
-                "buyer_id": str(buyer_id),
-                "buyer_name": buyer_name,
-                "volume_l": str(payload.volume_l),
-                "amount": str(amount),
-                "currency": currency,
-                "date": str(dt.date()),
-            },
-        )
-
+    events = uow.drain_events()
     await uow.commit()
+
+    # Dispatch events post-commit in background (non-blocking)
+    if request is not None:
+        session_factory = getattr(request.app.state, "session_factory", None)
+        if session_factory is not None:
+            background_tasks.add_task(dispatch_events, session_factory, events)
+
     return MilkDeliveryResponse.model_validate(created)
 
 
