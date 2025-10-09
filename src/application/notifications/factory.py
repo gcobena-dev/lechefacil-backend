@@ -77,7 +77,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         currency: str = kwargs.get("currency", "USD")
         delivery_id = kwargs.get("delivery_id")
         buyer_id = kwargs.get("buyer_id")
-        d = kwargs.get("date")
+        d = kwargs.get("date_time")
         title_suffix = _format_day_date(d)
         title = f"Entrega registrada {title_suffix}"
         message = f"Se entregaron {_fmt(volume_l)}L por {currency} {_fmt(amount, 2)}"
@@ -102,7 +102,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         shift: str = kwargs.get("shift", "AM")
         animal_id = kwargs.get("animal_id")
         production_id = kwargs.get("production_id")
-        d = kwargs.get("date")
+        d = kwargs.get("date_time")
         title_date = _format_day_date(d)
         title = f"Producción registrada: {animal_label}" + (
             f" - {short_name}" if short_name else ""
@@ -128,7 +128,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         shift: str = kwargs.get("shift", "AM")
         animal_id = kwargs.get("animal_id")
         production_id = kwargs.get("production_id")
-        d = kwargs.get("date")
+        d = kwargs.get("date_time")
         date_str = _format_day_date(d)
         title = f"⚠️ Producción baja: {animal_label}" + (f" - {short_name}" if short_name else "")
         message = f"{_fmt(volume_l)}L vs prom. {_fmt(avg_hist)}L - {date_str} {shift}"
@@ -146,7 +146,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         count: int = int(kwargs.get("count", 0) or 0)
         total_volume_l: str | float | int = kwargs.get("total_volume_l", "0")
         shift: str = kwargs.get("shift", "AM")
-        d = kwargs.get("date")
+        d = kwargs.get("date_time")
         title_date = _format_day_date(d)
         title = f"Registro masivo completado - {title_date} {shift}"
         message = f"Se registraron {count} animales con {_fmt(total_volume_l)}L totales"
