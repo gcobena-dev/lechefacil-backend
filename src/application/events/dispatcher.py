@@ -123,9 +123,11 @@ async def _handle_production_recorded(
 ):
     animal = await uow.animals.get(e.tenant_id, e.animal_id)
     animal_label = animal.tag if animal else "Animal"
+    animal_name = animal.name if animal and animal.name else ""
     built = build_notification(
         NotificationType.PRODUCTION_RECORDED,
         animal_label=animal_label,
+        animal_name=animal_name,
         volume_l=e.volume_l,
         shift=e.shift,
         animal_id=e.animal_id,
@@ -151,9 +153,11 @@ async def _handle_production_low(
 ):
     animal = await uow.animals.get(e.tenant_id, e.animal_id)
     animal_label = animal.tag if animal else "Animal"
+    animal_name = animal.name if animal and animal.name else ""
     built = build_notification(
         NotificationType.PRODUCTION_LOW,
         animal_label=animal_label,
+        animal_name=animal_name,
         volume_l=e.volume_l,
         avg_hist=e.avg_hist,
         shift=e.shift,

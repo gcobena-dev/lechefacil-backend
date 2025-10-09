@@ -69,8 +69,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         delivery_id = kwargs.get("delivery_id")
         buyer_id = kwargs.get("buyer_id")
         d = kwargs.get("date")
-        dt_full = kwargs.get("date_time")  # opcional, si está disponible
-        title_suffix = _format_day_date(dt_full or d, include_time=True)
+        title_suffix = _format_day_date(d)
         title = f"Entrega registrada {title_suffix}"
         message = f"Se entregaron {_fmt(volume_l)}L por {currency} {_fmt(amount, 2)}"
         data = {
