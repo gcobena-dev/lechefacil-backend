@@ -1,38 +1,29 @@
 # LecheFacil Backend
 
-Minimal FastAPI backend MVP for multi-tenant dairy management.
+Backend sencillo basado en FastAPI para gestión lechera multi‑tenant.
 
-## Features
-- FastAPI + SQLAlchemy async stack with row-level tenancy
-- User auth with internally issued JWTs and role-based access control
-- Animals CRUD with optimistic locking and per-tenant uniqueness
-- Clean architecture inspired layering
-- CI pipeline with lint, tests, Docker build
-- GitHub Actions pipeline that builds/publishes container images and deploys to Railway
+## Requisitos
+- Python 3.11+
+- Poetry
+- PostgreSQL
 
-## Getting Started
+## Inicio rápido
 ```bash
+# 1) Dependencias
 poetry install
+
+# 2) Variables de entorno
 cp .env.example .env
-poetry run alembic upgrade head  # migrations handled in CI/CD
-poetry run uvicorn src.interfaces.http.main:app --reload
+
+# 3) Base de datos (migraciones)
+poetry run alembic upgrade head
+
+# 4) Levantar el servidor
+make dev
+# ó
+# poetry run uvicorn src.interfaces.http.main:app --reload
 ```
 
-## Makefile Targets
-- `make dev` runs the dev server
-- `make lint` formats/lints with ruff
-- `make test` runs pytest
-- `make export-openapi` refreshes the OpenAPI schema file
-
-## Testing
-```bash
-make test
-```
-
-## OpenAPI Export
-```bash
-make export-openapi
-```
-
-## CI/CD
-CI workflow runs lint, tests, and Docker build. Deploy workflow demonstrates Terraform plan/apply.
+## Útil
+- Docs locales: http://localhost:8000/docs
+- Pruebas: `make test`
