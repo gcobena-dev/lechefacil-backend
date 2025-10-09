@@ -140,7 +140,7 @@ async def create_delivery(
             volume_l=payload.volume_l,
             amount=amount,
             currency=currency,
-            date=dt.date(),
+            date_time=dt,
         )
     )
 

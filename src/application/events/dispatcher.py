@@ -102,7 +102,7 @@ async def _handle_delivery_recorded(
         currency=e.currency,
         delivery_id=e.delivery_id,
         buyer_id=e.buyer_id,
-        date=e.date,
+        date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
     )
 
     async def send(user_id):
@@ -130,9 +130,9 @@ async def _handle_production_recorded(
         animal_name=animal_name,
         volume_l=e.volume_l,
         shift=e.shift,
+        date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
         animal_id=e.animal_id,
         production_id=e.production_id,
-        date=e.date,
     )
 
     async def send(user_id):
@@ -161,9 +161,9 @@ async def _handle_production_low(
         volume_l=e.volume_l,
         avg_hist=e.avg_hist,
         shift=e.shift,
+        date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
         animal_id=e.animal_id,
         production_id=e.production_id,
-        date=e.date,
     )
 
     async def send(user_id):
@@ -189,7 +189,7 @@ async def _handle_production_bulk_recorded(
         count=e.count,
         total_volume_l=e.total_volume_l,
         shift=e.shift,
-        date=e.date,
+        date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
     )
 
     async def send(user_id):

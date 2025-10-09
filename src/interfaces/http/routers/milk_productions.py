@@ -218,7 +218,7 @@ async def create_production(
         animal_id=payload.animal_id,
         volume_l=vol_l,
         shift=shift_val,
-        date=dt.date(),
+        date_time=dt,
     )
 
     # Check for low production: below this animal's recent average (last 30 days, excluding today)
@@ -245,7 +245,7 @@ async def create_production(
                     volume_l=vol_l,
                     avg_hist=float(f"{avg_hist:.2f}"),
                     shift=shift_val,
-                    date=dt.date(),
+                    date_time=dt,
                 )
     except Exception:
         # If averaging fails, fallback to normal notification without raising
@@ -399,7 +399,7 @@ async def create_productions_bulk(
             count=len(results),
             total_volume_l=str(total_volume),
             shift=shift_val,
-            date=dt_shared.date(),
+            date_time=dt_shared,
         )
     )
 

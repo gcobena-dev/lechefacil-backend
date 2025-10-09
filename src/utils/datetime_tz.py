@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+
 from zoneinfo import ZoneInfo
 
 # Default application timezone aligned with frontend
@@ -24,4 +25,3 @@ def to_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=DEFAULT_TZ)
     return dt.astimezone(timezone.utc)
-
