@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .types import NotificationType
 
@@ -32,6 +33,7 @@ def _fmt(value: Any, decimals: int = 1) -> str:
 
 _DOW_ES = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
 _MON_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+_DEFAULT_TZ = ZoneInfo("America/Guayaquil")
 
 
 def _format_day_date(
@@ -39,12 +41,18 @@ def _format_day_date(
     *,
     include_time: bool = False,
     t: time | None = None,
+    tz: ZoneInfo | None = _DEFAULT_TZ,
 ) -> str:
     """Return 'vie 05/oct' or with time 'vie 05/oct hh:mm' in es-ES style."""
     if d is None:
         return ""
     if isinstance(d, datetime):
         dt = d
+        if tz is not None:
+            # Normalize: assume UTC if naive, then convert to tz
+            if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.astimezone(tz)
     else:
         dt = datetime.combine(d, time(0, 0))
     dow = _DOW_ES[dt.weekday()]
