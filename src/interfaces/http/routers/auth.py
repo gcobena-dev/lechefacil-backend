@@ -76,6 +76,7 @@ async def read_me(context: AuthContext = Depends(get_auth_context)) -> MeRespons
 async def login(
     payload: LoginRequest,
     response: Response,
+    request: Request,
     uow=Depends(get_uow),
     password_hasher: PasswordHasher = Depends(get_password_hasher),
     jwt_service: JWTService = Depends(get_jwt_service),
@@ -102,6 +103,11 @@ async def login(
         secure=settings.cookie_secure,
         path="/",
     )
+    # Include refresh_token in body for mobile clients that request it
+    include_refresh = (
+        request.headers.get("X-Mobile-Client") == "1"
+        or request.headers.get("X-Return-Refresh") == "1"
+    )
     return LoginResponse(
         access_token=result.access_token,
         token_type=result.token_type,
@@ -109,6 +115,7 @@ async def login(
         email=result.email,
         must_change_password=result.must_change_password,
         memberships=memberships,
+        refresh_token=refresh if include_refresh else None,
     )
 
 
@@ -309,6 +316,11 @@ async def refresh_token(
         secure=settings.cookie_secure,
         path="/",
     )
+    include_refresh = (
+        bool(request.headers.get("Authorization") or request.headers.get("authorization"))
+        or request.headers.get("X-Mobile-Client") == "1"
+        or request.headers.get("X-Return-Refresh") == "1"
+    )
     return LoginResponse(
         access_token=access,
         token_type="bearer",
@@ -316,6 +328,7 @@ async def refresh_token(
         email=user.email,
         must_change_password=user.must_change_password,
         memberships=[MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in memberships],
+        refresh_token=new_refresh if include_refresh else None,
     )
 
 

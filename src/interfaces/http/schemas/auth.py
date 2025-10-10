@@ -35,6 +35,8 @@ class LoginResponse(BaseModel):
     email: EmailStr
     must_change_password: bool
     memberships: list[MembershipSchema]
+    # Optional: included for mobile flows when requested or when using Authorization-based refresh
+    refresh_token: str | None = None
 
 
 class RegisterRequest(BaseModel):
