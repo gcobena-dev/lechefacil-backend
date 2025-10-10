@@ -263,7 +263,25 @@ async def refresh_token(
     jwt_service: JWTService | None = getattr(request.app.state, "jwt_service", None)
     if jwt_service is None:
         raise RuntimeError("JWT service not configured")
+    # Accept refresh from cookie, Authorization Bearer, or JSON body
     token = request.cookies.get("refresh_token")
+    if not token:
+        # Try Authorization header
+        auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
+        if auth_header:
+            scheme, _, bearer = auth_header.partition(" ")
+            if scheme.lower() == "bearer" and bearer:
+                token = bearer.strip()
+        # Try JSON body
+        if not token:
+            try:
+                body = await request.json()
+                if isinstance(body, dict):
+                    candidate = body.get("refresh_token")
+                    if isinstance(candidate, str) and candidate:
+                        token = candidate
+            except Exception:
+                pass
     if not token:
         from src.application.errors import AuthError
 
