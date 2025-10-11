@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
+from src.application.errors import AuthError
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.db.session import SQLAlchemyUnitOfWork
 from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAlchemyRepository
@@ -63,6 +64,17 @@ async def websocket_endpoint(
                 )
             tenant_uuid = UUID(tenant_header)
 
+    except AuthError as e:
+        # Distinguish expired token from other auth errors to reduce noise and
+        # help the client know it should reconnect with a fresh token.
+        if getattr(e, "message", str(e)).lower().startswith("token expired"):
+            logger.info("WebSocket auth refused: token expired")
+            # Custom close code to signal token update needed
+            await websocket.close(code=4001, reason="Token expired")
+        else:
+            logger.info(f"WebSocket auth refused: {e}")
+            await websocket.close(code=1008, reason="Authentication failed")
+        return
     except Exception as e:
         logger.error(f"WebSocket authentication failed: {e}", exc_info=True)
         await websocket.close(code=1008, reason="Authentication failed")
