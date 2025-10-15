@@ -80,3 +80,32 @@ class JWTService:
         if claims.get("typ") != "refresh":
             raise AuthError("Invalid refresh token")
         return claims
+
+    def create_typed_token(
+        self,
+        *,
+        subject: UUID,
+        typ: str,
+        expires_minutes: int,
+        extra_claims: Mapping[str, Any] | None = None,
+    ) -> str:
+        now = datetime.now(timezone.utc)
+        to_encode: dict[str, Any] = {
+            "sub": str(subject),
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(minutes=expires_minutes)).timestamp()),
+            "typ": typ,
+        }
+        if self.issuer:
+            to_encode["iss"] = self.issuer
+        if self.audience:
+            to_encode["aud"] = self.audience
+        if extra_claims:
+            to_encode.update(extra_claims)
+        return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+
+    def decode_typed(self, token: str, expected_type: str) -> dict[str, Any]:
+        claims = self.decode(token)
+        if claims.get("typ") != expected_type:
+            raise AuthError("Invalid token type")
+        return claims

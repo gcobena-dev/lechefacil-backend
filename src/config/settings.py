@@ -30,11 +30,18 @@ class Settings(BaseSettings):
     # CORS
     cors_allow_origins: str = "*"
     # Email (disabled for now)
-    email_provider: str = "logging"  # logging only
+    email_provider: str = "logging"  # logging | ses | unione
     email_from_name: str = "LecheFacil"
     email_from_address: str = "no-reply@lechefacil.local"
     email_admin_recipients: str = "gcobena.dev@gmail.com"
     email_default_locale: str = "es"
+    # Email branding (for templates)
+    email_primary_color: str = "#16a34a"  # Tailwind 'green-600' default
+    email_brand_logo_url: str | None = "https://lechefacil.gcobena.dev/logo.png"
+    email_reset_url_base: str | None = None
+    # UniOne email provider settings
+    unione_api_key: SecretStr | None = None
+    unione_api_url: str = "https://us1.unione.io/en/transactional/api/v1/email/send.json"
     # Auth cookies (for refresh token)
     cookie_samesite: str = "lax"  # options: 'lax', 'none', 'strict'
     cookie_secure: bool = False  # set True when served over HTTPS

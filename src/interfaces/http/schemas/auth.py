@@ -135,3 +135,21 @@ class RemoveMembershipResponse(BaseModel):
     user_id: UUID
     tenant_id: UUID
     removed_at: str
+
+
+# Password reset (forgot password)
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    status: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class ResetPasswordResponse(BaseModel):
+    status: str

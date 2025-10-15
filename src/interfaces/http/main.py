@@ -88,8 +88,38 @@ def create_app(
         issuer=settings.jwt_issuer,
         audience=settings.jwt_audience,
     )
-    # Email service (always use logging provider for now)
-    app.state.email_service = LoggingEmailService()
+    # Email service: select provider
+    provider = settings.email_provider.lower()
+    if provider == "ses":
+        try:
+            from src.infrastructure.email.providers.ses_provider import SESEmailService
+
+            # Use default AWS credential/region chain; no custom settings required
+            app.state.email_service = SESEmailService()
+        except Exception as exc:  # fallback to logging provider
+            logging.getLogger(__name__).warning(
+                "Failed to init SES provider, " "fallback to logging: %s", exc
+            )
+            app.state.email_service = LoggingEmailService()
+    elif provider == "unione":
+        try:
+            from src.infrastructure.email.providers.unione_provider import UniOneEmailService
+
+            if not settings.unione_api_key:
+                raise ValueError("UNIONE_API_KEY is required when EMAIL_PROVIDER=unione")
+
+            app.state.email_service = UniOneEmailService(
+                api_key=settings.unione_api_key.get_secret_value(),
+                api_url=settings.unione_api_url,
+            )
+            logging.getLogger(__name__).info("UniOne email service initialized successfully")
+        except Exception as exc:  # fallback to logging provider
+            logging.getLogger(__name__).warning(
+                "Failed to init UniOne provider, " "fallback to logging: %s", exc
+            )
+            app.state.email_service = LoggingEmailService()
+    else:
+        app.state.email_service = LoggingEmailService()
     # Email template renderer
     app.state.email_renderer = EmailTemplateRenderer.create_default()
     # Storage service (S3 only if configured)

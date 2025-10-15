@@ -30,6 +30,8 @@ from src.interfaces.http.schemas.auth import (
     AddMembershipResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     LoginResponse,
     MembershipSchema,
@@ -41,6 +43,8 @@ from src.interfaces.http.schemas.auth import (
     RegisterTenantResponse,
     RemoveMembershipRequest,
     RemoveMembershipResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     SelfRegisterRequest,
     SelfRegisterResponse,
     UserListResponse,
@@ -160,6 +164,87 @@ async def change_password_endpoint(
         password_hasher=password_hasher,
     )
     return ChangePasswordResponse(status="password_changed")
+
+
+@router.post("/auth/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password_endpoint(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    uow=Depends(get_uow),
+    jwt_service: JWTService = Depends(get_jwt_service),
+    settings=Depends(get_app_settings),
+) -> ForgotPasswordResponse:
+    # Always respond OK to avoid email enumeration
+    try:
+        async with uow:
+            user = await uow.users.get_by_email(payload.email)
+        if user and user.is_active:
+            token = jwt_service.create_typed_token(
+                subject=user.id,
+                typ="pwd_reset",
+                expires_minutes=30,
+                extra_claims={"email": user.email},
+            )
+            # Build reset link: prefer configured frontend base
+            reset_base = getattr(settings, "email_reset_url_base", None)
+            if reset_base:
+                base = reset_base.rstrip("/")
+            else:
+                base = str(request.base_url).rstrip("/")
+            reset_link = f"{base}/reset-password?token={token}"
+            # Render and send email
+            renderer = getattr(request.app.state, "email_renderer", None)
+            email_svc = getattr(request.app.state, "email_service", None)
+            if renderer and email_svc:
+                msg_tpl = renderer.render(
+                    template_key="password_reset",
+                    settings=settings,
+                    context={
+                        "email": user.email,
+                        "reset_link": reset_link,
+                        "expires_minutes": 30,
+                        "token": token,
+                    },
+                )
+                msg_tpl.to = [user.email]
+                msg_tpl.from_email = settings.email_from_address
+                msg_tpl.from_name = settings.email_from_name
+                await email_svc.send(msg_tpl)
+            else:
+                logger.info("Email components not configured; skipping reset email")
+    except Exception as exc:  # pragma: no cover - best effort, do not leak errors
+        logger.warning("forgot_password failed silently: %s", exc)
+    return ForgotPasswordResponse(status="ok")
+
+
+@router.post("/auth/reset-password", response_model=ResetPasswordResponse)
+async def reset_password_endpoint(
+    payload: ResetPasswordRequest,
+    uow=Depends(get_uow),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+    jwt_service: JWTService = Depends(get_jwt_service),
+) -> ResetPasswordResponse:
+    # Validate token and change password without current password
+    claims = jwt_service.decode_typed(payload.token, expected_type="pwd_reset")
+    from uuid import UUID as _UUID
+
+    subject = claims.get("sub")
+    if not subject:
+        from src.application.errors import AuthError
+
+        raise AuthError("Invalid token")
+    user_id = _UUID(str(subject))
+    # Ensure user exists and is active
+    async with uow:
+        user = await uow.users.get(user_id)
+        if not user or not user.is_active:
+            from src.application.errors import AuthError
+
+            raise AuthError("Invalid user")
+        hashed = password_hasher.hash(payload.new_password)
+        await uow.users.update_password(user_id, hashed)
+        await uow.commit()
+    return ResetPasswordResponse(status="password_reset")
 
 
 @router.post("/auth/register-tenant", response_model=RegisterTenantResponse, status_code=201)
