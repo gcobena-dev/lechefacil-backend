@@ -27,6 +27,7 @@ from src.infrastructure.db.orm import (
     animal_certificate,  # noqa: F401
     lactation,  # noqa: F401
     notification,  # noqa: F401
+    one_time_token,  # noqa: F401
 )
 
 config = context.config

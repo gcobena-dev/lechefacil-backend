@@ -41,6 +41,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.milk_deliveries = None
         self.breeds = None
         self.lots = None
+        self.one_time_tokens = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
@@ -68,6 +69,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         from src.infrastructure.repos.milk_productions_sqlalchemy import (
             MilkProductionsSQLAlchemyRepository,
         )
+        from src.infrastructure.repos.one_time_tokens_sqlalchemy import OneTimeTokenRepository
         from src.infrastructure.repos.tenant_config_sqlalchemy import (
             TenantConfigSQLAlchemyRepository,
         )
@@ -89,6 +91,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.milk_deliveries = MilkDeliveriesSQLAlchemyRepository(self.session)
         self.breeds = BreedsSQLAlchemyRepository(self.session)
         self.lots = LotsSQLAlchemyRepository(self.session)
+        self.one_time_tokens = OneTimeTokenRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -117,6 +120,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.milk_deliveries = None
             self.breeds = None
             self.lots = None
+            self.one_time_tokens = None
 
     async def commit(self) -> None:
         if not self.session:

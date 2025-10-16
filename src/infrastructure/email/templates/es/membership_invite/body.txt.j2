@@ -1,13 +1,24 @@
+{% if is_new_user %}¡Bienvenido a LecheFacil!{% else %}Nueva invitación en LecheFacil{% endif %}
+
 Hola,
 
-Has sido agregado al tenant {{ tenant_id }} con el rol {{ role }}.
+{% if is_new_user %}
+Se ha creado una cuenta para ti en LecheFacil. Has sido agregado al tenant {{ tenant_id }} con el rol {{ role }}.
 
-Tus credenciales temporales son:
-  Usuario: {{ email }}
-  Contraseña: {{ initial_password }}
+Para comenzar, necesitas establecer tu contraseña:
 
-Por seguridad, inicia sesión y cambia tu contraseña de inmediato.
-{{ instructions }}
+{{ set_password_link }}
+
+Este enlace es de un solo uso y no expira. Una vez que establezcas tu contraseña, podrás iniciar sesión normalmente.
+
+{% else %}
+Has sido agregado a un nuevo tenant en LecheFacil: {{ tenant_id }} con el rol {{ role }}.
+
+Puedes iniciar sesión con tus credenciales existentes:
+
+{{ login_link }}
+
+{% endif %}
 
 Gracias,
 {{ app.name }}

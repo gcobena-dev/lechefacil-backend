@@ -47,6 +47,8 @@ from src.interfaces.http.schemas.auth import (
     ResetPasswordResponse,
     SelfRegisterRequest,
     SelfRegisterResponse,
+    SetPasswordRequest,
+    SetPasswordResponse,
     UserListResponse,
     UsersListResponse,
 )
@@ -171,47 +173,60 @@ async def forgot_password_endpoint(
     payload: ForgotPasswordRequest,
     request: Request,
     uow=Depends(get_uow),
-    jwt_service: JWTService = Depends(get_jwt_service),
     settings=Depends(get_app_settings),
 ) -> ForgotPasswordResponse:
     # Always respond OK to avoid email enumeration
     try:
+        import secrets
+
+        from src.domain.models.one_time_token import OneTimeToken
+
         async with uow:
             user = await uow.users.get_by_email(payload.email)
-        if user and user.is_active:
-            token = jwt_service.create_typed_token(
-                subject=user.id,
-                typ="pwd_reset",
-                expires_minutes=30,
-                extra_claims={"email": user.email},
-            )
-            # Build reset link: prefer configured frontend base
-            reset_base = getattr(settings, "email_reset_url_base", None)
-            if reset_base:
-                base = reset_base.rstrip("/")
-            else:
-                base = str(request.base_url).rstrip("/")
-            reset_link = f"{base}/reset-password?token={token}"
-            # Render and send email
-            renderer = getattr(request.app.state, "email_renderer", None)
-            email_svc = getattr(request.app.state, "email_service", None)
-            if renderer and email_svc:
-                msg_tpl = renderer.render(
-                    template_key="password_reset",
-                    settings=settings,
-                    context={
-                        "email": user.email,
-                        "reset_link": reset_link,
-                        "expires_minutes": 30,
-                        "token": token,
-                    },
+
+            if user and user.is_active:
+                # Generate one-time token with 30 minute expiration
+                token_value = secrets.token_urlsafe(32)
+                one_time_token = OneTimeToken.create(
+                    token=token_value,
+                    user_id=user.id,
+                    purpose="reset_password",
+                    expires_in_minutes=30,  # Expires in 30 minutes
+                    extra_data={"email": user.email},
                 )
-                msg_tpl.to = [user.email]
-                msg_tpl.from_email = settings.email_from_address
-                msg_tpl.from_name = settings.email_from_name
-                await email_svc.send(msg_tpl)
-            else:
-                logger.info("Email components not configured; skipping reset email")
+
+                await uow.one_time_tokens.add(one_time_token)
+                await uow.commit()
+
+                # Build reset link: prefer configured frontend base
+                reset_base = getattr(settings, "email_reset_url_base", None)
+                if reset_base:
+                    base = reset_base.rstrip("/")
+                else:
+                    base = str(request.base_url).rstrip("/")
+                reset_link = f"{base}/reset-password?token={token_value}"
+
+                # Render and send email
+                renderer = getattr(request.app.state, "email_renderer", None)
+                email_svc = getattr(request.app.state, "email_service", None)
+                if renderer and email_svc:
+                    msg_tpl = renderer.render(
+                        template_key="password_reset",
+                        settings=settings,
+                        context={
+                            "email": user.email,
+                            "reset_link": reset_link,
+                            "expires_minutes": 30,
+                            "token": token_value,
+                        },
+                    )
+                    msg_tpl.to = [user.email]
+                    msg_tpl.from_email = settings.email_from_address
+                    msg_tpl.from_name = settings.email_from_name
+                    await email_svc.send(msg_tpl)
+                    logger.info(f"Password reset email sent to {user.email} with one-time token")
+                else:
+                    logger.info("Email components not configured; skipping reset email")
     except Exception as exc:  # pragma: no cover - best effort, do not leak errors
         logger.warning("forgot_password failed silently: %s", exc)
     return ForgotPasswordResponse(status="ok")
@@ -222,52 +237,192 @@ async def reset_password_endpoint(
     payload: ResetPasswordRequest,
     uow=Depends(get_uow),
     password_hasher: PasswordHasher = Depends(get_password_hasher),
-    jwt_service: JWTService = Depends(get_jwt_service),
 ) -> ResetPasswordResponse:
-    # Validate token and change password without current password
-    claims = jwt_service.decode_typed(payload.token, expected_type="pwd_reset")
-    from uuid import UUID as _UUID
+    """
+    Resetea la contraseña usando un token de un solo uso con expiración de 30 minutos.
+    El token se invalida después del primer uso exitoso.
+    """
+    from src.application.errors import AuthError
 
-    subject = claims.get("sub")
-    if not subject:
-        from src.application.errors import AuthError
-
-        raise AuthError("Invalid token")
-    user_id = _UUID(str(subject))
-    # Ensure user exists and is active
     async with uow:
-        user = await uow.users.get(user_id)
-        if not user or not user.is_active:
-            from src.application.errors import AuthError
+        # Buscar el token
+        token = await uow.one_time_tokens.get_by_token(payload.token)
+        if not token:
+            raise AuthError("Invalid or expired token")
 
-            raise AuthError("Invalid user")
+        # Check if the token is valid (not used and not expired)
+        if not token.is_valid():
+            if token.is_used:
+                raise AuthError("Token has already been used")
+            elif token.is_expired():
+                raise AuthError("Token has expired")
+            else:
+                raise AuthError("Invalid token")
+
+        # Verify that the purpose is reset_password
+        if token.purpose != "reset_password":
+            raise AuthError("Invalid token purpose")
+
+        # Get the user
+        user = await uow.users.get(token.user_id)
+        if not user or not user.is_active:
+            raise AuthError("User not found or inactive")
+
+        # Change the password
         hashed = password_hasher.hash(payload.new_password)
-        await uow.users.update_password(user_id, hashed)
+        await uow.users.update_password(token.user_id, hashed)
+
+        # Mark the token as used
+        await uow.one_time_tokens.mark_as_used(token.id)
+
         await uow.commit()
+
+        logger.info(f"Password reset successfully for user {user.email} using one-time token")
+
     return ResetPasswordResponse(status="password_reset")
+
+
+@router.post("/auth/set-password", response_model=SetPasswordResponse)
+async def set_password_endpoint(
+    payload: SetPasswordRequest,
+    uow=Depends(get_uow),
+    password_hasher: PasswordHasher = Depends(get_password_hasher),
+) -> SetPasswordResponse:
+    """
+    Set a password using a one-time token (no expiration).
+    The token is invalidated after the first successful use.
+    Used for invitations and tenant creation.
+    """
+
+    from src.application.errors import AuthError
+
+    async with uow:
+        # Find the token
+        token = await uow.one_time_tokens.get_by_token(payload.token)
+        if not token:
+            raise AuthError("Invalid or expired token")
+
+        # Check if the token is valid (not used)
+        if not token.is_valid():
+            raise AuthError("Token has already been used")
+
+        # Verify that the purpose is set_password
+        if token.purpose != "set_password":
+            raise AuthError("Invalid token purpose")
+
+        # Get the user
+        user = await uow.users.get(token.user_id)
+        if not user or not user.is_active:
+            raise AuthError("User not found or inactive")
+
+        # Change the password
+        hashed = password_hasher.hash(payload.new_password)
+        await uow.users.update_password(token.user_id, hashed)
+
+        # Mark the token as used
+        await uow.one_time_tokens.mark_as_used(token.id)
+
+        await uow.commit()
+
+        logger.info(f"Password set successfully for user {user.email} using one-time token")
+
+    return SetPasswordResponse(
+        status="password_set", message="Password has been set successfully. You can now login."
+    )
 
 
 @router.post("/auth/register-tenant", response_model=RegisterTenantResponse, status_code=201)
 async def register_tenant_endpoint(
     payload: RegisterTenantRequest,
-    context: AuthContext = Depends(get_auth_context),
+    request: Request,
     uow=Depends(get_uow),
     password_hasher: PasswordHasher = Depends(get_password_hasher),
+    settings=Depends(get_app_settings),
 ) -> RegisterTenantResponse:
-    # Restrict to admins (as a simple guard); adjust if superuser concept is added
-    if not context.role.can_manage_users():
-        from src.application.errors import PermissionDenied
+    import secrets
 
-        raise PermissionDenied("Only admins can bootstrap tenants")
+    from src.application.errors import PermissionDenied
+    from src.domain.models.one_time_token import OneTimeToken
+
+    # Verify bootstrap API key for tenant creation
+    api_key = request.headers.get("X-Bootstrap-Key")
+    if not settings.bootstrap_secret_key:
+        raise PermissionDenied("Tenant creation is disabled")
+    if api_key != settings.bootstrap_secret_key.get_secret_value():
+        raise PermissionDenied("Invalid bootstrap key")
+
+    # Check if user already exists
+    existing_user = await uow.users.get_by_email(payload.email)
+    created_user = existing_user is None
+
+    # Determine if we should generate a one-time token:
+    # - Always for new users
+    # - For existing users if no password is provided
+    should_generate_token = created_user or payload.password is None
+
+    # Use temporary password if we're generating token, otherwise use provided password
+    temp_password = secrets.token_urlsafe(32) if should_generate_token else payload.password
+
     result = await bootstrap_tenant.execute(
         uow=uow,
         payload=bootstrap_tenant.RegisterTenantInput(
             email=payload.email,
-            password=payload.password,
+            password=temp_password,
             tenant_id=payload.tenant_id,
         ),
         password_hasher=password_hasher,
     )
+
+    # If we should generate token, create one-time token and send email
+    if should_generate_token:
+        # Generate one-time token
+        token_value = secrets.token_urlsafe(32)
+        one_time_token = OneTimeToken.create(
+            token=token_value,
+            user_id=result.user_id,
+            purpose="set_password",
+            extra_data={"tenant_id": str(result.tenant_id), "role": "ADMIN", "created_via": "api"},
+        )
+
+        async with uow:
+            await uow.one_time_tokens.add(one_time_token)
+            await uow.commit()
+
+        # Send email with password setup link
+        renderer = getattr(request.app.state, "email_renderer", None)
+        email_svc = getattr(request.app.state, "email_service", None)
+
+        if renderer and email_svc:
+            # Build link for setting password
+            set_password_base = getattr(settings, "email_reset_url_base", None)
+            if set_password_base:
+                base = set_password_base.rstrip("/")
+            else:
+                base = str(request.base_url).rstrip("/")
+            set_password_link = f"{base}/set-password?token={token_value}"
+
+            try:
+                rendered = renderer.render(
+                    template_key="membership_invite",
+                    settings=settings,
+                    context={
+                        "user_email": payload.email,
+                        "tenant_name": "LecheFácil",
+                        "role": "ADMIN",
+                        "is_new_user": True,
+                        "set_password_link": set_password_link,
+                        "login_link": f"{base}/login",
+                    },
+                )
+                rendered.to = [payload.email]
+                rendered.from_email = settings.email_from_address
+                rendered.from_name = settings.email_from_name
+
+                await email_svc.send(rendered)
+                logger.info(f"Tenant creation email sent to {payload.email}")
+            except Exception as exc:
+                logger.warning(f"Failed to send tenant creation email: {exc}")
+
     return RegisterTenantResponse(
         user_id=result.user_id, email=result.email, tenant_id=result.tenant_id
     )
@@ -323,28 +478,107 @@ async def add_membership_endpoint(
             email=payload.email,
             user_id=payload.user_id,
             create_if_missing=payload.create_if_missing,
-            initial_password=payload.initial_password,
+            initial_password=None,  # We don't use temporary password, we use token
         ),
         password_hasher=password_hasher,
     )
-    # Log membership creation (email sending disabled for now)
-    logger.info(
-        f"Membership created for user {result.user_id}, "
-        f"created_user={result.created_user}, email={payload.email}"
-    )
+
+    # If a new user was created, generate one-time token and send email
     if result.created_user:
-        logger.info(
-            f"New user created with default password. "
-            f"User must change password on first login. Email: {payload.email}"
+        import secrets
+
+        from src.domain.models.one_time_token import OneTimeToken
+
+        # Generate secure one-time token
+        token_value = secrets.token_urlsafe(32)
+        one_time_token = OneTimeToken.create(
+            token=token_value,
+            user_id=result.user_id,
+            purpose="set_password",
+            extra_data={"tenant_id": str(result.tenant_id), "role": result.role.value},
         )
-    # TODO: Implement email sending for membership invitations later
+
+        async with uow:
+            await uow.one_time_tokens.add(one_time_token)
+            await uow.commit()
+
+        # Send email with password setup link
+        renderer = getattr(request.app.state, "email_renderer", None)
+        email_svc = getattr(request.app.state, "email_service", None)
+
+        if renderer and email_svc:
+            # Build link for setting password
+            set_password_base = getattr(settings, "email_reset_url_base", None)
+            if set_password_base:
+                base = set_password_base.rstrip("/")
+            else:
+                base = str(request.base_url).rstrip("/")
+            set_password_link = f"{base}/set-password?token={token_value}"
+
+            try:
+                msg_tpl = renderer.render(
+                    template_key="membership_invite",
+                    settings=settings,
+                    context={
+                        "email": result.email,
+                        "tenant_id": str(result.tenant_id),
+                        "role": result.role.value,
+                        "set_password_link": set_password_link,
+                        "is_new_user": True,
+                    },
+                )
+                msg_tpl.to = [result.email]
+                msg_tpl.from_email = settings.email_from_address
+                msg_tpl.from_name = settings.email_from_name
+                await email_svc.send(msg_tpl)
+                logger.info(
+                    f"Membership invitation email sent to " f"{result.email} with one-time token"
+                )
+            except Exception as exc:
+                logger.warning(f"Failed to send membership invitation email: {exc}")
+        else:
+            logger.warning("Email components not configured; skipping membership invitation email")
+
+    # Si es un usuario existente, solo notificar que fue agregado al tenant
+    else:
+        renderer = getattr(request.app.state, "email_renderer", None)
+        email_svc = getattr(request.app.state, "email_service", None)
+
+        if renderer and email_svc:
+            set_password_base = getattr(settings, "email_reset_url_base", None)
+            if set_password_base:
+                base = set_password_base.rstrip("/")
+            else:
+                base = str(request.base_url).rstrip("/")
+            login_link = f"{base}/login"
+
+            try:
+                msg_tpl = renderer.render(
+                    template_key="membership_invite",
+                    settings=settings,
+                    context={
+                        "email": result.email,
+                        "tenant_id": str(result.tenant_id),
+                        "role": result.role.value,
+                        "login_link": login_link,
+                        "is_new_user": False,
+                    },
+                )
+                msg_tpl.to = [result.email]
+                msg_tpl.from_email = settings.email_from_address
+                msg_tpl.from_name = settings.email_from_name
+                await email_svc.send(msg_tpl)
+                logger.info(f"Membership notification email sent to {result.email}")
+            except Exception as exc:
+                logger.warning(f"Failed to send membership notification email: {exc}")
+
     return AddMembershipResponse(
         user_id=result.user_id,
         email=result.email,
         tenant_id=result.tenant_id,
         role=result.role,
         created_user=result.created_user,
-        generated_password=result.generated_password,
+        generated_password=None,  # We no longer return password, we use token
     )
 
 

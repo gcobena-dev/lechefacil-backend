@@ -19,6 +19,7 @@ from src.application.interfaces.repositories.milk_productions import MilkProduct
 from src.application.interfaces.repositories.tenant_config import TenantConfigRepository
 from src.application.interfaces.repositories.users import UserRepository
 from src.domain.ports.animal_statuses_repo import AnimalStatusesRepo
+from src.infrastructure.repos.one_time_tokens_sqlalchemy import OneTimeTokenRepository
 
 
 class UnitOfWork(Protocol):
@@ -36,6 +37,7 @@ class UnitOfWork(Protocol):
     milk_productions: MilkProductionsRepository
     milk_deliveries: MilkDeliveriesRepository
     tenant_config: TenantConfigRepository
+    one_time_tokens: OneTimeTokenRepository
     # Domain events collected during the transaction
     events: list
 

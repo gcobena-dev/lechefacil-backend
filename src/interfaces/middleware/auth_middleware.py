@@ -22,6 +22,8 @@ PUBLIC_PATHS: Iterable[str] = (
     "/api/v1/auth/signin",
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
+    "/api/v1/auth/set-password",
+    "/api/v1/auth/register-tenant",  # Protected by X-Bootstrap-Key header
     "/api/v1/auth/refresh",
     "/api/v1/auth/logout",
     "/api/v1/auth/my-tenants",

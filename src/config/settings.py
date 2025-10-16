@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     fcm_project_id: str | None = None  # For HTTP v1
     fcm_service_account_json: SecretStr | None = None  # Service Account JSON (HTTP v1)
     fcm_service_account_file: str | None = None  # Path or inline JSON (HTTP v1)
+    # Bootstrap API Key for tenant creation
+    bootstrap_secret_key: SecretStr | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

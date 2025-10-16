@@ -1,17 +1,48 @@
-<h2 style="margin:0 0 12px 0;font-size:18px;">Has sido invitado a LecheFacil</h2>
-<p style="margin:0 0 12px 0;">Has sido agregado al tenant <code>{{ tenant_id }}</code> con el rol <strong>{{ role }}</strong>.</p>
+<h2 style="margin:0 0 12px 0;font-size:18px;">
+  {% if is_new_user %}¡Bienvenido a LecheFacil!{% else %}Nueva invitación en LecheFacil{% endif %}
+</h2>
 
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;font-size:14px;line-height:1.5;">
-  <tr>
-    <td style="padding:4px 0;width:180px;color:#6b7280;">Usuario</td>
-    <td>{{ email }}</td>
-  </tr>
-  <tr>
-    <td style="padding:4px 0;width:180px;color:#6b7280;">Contraseña</td>
-    <td>{{ initial_password }}</td>
-  </tr>
-</table>
+{% if is_new_user %}
+<p style="margin:0 0 12px 0;">
+  Se ha creado una cuenta para ti en LecheFacil. Has sido agregado al tenant
+  <strong>{{ tenant_id }}</strong> con el rol <strong>{{ role }}</strong>.
+</p>
 
-<p style="margin:12px 0 0 0;">Por seguridad, inicia sesión y cambia tu contraseña de inmediato.</p>
-<p style="margin:0;">{{ instructions }}</p>
+<p style="margin:0 0 16px 0;">
+  Para comenzar, necesitas establecer tu contraseña haciendo clic en el siguiente botón:
+</p>
+
+<p style="margin:16px 0;">
+  <a href="{{ set_password_link }}" style="display:inline-block;background:{{ app.primary_color }};color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;">
+    Establecer mi Contraseña
+  </a>
+</p>
+
+<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;margin:16px 0;">
+  <p style="margin:0;color:#92400e;font-size:14px;">
+    ℹ️ <strong>Importante:</strong> Este enlace es de un solo uso y no expira. Una vez que establezcas tu contraseña, podrás iniciar sesión normalmente.
+  </p>
+</div>
+
+<p style="margin:12px 0 0 0;color:#6b7280;font-size:14px;">
+  Si no puedes hacer clic en el botón, copia y pega este enlace en tu navegador:<br>
+  <code style="background:#f3f4f6;padding:2px 6px;border-radius:3px;font-size:12px;word-break:break-all;">{{ set_password_link }}</code>
+</p>
+
+{% else %}
+<p style="margin:0 0 12px 0;">
+  Has sido agregado a un nuevo tenant en LecheFacil: <strong>{{ tenant_id }}</strong>
+  con el rol <strong>{{ role }}</strong>.
+</p>
+
+<p style="margin:0 0 16px 0;">
+  Puedes iniciar sesión con tus credenciales existentes:
+</p>
+
+<p style="margin:16px 0;">
+  <a href="{{ login_link }}" style="display:inline-block;background:{{ app.primary_color }};color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:600;">
+    Iniciar Sesión
+  </a>
+</p>
+{% endif %}
 

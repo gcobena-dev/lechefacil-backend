@@ -55,7 +55,7 @@ class RegisterResponse(BaseModel):
 
 class RegisterTenantRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str | None = None  # Optional: if not provided, generates one-time token
     tenant_id: UUID | None = None
 
 
@@ -153,3 +153,14 @@ class ResetPasswordRequest(BaseModel):
 
 class ResetPasswordResponse(BaseModel):
     status: str
+
+
+# Set password with one-time token
+class SetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class SetPasswordResponse(BaseModel):
+    status: str
+    message: str
