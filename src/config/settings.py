@@ -37,7 +37,6 @@ class Settings(BaseSettings):
     email_default_locale: str = "es"
     # Email branding (for templates)
     email_primary_color: str = "#16a34a"  # Tailwind 'green-600' default
-    email_brand_logo_url: str | None = "https://lechefacil.gcobena.dev/logo.png"
     email_reset_url_base: str | None = None
     # UniOne email provider settings
     unione_api_key: SecretStr | None = None

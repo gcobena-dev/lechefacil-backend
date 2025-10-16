@@ -43,7 +43,6 @@ class EmailTemplateRenderer:
             "app": {
                 "name": settings.email_from_name,
                 "primary_color": settings.email_primary_color,
-                "logo_url": settings.email_brand_logo_url,
             }
         }
         ctx = {**common, **context}
