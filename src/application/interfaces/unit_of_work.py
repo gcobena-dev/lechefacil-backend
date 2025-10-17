@@ -19,6 +19,7 @@ from src.application.interfaces.repositories.milk_productions import MilkProduct
 from src.application.interfaces.repositories.tenant_config import TenantConfigRepository
 from src.application.interfaces.repositories.users import UserRepository
 from src.domain.ports.animal_statuses_repo import AnimalStatusesRepo
+from src.infrastructure.repos.health_records_sqlalchemy import HealthRecordsSQLAlchemyRepository
 from src.infrastructure.repos.one_time_tokens_sqlalchemy import OneTimeTokenRepository
 
 
@@ -29,6 +30,7 @@ class UnitOfWork(Protocol):
     animal_events: AnimalEventsRepository
     animal_parentage: AnimalParentageRepository
     animal_certificates: AnimalCertificatesRepository
+    health_records: HealthRecordsSQLAlchemyRepository
     users: UserRepository
     memberships: MembershipRepository
     attachments: any

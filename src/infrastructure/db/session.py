@@ -42,6 +42,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.breeds = None
         self.lots = None
         self.one_time_tokens = None
+        self.health_records = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
@@ -59,6 +60,9 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         from src.infrastructure.repos.attachments_sqlalchemy import AttachmentsSQLAlchemyRepository
         from src.infrastructure.repos.breeds_sqlalchemy import BreedsSQLAlchemyRepository
         from src.infrastructure.repos.buyers_sqlalchemy import BuyersSQLAlchemyRepository
+        from src.infrastructure.repos.health_records_sqlalchemy import (
+            HealthRecordsSQLAlchemyRepository,
+        )
         from src.infrastructure.repos.lactations_sqlalchemy import LactationsSQLAlchemyRepository
         from src.infrastructure.repos.lots_sqlalchemy import LotsSQLAlchemyRepository
         from src.infrastructure.repos.memberships_sqlalchemy import MembershipsSQLAlchemyRepository
@@ -92,6 +96,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.breeds = BreedsSQLAlchemyRepository(self.session)
         self.lots = LotsSQLAlchemyRepository(self.session)
         self.one_time_tokens = OneTimeTokenRepository(self.session)
+        self.health_records = HealthRecordsSQLAlchemyRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -121,6 +126,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.breeds = None
             self.lots = None
             self.one_time_tokens = None
+            self.health_records = None
 
     async def commit(self) -> None:
         if not self.session:

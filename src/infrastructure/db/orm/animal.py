@@ -5,6 +5,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -53,7 +54,10 @@ class StringList(TypeDecorator):
 
 class AnimalORM(Base):
     __tablename__ = "animals"
-    __table_args__ = (UniqueConstraint("tenant_id", "tag", name="ux_animals_tenant_tag"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "tag", name="ux_animals_tenant_tag"),
+        UniqueConstraint("tenant_id", "id", name="ux_animals_tenant_id"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
@@ -83,6 +87,12 @@ class AnimalORM(Base):
     # Disposition fields
     disposition_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     disposition_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # Health/withdrawal fields
+    in_milk_withdrawal: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    withdrawal_until: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

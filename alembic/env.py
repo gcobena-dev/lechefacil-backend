@@ -28,6 +28,7 @@ from src.infrastructure.db.orm import (
     lactation,  # noqa: F401
     notification,  # noqa: F401
     one_time_token,  # noqa: F401
+    health_record,  # noqa: F401
 )
 
 config = context.config

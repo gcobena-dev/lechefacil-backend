@@ -20,6 +20,7 @@ from src.interfaces.http.routers import (
     animals,
     breeds,
     dashboard,
+    health_records,
     lactations,
     lots,
     mobile,
@@ -141,6 +142,7 @@ def create_app(
     api.include_router(animals.router)
     api.include_router(animal_statuses.router)
     api.include_router(animal_events.router)
+    api.include_router(health_records.router)
     api.include_router(lactations.router)
     api.include_router(animal_certificates.router)
     api.include_router(breeds.router)
