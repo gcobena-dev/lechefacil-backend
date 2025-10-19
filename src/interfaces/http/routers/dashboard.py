@@ -246,9 +246,20 @@ async def get_daily_progress(
         ),
     }
 
-    # Get tenant config for daily goal
-    await uow.tenant_config.get(context.tenant_id)
-    target_liters = Decimal("120")  # Default goal, could be configurable
+    # Compute dynamic daily goal from last 30 days average
+    from datetime import timedelta
+
+    window_days = 30
+    window_start = date_param - timedelta(days=window_days)
+    recent_productions = await uow.milk_productions.list(
+        context.tenant_id,
+        date_from=window_start,
+        date_to=date_param,
+        animal_id=None,
+    )
+    total_recent = sum(p.volume_l for p in recent_productions)
+    # Include days without data by dividing by fixed window size
+    target_liters = (total_recent / Decimal(window_days)) if window_days > 0 else Decimal("0")
 
     current_liters = morning_liters + evening_liters
     completion_percentage = (
@@ -383,14 +394,90 @@ async def get_admin_overview(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AdminOverviewResponse:
-    # TODO: Calculate real metrics
+    from datetime import timedelta
+    from decimal import Decimal
+
     from src.interfaces.http.schemas.dashboard import AdminManagementOverview
 
+    # Periods
+    start_of_month = date_param.replace(day=1)
+    days_elapsed = date_param.day
+
+    # Previous month same elapsed days window
+    prev_month_end = start_of_month - timedelta(days=1)
+    prev_month_start = prev_month_end.replace(day=1)
+    prev_window_end = prev_month_start + timedelta(days=days_elapsed - 1)
+
+    # 1) Production vs goal (Month-to-date) using last-30-days average as daily goal
+    productions_mtd = await uow.milk_productions.list(
+        context.tenant_id,
+        date_from=start_of_month,
+        date_to=date_param,
+        animal_id=None,
+    )
+    produced_liters_mtd: Decimal = sum(p.volume_l for p in productions_mtd)
+
+    # Compute daily goal from last 30 days average (include zero-production days)
+    window_days = 30
+    window_start = date_param - timedelta(days=window_days)
+    recent_productions = await uow.milk_productions.list(
+        context.tenant_id,
+        date_from=window_start,
+        date_to=date_param,
+        animal_id=None,
+    )
+    total_recent = sum(p.volume_l for p in recent_productions)
+    daily_goal_liters = (total_recent / Decimal(window_days)) if window_days > 0 else Decimal("0")
+    monthly_goal_to_date = daily_goal_liters * Decimal(days_elapsed)
+    production_vs_goal_pct = (
+        (produced_liters_mtd / monthly_goal_to_date * Decimal("100"))
+        if monthly_goal_to_date > 0
+        else Decimal("0")
+    )
+
+    # 2) "Monthly profitability" proxy: revenue growth vs previous month window
+    # Use deliveries amounts as gross revenue proxy
+    deliveries_mtd = await uow.milk_deliveries.list(
+        context.tenant_id,
+        date_from=start_of_month,
+        date_to=date_param,
+        buyer_id=None,
+    )
+    revenue_mtd: Decimal = sum((d.amount or Decimal("0")) for d in deliveries_mtd)
+
+    deliveries_prev = await uow.milk_deliveries.list(
+        context.tenant_id,
+        date_from=prev_month_start,
+        date_to=prev_window_end,
+        buyer_id=None,
+    )
+    revenue_prev: Decimal = sum((d.amount or Decimal("0")) for d in deliveries_prev)
+
+    if revenue_prev == 0:
+        profitability_change = Decimal("100") if revenue_mtd > 0 else Decimal("0")
+    else:
+        profitability_change = (revenue_mtd - revenue_prev) / revenue_prev * Decimal("100")
+
+    # 3) Pending alerts and upcoming tasks (real data from health records)
+    # Pending alerts: count of active milk withdrawals
+    active_withdrawals = await uow.health_records.get_active_withdrawals(context.tenant_id)
+    pending_alerts = len(active_withdrawals)
+
+    # Upcoming tasks: vaccinations due in the next 7 days
+    upcoming_vaccinations = await uow.health_records.get_upcoming_vaccinations(
+        context.tenant_id, days_ahead=7
+    )
+    upcoming_tasks = len(upcoming_vaccinations)
+
     management_overview = AdminManagementOverview(
-        monthly_profitability="+15.2%",
-        production_vs_goal="102%",
-        pending_alerts=3,
-        upcoming_tasks=7,
+        monthly_profitability=(
+            f"+{profitability_change:.1f}%"
+            if profitability_change >= 0
+            else f"{profitability_change:.1f}%"
+        ),
+        production_vs_goal=f"{production_vs_goal_pct:.0f}%",
+        pending_alerts=pending_alerts,
+        upcoming_tasks=upcoming_tasks,
     )
 
     return AdminOverviewResponse(management_overview=management_overview)
