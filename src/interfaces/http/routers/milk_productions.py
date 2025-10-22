@@ -675,31 +675,58 @@ async def process_ocr_image(
     matched = []
     unmatched = []
 
+    # --- Helpers for better matching ---
+    import unicodedata
+    from difflib import SequenceMatcher
+
+    def _strip_accents(text: str) -> str:
+        if not text:
+            return ""
+        return "".join(
+            c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn"
+        )
+
+    def _normalize(text: str) -> str:
+        t = (text or "").lower().strip()
+        t = _strip_accents(t)
+        # Common OCR fixes
+        # - Leading "uaca" misread for "vaca"
+        if t.startswith("uaca "):
+            t = "v" + t[1:]
+        if t.startswith("uaca") and len(t) == 4:
+            t = "vaca"
+        # Abbreviations / common variants
+        t = t.replace(" sto ", " santo ")
+        t = t.replace(" sta ", " santa ")
+        # Collapse spaces
+        t = " ".join(t.split())
+        return t
+
+    def _similarity(a: str, b: str) -> float:
+        a_n = _normalize(a)
+        b_n = _normalize(b)
+        if not a_n or not b_n:
+            return 0.0
+        return SequenceMatcher(None, a_n, b_n).ratio()
+
     for extracted in extracted_records:
         best_match = None
         best_score = 0.0
 
-        # Simple name matching (TODO: improve with fuzzy matching library like fuzzywuzzy)
+        # Compute similarity against animal name and tag; keep best
+        scored: list[tuple[float, object]] = []
+        extracted_name = extracted["name"]
         for animal in animals:
-            # Check both name and tag
-            name_lower = (animal.name or "").lower()
-            tag_lower = (animal.tag or "").lower()
-            extracted_lower = extracted["name"].lower()
-
-            # Exact match
-            if extracted_lower == name_lower or extracted_lower == tag_lower:
+            score_name = _similarity(extracted_name, animal.name or "")
+            score_tag = _similarity(extracted_name, animal.tag or "")
+            score = max(score_name, score_tag)
+            scored.append((score, animal))
+            if score > best_score:
                 best_match = animal
-                best_score = 1.0
-                break
+                best_score = score
 
-            # Partial match
-            if extracted_lower in name_lower or name_lower in extracted_lower:
-                score = 0.8
-                if score > best_score:
-                    best_match = animal
-                    best_score = score
-
-        if best_match and best_score > 0.7:
+        # Decide match threshold; allow close fuzzy matches
+        if best_match and best_score >= 0.78:
             matched.append(
                 OcrMatchedResult(
                     animal_id=best_match.id,
@@ -713,12 +740,13 @@ async def process_ocr_image(
         else:
             # Find suggestions (top 3 closest matches)
             suggestions = []
-            for animal in animals[:3]:
+            top = sorted(scored, key=lambda x: x[0], reverse=True)[:3]
+            for score, animal in top:
                 suggestions.append(
                     {
                         "animal_id": str(animal.id),
                         "name": animal.name or "",
-                        "similarity": 0.5,
+                        "similarity": round(float(score), 3),
                     }
                 )
             unmatched.append(
