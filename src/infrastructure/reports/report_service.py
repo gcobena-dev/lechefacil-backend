@@ -14,6 +14,23 @@ class ReportService:
     def __init__(self, pdf_generator: PDFGenerator):
         self.pdf_generator = pdf_generator
 
+    @staticmethod
+    def _round_floats(obj, ndigits: int = 2):
+        """Recursively round float/Decimal values in dicts/lists to given decimals.
+        Leaves non-numeric values untouched. Used to normalize JSON report data.
+        """
+        from decimal import Decimal as _D
+
+        if isinstance(obj, dict):
+            return {k: ReportService._round_floats(v, ndigits) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [ReportService._round_floats(v, ndigits) for v in obj]
+        if isinstance(obj, float):
+            return round(obj, ndigits)
+        if isinstance(obj, _D):
+            return round(float(obj), ndigits)
+        return obj
+
     async def _get_filtered_animal_ids(
         self, tenant_id: UUID, request: ReportRequest, uow: UnitOfWork
     ) -> list[UUID] | None:
@@ -99,6 +116,10 @@ class ReportService:
             deliveries = await uow.milk_deliveries.list(
                 tenant_id, date_from=request.date_from, date_to=request.date_to, buyer_id=None
             )
+            # Apply buyer filters if present
+            if request.filters and request.filters.buyer_ids:
+                buyer_id_set = set(request.filters.buyer_ids)
+                deliveries = [d for d in deliveries if getattr(d, "buyer_id", None) in buyer_id_set]
         except Exception:
             # If deliveries not available, use empty list
             deliveries = []
@@ -106,6 +127,9 @@ class ReportService:
         # Calculate KPIs
         total_liters_produced = sum(p.volume_l for p in productions)
         total_liters_delivered = sum(d.volume_l for d in deliveries)
+        total_revenue = (
+            sum((d.amount or Decimal("0")) for d in deliveries) if deliveries else Decimal("0")
+        )
         total_records = len(productions)
         avg_per_record = (
             total_liters_produced / total_records if total_records > 0 else Decimal("0")
@@ -123,8 +147,10 @@ class ReportService:
         period_production_data = self._group_by_period(productions, request.period)
         period_delivery_data = self._group_deliveries_by_period(deliveries, request.period)
 
-        # Get animals data for top producers
+        # Get animals data for top producers (apply animal filters if any)
         animals = await uow.animals.list(tenant_id)
+        if animal_ids:
+            animals = [a for a in animals if a.id in animal_ids]
         animals_dict = {a.id: a for a in animals}
 
         # Calculate top producers
@@ -138,7 +164,7 @@ class ReportService:
         top_producers = []
         for animal_id, total_liters in sorted(
             animal_totals.items(), key=lambda x: x[1], reverse=True
-        )[:10]:
+        )[:3]:
             animal = animals_dict.get(animal_id)
             if animal:
                 top_producers.append(
@@ -219,7 +245,8 @@ class ReportService:
                 "daily_by_animal": daily_by_animal,
                 "animals": animal_info,
             }
-
+            # Normalize floats to 2 decimals across data
+            data = ReportService._round_floats(data, 2)
             return ReportResponse(
                 report_id=report_id,
                 title="Reporte de Producción",
@@ -234,8 +261,10 @@ class ReportService:
 
         # Header
         title = "Reporte de Producción de Leche"
-        subtitle = f"Período: {request.date_from.strftime('%d/%m/%Y')} - "
-        f"{request.date_to.strftime('%d/%m/%Y')}"
+        subtitle = (
+            f"Período: {request.date_from.strftime('%d/%m/%Y')} - "
+            f"{request.date_to.strftime('%d/%m/%Y')}"
+        )
         elements.extend(self.pdf_generator.create_header(title, subtitle))
 
         # KPIs section
@@ -243,30 +272,20 @@ class ReportService:
             "total_liters_produced": total_liters_produced,
             "total_liters_delivered": total_liters_delivered,
             "retention_difference": retention_difference,
-            "retention_percentage": f"{retention_percentage:.1f}%",
+            "total_revenue": total_revenue,
             "total_records": total_records,
             "avg_per_record": avg_per_record,
             "period_days": (request.date_to - request.date_from).days + 1,
         }
         elements.extend(self.pdf_generator.create_kpi_section("Resumen Ejecutivo", kpis))
 
-        # Production chart
-        if period_production_data:
+        # Combined Production vs Delivery chart
+        if period_production_data or period_delivery_data:
             elements.extend(
-                self.pdf_generator.create_chart_section(
-                    f"Producción por {request.period.title()}",
+                self.pdf_generator.create_combined_chart_section(
+                    f"Producción y Entregas por {request.period.title()}",
                     {k: float(v) for k, v in period_production_data.items()},
-                    "bar",
-                )
-            )
-
-        # Delivery chart
-        if period_delivery_data:
-            elements.extend(
-                self.pdf_generator.create_chart_section(
-                    f"Entregas por {request.period.title()}",
                     {k: float(v) for k, v in period_delivery_data.items()},
-                    "bar",
                 )
             )
 
@@ -284,13 +303,172 @@ class ReportService:
                     }
                 )
 
+            # Start Top 3 section on a new page to avoid orphaned title
+            from reportlab.platypus import PageBreak
+
+            elements.append(PageBreak())
             elements.extend(
                 self.pdf_generator.create_table_section(
-                    "Top 10 Animales Productores", table_data, columns
+                    "Top 3 Animales Productores", table_data, columns
                 )
             )
 
+        # Full animal production list ordered by tag
+        full_list = []
+        for animal in sorted(animals, key=lambda a: (a.tag or "")):
+            total_liters = animal_totals.get(animal.id, Decimal("0"))
+            avg_per_day = (
+                total_liters / ((request.date_to - request.date_from).days + 1)
+                if (request.date_to and request.date_from)
+                else Decimal("0")
+            )
+            full_list.append(
+                {
+                    "animal": animal.name,
+                    "etiqueta": animal.tag,
+                    "total_litros": total_liters,
+                    "promedio/día": avg_per_day,
+                }
+            )
+
+        if full_list:
+            elements.extend(
+                self.pdf_generator.create_table_section(
+                    "Producción por Animal (Completo)",
+                    full_list,
+                    ["Animal", "Etiqueta", "Total Litros", "Promedio/Día"],
+                )
+            )
+
+        # Daily detail matrix (dates as rows, animals as columns)
+        try:
+            # Build daily_by_animal similar to JSON branch
+            daily_by_animal: dict[str, dict[str, dict[str, float]]] = {}
+            for prod in productions:
+                if prod.animal_id and prod.date:
+                    date_key = prod.date.strftime("%d/%m")
+                    aid = str(prod.animal_id)
+                    if date_key not in daily_by_animal:
+                        daily_by_animal[date_key] = {}
+                    if aid not in daily_by_animal[date_key]:
+                        daily_by_animal[date_key][aid] = {"weight_lb": 0.0, "total_liters": 0.0}
+                    if hasattr(prod, "input_quantity") and prod.input_quantity:
+                        daily_by_animal[date_key][aid]["weight_lb"] += float(prod.input_quantity)
+                    daily_by_animal[date_key][aid]["total_liters"] += float(prod.volume_l)
+
+            # Build animal headers ordered by tag
+            animals_sorted = sorted(animals, key=lambda a: (a.tag or ""))
+            headers_animals = [
+                {"tag": a.tag or "-", "name": a.name or "-", "id": str(a.id)}
+                for a in animals_sorted
+            ]
+            animal_ids_in_order = [h["id"] for h in headers_animals]
+
+            # Revenue per day map
+            deliveries_by_day = {}
+            for d in deliveries:
+                d_date = getattr(d, "date", getattr(d, "date_time", None))
+                if hasattr(d_date, "date"):
+                    d_date = d_date.date()
+                if d_date:
+                    key = d_date.strftime("%d/%m")
+                    deliveries_by_day[key] = deliveries_by_day.get(key, 0.0) + float(
+                        getattr(d, "amount", 0) or 0
+                    )
+
+            # Chunk columns to simulate tabs if many animals (6–8 looks best)
+            chunk_size = 8
+            headers_full = headers_animals
+            headers_chunks = [
+                headers_full[i : i + chunk_size] for i in range(0, len(headers_full), chunk_size)
+            ]
+
+            # Compute average price per liter from deliveries (fallback to 0)
+            try:
+                total_delivery_amount = sum(float(getattr(d, "amount", 0) or 0) for d in deliveries)
+                total_delivery_liters = sum(
+                    float(getattr(d, "volume_l", 0) or 0) for d in deliveries
+                )
+                unit_price = (
+                    (total_delivery_amount / total_delivery_liters)
+                    if total_delivery_liters > 0
+                    else 0.0
+                )
+            except Exception:
+                unit_price = 0.0
+
+            for idx, headers_chunk in enumerate(headers_chunks, start=1):
+                animal_ids_in_order = [h["id"] for h in headers_chunk]
+
+                rows_matrix = []
+                total_revenue_all = 0.0
+                total_liters_all = 0.0
+                per_animal_totals = [0.0 for _ in animal_ids_in_order]
+
+                for date_key in sorted(daily_by_animal.keys()):
+                    cells = []
+                    row_total = 0.0
+                    for i, aid in enumerate(animal_ids_in_order):
+                        metrics = daily_by_animal[date_key].get(aid)
+                        if metrics:
+                            row_total += metrics["total_liters"]
+                            per_animal_totals[i] += metrics["total_liters"]
+                            cells.append(
+                                f"({metrics['weight_lb']:.1f})<br/>{metrics['total_liters']:.1f}L"
+                            )
+                        else:
+                            cells.append("")
+                    revenue_value = deliveries_by_day.get(date_key, 0.0)
+                    total_revenue_all += revenue_value
+                    total_liters_all += row_total
+                    rows_matrix.append(
+                        {
+                            "date_label": date_key,
+                            "cells": cells,
+                            "summary": f"{row_total:.1f}L<br/>{revenue_value:,.2f} US$",
+                        }
+                    )
+
+                if rows_matrix:
+                    # Per-animal totals with revenue on second line
+                    total_cells = [
+                        (
+                            f"{v:.1f}L"
+                            + (f"<br/>{(v * unit_price):,.2f} US$" if unit_price > 0 else "")
+                        )
+                        for v in per_animal_totals
+                    ]
+                    rows_matrix.append(
+                        {
+                            "date_label": "Totales",
+                            "cells": total_cells,
+                            "summary": f"{total_liters_all:.1f}L<br/>{total_revenue_all:,.2f} US$",
+                            "is_total": True,
+                        }
+                    )
+
+                    title = "Detalle Diario (Peso/Volumen por Animal)"
+                    if len(headers_chunks) > 1:
+                        title += f" - Sección {idx}/{len(headers_chunks)}"
+                    elements.extend(
+                        self.pdf_generator.create_daily_detail_matrix(
+                            title,
+                            headers_chunk,
+                            rows_matrix,
+                        )
+                    )
+        except Exception:
+            # Do not fail PDF generation if matrix fails
+            pass
+
         pdf_content = self.pdf_generator.generate_pdf(elements)
+
+        # File name: prd_dd-mm_dd-mm_HH'H'mm
+        now = datetime.now(timezone.utc)
+        file_name = (
+            f"prd_{request.date_from.strftime('%d-%m')}_{request.date_to.strftime('%d-%m')}_"
+            f"{now.strftime('%H')}H{now.strftime('%M')}\.pdf"
+        )
 
         return ReportResponse(
             report_id=report_id,
@@ -298,7 +476,7 @@ class ReportService:
             generated_at=datetime.now(timezone.utc).isoformat(),
             format="pdf",
             content=pdf_content,
-            file_name=f"produccion_{request.date_from}_{request.date_to}.pdf",
+            file_name=file_name,
         )
 
     async def generate_financial_report(
@@ -317,6 +495,10 @@ class ReportService:
             deliveries = await uow.milk_deliveries.list(
                 tenant_id, date_from=request.date_from, date_to=request.date_to, buyer_id=None
             )
+            # Apply buyer filters if provided
+            if request.filters and request.filters.buyer_ids:
+                buyer_id_set = set(request.filters.buyer_ids)
+                deliveries = [d for d in deliveries if getattr(d, "buyer_id", None) in buyer_id_set]
         except Exception:
             # If deliveries not available, use empty list
             deliveries = []
@@ -390,7 +572,7 @@ class ReportService:
                     for bb in buyer_breakdown
                 ],
             }
-
+            data = ReportService._round_floats(data, 2)
             return ReportResponse(
                 report_id=report_id,
                 title="Reporte Financiero",
@@ -405,8 +587,10 @@ class ReportService:
 
         # Header
         title = "Reporte Financiero"
-        subtitle = f"Período: {request.date_from.strftime('%d/%m/%Y')} - "
-        f"{request.date_to.strftime('%d/%m/%Y')}"
+        subtitle = (
+            f"Período: {request.date_from.strftime('%d/%m/%Y')} - "
+            f"{request.date_to.strftime('%d/%m/%Y')}"
+        )
         elements.extend(self.pdf_generator.create_header(title, subtitle))
 
         # Financial KPIs
@@ -603,7 +787,7 @@ class ReportService:
                     for ad in animal_details
                 ],
             }
-
+            data = ReportService._round_floats(data, 2)
             return ReportResponse(
                 report_id=report_id,
                 title="Reporte de Animales",
@@ -618,8 +802,10 @@ class ReportService:
 
         # Header
         title = "Reporte de Animales"
-        subtitle = f"Período: {request.date_from.strftime('%d/%m/%Y')} - "
-        f"{request.date_to.strftime('%d/%m/%Y')}"
+        subtitle = (
+            f"Período: {request.date_from.strftime('%d/%m/%Y')} - "
+            f"{request.date_to.strftime('%d/%m/%Y')}"
+        )
         elements.extend(self.pdf_generator.create_header(title, subtitle))
 
         # Summary KPIs

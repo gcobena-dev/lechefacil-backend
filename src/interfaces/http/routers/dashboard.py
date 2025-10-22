@@ -84,11 +84,15 @@ async def get_daily_kpis(
         average_vs_yesterday=calc_trend(average_per_animal, yesterday_avg),
     )
 
+    # Normalize decimals to two fractional digits
+    def quant(x):
+        return x.quantize(Decimal("0.01")) if isinstance(x, Decimal) else x
+
     return DailyKPIsResponse(
         date=date_param,
-        total_liters=total_liters,
-        total_revenue=total_revenue or Decimal("0"),
-        average_per_animal=average_per_animal,
+        total_liters=quant(total_liters),
+        total_revenue=quant(total_revenue or Decimal("0")),
+        average_per_animal=quant(average_per_animal),
         active_animals_count=active_animals_count,
         trends=trends,
     )
@@ -170,12 +174,19 @@ async def get_top_producers(
                 trend = "stable"
             trend_percentage = f"{'+' if change >= 0 else ''}{change:.1f}%"
 
+        # Two decimals for liters
+        today_liters_q = (
+            today_liters.quantize(Decimal("0.01"))
+            if isinstance(today_liters, Decimal)
+            else today_liters
+        )
+
         top_producers.append(
             TopProducer(
                 animal_id=animal_id,
                 name=animal.name,
                 tag=animal.tag,
-                today_liters=today_liters,
+                today_liters=today_liters_q,
                 trend=trend,
                 trend_percentage=trend_percentage,
             )
@@ -268,10 +279,13 @@ async def get_daily_progress(
 
     from src.interfaces.http.schemas.dashboard import DailyGoal
 
+    def quant(x):
+        return x.quantize(Decimal("0.01")) if isinstance(x, Decimal) else x
+
     daily_goal = DailyGoal(
-        target_liters=target_liters,
-        current_liters=current_liters,
-        completion_percentage=completion_percentage,
+        target_liters=quant(target_liters),
+        current_liters=quant(current_liters),
+        completion_percentage=quant(completion_percentage),
     )
 
     return DailyProgressResponse(

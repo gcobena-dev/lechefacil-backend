@@ -54,7 +54,13 @@ async def get_report_definitions(
                     options=["pdf", "json"],
                     default_value="pdf",
                 ),
+                # Advanced filters
                 ReportParameter(name="animal_ids", type="multi_select", required=False),
+                ReportParameter(name="labels", type="multi_select", required=False),
+                ReportParameter(name="breed_ids", type="multi_select", required=False),
+                ReportParameter(name="lot_ids", type="multi_select", required=False),
+                ReportParameter(name="status_ids", type="multi_select", required=False),
+                ReportParameter(name="buyer_ids", type="multi_select", required=False),
                 ReportParameter(
                     name="include_inactive", type="boolean", required=False, default_value=False
                 ),
@@ -82,7 +88,16 @@ async def get_report_definitions(
                     options=["pdf", "json"],
                     default_value="pdf",
                 ),
+                # Advanced filters
                 ReportParameter(name="buyer_ids", type="multi_select", required=False),
+                ReportParameter(name="animal_ids", type="multi_select", required=False),
+                ReportParameter(name="labels", type="multi_select", required=False),
+                ReportParameter(name="breed_ids", type="multi_select", required=False),
+                ReportParameter(name="lot_ids", type="multi_select", required=False),
+                ReportParameter(name="status_ids", type="multi_select", required=False),
+                ReportParameter(
+                    name="include_inactive", type="boolean", required=False, default_value=False
+                ),
             ],
             formats=["pdf", "json"],
         ),
@@ -100,6 +115,12 @@ async def get_report_definitions(
                     options=["pdf", "json"],
                     default_value="pdf",
                 ),
+                # Advanced filters
+                ReportParameter(name="animal_ids", type="multi_select", required=False),
+                ReportParameter(name="labels", type="multi_select", required=False),
+                ReportParameter(name="breed_ids", type="multi_select", required=False),
+                ReportParameter(name="lot_ids", type="multi_select", required=False),
+                ReportParameter(name="status_ids", type="multi_select", required=False),
                 ReportParameter(
                     name="include_inactive", type="boolean", required=False, default_value=False
                 ),
