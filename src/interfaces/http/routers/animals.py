@@ -85,6 +85,11 @@ async def list_animals_endpoint(
     limit: int = Query(20, ge=1, le=100),
     cursor: str | None = Query(None),
     offset: int | None = Query(None, ge=0),
+    sort_by: str | None = Query(
+        None,
+        description="Sort by one of: tag, name, breed, age, lot, classification",
+    ),
+    sort_dir: str | None = Query(None, description="Sort direction: asc or desc (default asc)"),
     status_codes: list[str] = Query(
         None, description="Filter by status codes. Repeat param or use comma-separated"
     ),
@@ -103,6 +108,8 @@ async def list_animals_endpoint(
         cursor=cursor_uuid,
         offset=offset,
         status_codes=status_codes,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
     # Enrich with primary_photo_url, photos_count, and
     # status fields (code, text, description)

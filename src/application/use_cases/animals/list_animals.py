@@ -23,6 +23,8 @@ async def execute(
     cursor: UUID | None = None,
     offset: int | None = None,
     status_codes: list[str] | None = None,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
 ) -> ListAnimalsResult:
     if limit <= 0 or limit > 100:
         raise ValidationError("limit must be between 1 and 100")
@@ -40,7 +42,13 @@ async def execute(
             return ListAnimalsResult(items=[], next_cursor=None, total=0)
 
     items, next_cursor = await uow.animals.list(
-        tenant_id, limit=limit, cursor=cursor, offset=offset, status_ids=status_ids
+        tenant_id,
+        limit=limit,
+        cursor=cursor,
+        offset=offset,
+        status_ids=status_ids,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
 
     # Get total count when using offset pagination

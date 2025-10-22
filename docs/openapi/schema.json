@@ -704,6 +704,42 @@
             }
           },
           {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sort by one of: tag, name, breed, age, lot, classification",
+              "title": "Sort By"
+            },
+            "description": "Sort by one of: tag, name, breed, age, lot, classification"
+          },
+          {
+            "name": "sort_dir",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sort direction: asc or desc (default asc)",
+              "title": "Sort Dir"
+            },
+            "description": "Sort direction: asc or desc (default asc)"
+          },
+          {
             "name": "status_codes",
             "in": "query",
             "required": false,

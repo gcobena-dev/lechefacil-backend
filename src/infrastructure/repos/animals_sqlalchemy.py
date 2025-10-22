@@ -98,7 +98,13 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         offset: int | None = None,
         is_active: bool | None = None,
         status_ids: list[UUID] | None = None,
+        sort_by: str | None = None,
+        sort_dir: str | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]:
+        from sqlalchemy import asc, desc
+
+        from .animal_statuses_sqlalchemy import AnimalStatusORM
+
         stmt = select(AnimalORM).where(AnimalORM.tenant_id == tenant_id)
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
 
@@ -128,7 +134,29 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
                 if inactive_status_ids:
                     stmt = stmt.where(AnimalORM.status_id.in_(inactive_status_ids))
 
-        stmt = stmt.order_by(AnimalORM.id)
+        # Order handling
+        order_direction = (sort_dir or "asc").lower()
+        direction_fn = asc if order_direction != "desc" else desc
+        sort_key = (sort_by or "tag").lower()
+
+        if sort_key == "name":
+            stmt = stmt.order_by(direction_fn(AnimalORM.name))
+        elif sort_key == "breed":
+            stmt = stmt.order_by(direction_fn(AnimalORM.breed))
+        elif sort_key == "age":
+            # Age correlates with older birth_date; we sort by birth_date
+            stmt = stmt.order_by(direction_fn(AnimalORM.birth_date))
+        elif sort_key == "lot":
+            stmt = stmt.order_by(direction_fn(AnimalORM.lot))
+        elif sort_key == "classification":
+            # Left join on statuses to order by code
+            stmt = stmt.join(
+                AnimalStatusORM, AnimalStatusORM.id == AnimalORM.status_id, isouter=True
+            )
+            stmt = stmt.order_by(direction_fn(AnimalStatusORM.code))
+        else:
+            # default by tag/code
+            stmt = stmt.order_by(direction_fn(AnimalORM.tag))
 
         # Use offset-based pagination if offset is provided
         if offset is not None:
