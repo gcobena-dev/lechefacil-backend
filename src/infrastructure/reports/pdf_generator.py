@@ -346,6 +346,26 @@ class PDFGenerator:
         elements.append(Spacer(1, 20))
         return elements
 
+    def _apply_value_axis_padding(self, chart, values: list[float], padding: float = 15.0):
+        """Apply min/max padding to a chart's value axis to ensure small bars/lines are visible."""
+        try:
+            if not values:
+                return
+            vmin = min(values)
+            vmax = max(values)
+            # If all zero, keep small headroom so bars show
+            if vmin == 0 and vmax == 0:
+                chart.valueAxis.valueMin = 0
+                chart.valueAxis.valueMax = padding
+                return
+            import math
+
+            chart.valueAxis.valueMin = max(0.0, math.floor(vmin - padding))
+            chart.valueAxis.valueMax = math.ceil(vmax + padding)
+        except Exception:
+            # Be permissive: if ReportLab internals differ, avoid crashing
+            pass
+
     def _create_bar_chart_multi(
         self, labels: list[str], series_a: list[float], series_b: list[float]
     ) -> Drawing:
@@ -362,6 +382,10 @@ class PDFGenerator:
         # Colors for the two series (0 = Producción, 1 = Entregas)
         chart.bars[0].fillColor = colors.lightgreen
         chart.bars[1].fillColor = colors.lightblue
+
+        # Apply Y-axis padding so low values aren't clipped
+        all_vals = [v for v in series_a + series_b if v is not None]
+        self._apply_value_axis_padding(chart, all_vals, padding=15.0)
 
         drawing.add(chart)
         return drawing
@@ -388,6 +412,10 @@ class PDFGenerator:
         # Style (0 = Producción -> verde, 1 = Entregas -> azul)
         chart.lines[0].strokeColor = colors.green
         chart.lines[1].strokeColor = colors.blue
+
+        # Apply Y-axis padding for line chart as well
+        all_vals = [v for v in series_a + series_b if v is not None]
+        self._apply_value_axis_padding(chart, all_vals, padding=15.0)
 
         drawing.add(chart)
         return drawing
