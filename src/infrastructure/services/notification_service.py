@@ -54,6 +54,12 @@ class NotificationService:
         )
 
         saved_notification = await self.notification_repo.add(notification)
+        # Ensure persistence even when running from background dispatcher
+        try:
+            await self.notification_repo.session.commit()
+        except Exception:
+            # In case the session is managed by an outer UoW, ignore commit errors here
+            pass
         logger.info(
             f"Notification created: id={saved_notification.id} "
             f"tenant={tenant_id} user={user_id} type={type}"
