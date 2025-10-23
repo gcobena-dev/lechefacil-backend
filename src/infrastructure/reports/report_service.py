@@ -376,8 +376,8 @@ class ReportService:
                         getattr(d, "amount", 0) or 0
                     )
 
-            # Chunk columns to simulate tabs if many animals (6–8 looks best)
-            chunk_size = 8
+            # Chunk columns to simulate tabs if many animals (target 6 per section on PDF)
+            chunk_size = 6
             headers_full = headers_animals
             headers_chunks = [
                 headers_full[i : i + chunk_size] for i in range(0, len(headers_full), chunk_size)
