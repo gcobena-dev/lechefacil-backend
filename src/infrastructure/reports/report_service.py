@@ -161,6 +161,22 @@ class ReportService:
                     animal_totals[prod.animal_id] = Decimal("0")
                 animal_totals[prod.animal_id] += prod.volume_l
 
+        # Restrict animals considered in the report: only LACTATING or with production in period
+        try:
+            all_statuses = await uow.animal_statuses.list_for_tenant(tenant_id)
+            status_code_by_id = {s.id: s.code for s in all_statuses}
+        except Exception:
+            status_code_by_id = {}
+
+        produced_ids = set(animal_totals.keys())
+        animals = [
+            a
+            for a in animals
+            if (status_code_by_id.get(getattr(a, "status_id", None)) == "LACTATING")
+            or (a.id in produced_ids)
+        ]
+        animals_dict = {a.id: a for a in animals}
+
         top_producers = []
         for animal_id, total_liters in sorted(
             animal_totals.items(), key=lambda x: x[1], reverse=True
