@@ -177,19 +177,32 @@ class ReportService:
         ]
         animals_dict = {a.id: a for a in animals}
 
+        # Compute unique production days per animal in the selected period
+        from datetime import date as _date
+
+        days_per_animal: dict[UUID, set[_date]] = {}
+        for prod in productions:
+            if prod.animal_id and getattr(prod, "date", None):
+                days_per_animal.setdefault(prod.animal_id, set()).add(prod.date)
+
+        period_days_inclusive = (request.date_to - request.date_from).days + 1
+
         top_producers = []
         for animal_id, total_liters in sorted(
             animal_totals.items(), key=lambda x: x[1], reverse=True
         )[:3]:
             animal = animals_dict.get(animal_id)
             if animal:
+                # Prefer average over actual unique production days for
+                # this animal; fallback to inclusive period days
+                days_count = len(days_per_animal.get(animal_id, set())) or period_days_inclusive
+                avg_per_day = (total_liters / days_count) if days_count > 0 else Decimal("0")
                 top_producers.append(
                     {
                         "animal_name": animal.name,
                         "animal_tag": animal.tag,
                         "total_liters": total_liters,
-                        "avg_per_day": total_liters
-                        / ((request.date_to - request.date_from).days + 1),
+                        "avg_per_day": avg_per_day,
                     }
                 )
 
@@ -271,6 +284,7 @@ class ReportService:
                     "avg_per_record": float(avg_per_record),
                     "period_from": request.date_from.isoformat(),
                     "period_to": request.date_to.isoformat(),
+                    "period_days": period_days_inclusive,
                 },
                 "period_production_data": {k: float(v) for k, v in period_production_data.items()},
                 "period_delivery_data": {k: float(v) for k, v in period_delivery_data.items()},
