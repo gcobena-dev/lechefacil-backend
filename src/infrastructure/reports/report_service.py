@@ -372,17 +372,18 @@ class ReportService:
             ]
             animal_ids_in_order = [h["id"] for h in headers_animals]
 
-            # Revenue per day map
-            deliveries_by_day = {}
-            for d in deliveries:
-                d_date = getattr(d, "date", getattr(d, "date_time", None))
-                if hasattr(d_date, "date"):
-                    d_date = d_date.date()
-                if d_date:
-                    key = d_date.strftime("%d/%m")
-                    deliveries_by_day[key] = deliveries_by_day.get(key, 0.0) + float(
-                        getattr(d, "amount", 0) or 0
-                    )
+            # Default price per liter from tenant settings (fallback to 0)
+            try:
+                cfg = await uow.tenant_config.get(tenant_id)
+                unit_price = (
+                    float(cfg.default_price_per_l)
+                    if cfg and cfg.default_price_per_l is not None
+                    else 0.0
+                )
+                currency_label = getattr(cfg, "default_currency", "USD")
+            except Exception:
+                unit_price = 0.0
+                currency_label = "USD"
 
             # Chunk columns to simulate tabs if many animals (target 6 per section on PDF)
             chunk_size = 6
@@ -390,20 +391,6 @@ class ReportService:
             headers_chunks = [
                 headers_full[i : i + chunk_size] for i in range(0, len(headers_full), chunk_size)
             ]
-
-            # Compute average price per liter from deliveries (fallback to 0)
-            try:
-                total_delivery_amount = sum(float(getattr(d, "amount", 0) or 0) for d in deliveries)
-                total_delivery_liters = sum(
-                    float(getattr(d, "volume_l", 0) or 0) for d in deliveries
-                )
-                unit_price = (
-                    (total_delivery_amount / total_delivery_liters)
-                    if total_delivery_liters > 0
-                    else 0.0
-                )
-            except Exception:
-                unit_price = 0.0
 
             # Accumulator for summary across all sections (per date)
             totals_by_date: dict[str, dict[str, float]] = {}
@@ -425,11 +412,11 @@ class ReportService:
                             row_total += metrics["total_liters"]
                             per_animal_totals[i] += metrics["total_liters"]
                             cells.append(
-                                f"({metrics['weight_lb']:.1f})<br/>{metrics['total_liters']:.1f}L"
+                                f"({metrics['weight_lb']:.2f})<br/>{metrics['total_liters']:.2f}L"
                             )
                         else:
                             cells.append("")
-                    revenue_value = deliveries_by_day.get(date_key, 0.0)
+                    revenue_value = row_total * unit_price
                     total_revenue_all += revenue_value
                     total_liters_all += row_total
                     # Accumulate totals across all sections
@@ -440,7 +427,8 @@ class ReportService:
                         {
                             "date_label": date_key,
                             "cells": cells,
-                            "summary": f"{row_total:.1f}L<br/>{revenue_value:,.2f} US$",
+                            "summary": f"{row_total:.2f}L<br/>"
+                            f"{revenue_value:,.2f} {currency_label}",
                         }
                     )
 
@@ -448,8 +436,12 @@ class ReportService:
                     # Per-animal totals with revenue on second line
                     total_cells = [
                         (
-                            f"{v:.1f}L"
-                            + (f"<br/>{(v * unit_price):,.2f} US$" if unit_price > 0 else "")
+                            f"{v:.2f}L"
+                            + (
+                                f"<br/>{(v * unit_price):,.2f} {currency_label}"
+                                if unit_price > 0
+                                else ""
+                            )
                         )
                         for v in per_animal_totals
                     ]
@@ -457,7 +449,8 @@ class ReportService:
                         {
                             "date_label": "Totales",
                             "cells": total_cells,
-                            "summary": f"{total_liters_all:.1f}L<br/>{total_revenue_all:,.2f} US$",
+                            "summary": f"{total_liters_all:.2f}L<br/>"
+                            f"{total_revenue_all:,.2f} {currency_label}",
                             "is_total": True,
                         }
                     )
@@ -477,8 +470,8 @@ class ReportService:
                 summary_rows = [
                     {
                         "fecha": date_key,
-                        "total_litros": round(vals["liters"], 1),
-                        "ingresos": f"{vals['revenue']:,.2f}",
+                        "total_litros": round(vals["liters"], 2),
+                        "ingresos": f"{vals['revenue']:,.2f} {currency_label}",
                     }
                     for date_key, vals in sorted(totals_by_date.items(), key=lambda x: x[0])
                 ]
