@@ -342,6 +342,14 @@ class ReportService:
 
         # Daily detail matrix (dates as rows, animals as columns)
         try:
+            # Start Daily Detail on a new page
+            try:
+                from reportlab.platypus import PageBreak
+
+                elements.append(PageBreak())
+            except Exception:
+                pass
+
             # Build daily_by_animal similar to JSON branch
             daily_by_animal: dict[str, dict[str, dict[str, float]]] = {}
             for prod in productions:
@@ -397,6 +405,9 @@ class ReportService:
             except Exception:
                 unit_price = 0.0
 
+            # Accumulator for summary across all sections (per date)
+            totals_by_date: dict[str, dict[str, float]] = {}
+
             for idx, headers_chunk in enumerate(headers_chunks, start=1):
                 animal_ids_in_order = [h["id"] for h in headers_chunk]
 
@@ -421,6 +432,10 @@ class ReportService:
                     revenue_value = deliveries_by_day.get(date_key, 0.0)
                     total_revenue_all += revenue_value
                     total_liters_all += row_total
+                    # Accumulate totals across all sections
+                    agg = totals_by_date.setdefault(date_key, {"liters": 0.0, "revenue": 0.0})
+                    agg["liters"] += row_total
+                    agg["revenue"] += revenue_value
                     rows_matrix.append(
                         {
                             "date_label": date_key,
@@ -457,6 +472,23 @@ class ReportService:
                             rows_matrix,
                         )
                     )
+            # Add summary section if more than one chunk/section
+            if len(headers_chunks) > 1 and totals_by_date:
+                summary_rows = [
+                    {
+                        "fecha": date_key,
+                        "total_litros": round(vals["liters"], 1),
+                        "ingresos": f"{vals['revenue']:,.2f}",
+                    }
+                    for date_key, vals in sorted(totals_by_date.items(), key=lambda x: x[0])
+                ]
+                elements.extend(
+                    self.pdf_generator.create_table_section(
+                        "Detalle Diario - Resumen por Fecha",
+                        summary_rows,
+                        ["Fecha", "Total Litros", "Ingresos"],
+                    )
+                )
         except Exception:
             # Do not fail PDF generation if matrix fails
             pass
