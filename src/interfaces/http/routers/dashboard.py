@@ -41,11 +41,15 @@ async def get_daily_kpis(
     total_liters = sum(p.volume_l for p in productions)
     total_revenue = sum(p.amount for p in productions if p.amount) or Decimal("0")
 
-    # Get active animals count
-    active_animals_count = await uow.animals.count(context.tenant_id, is_active=True)
+    # Count only animals that produced today (distinct animals in productions)
+    produced_animals_today = len(
+        {p.animal_id for p in productions if getattr(p, "animal_id", None)}
+    )
+
+    active_animals_count = produced_animals_today
 
     average_per_animal = (
-        (total_liters / active_animals_count) if active_animals_count > 0 else Decimal("0")
+        (total_liters / produced_animals_today) if produced_animals_today > 0 else Decimal("0")
     )
 
     # Calculate trends (yesterday comparison)
@@ -61,8 +65,14 @@ async def get_daily_kpis(
 
     yesterday_liters = sum(p.volume_l for p in yesterday_productions)
     yesterday_revenue = sum(p.amount for p in yesterday_productions if p.amount) or Decimal("0")
+    # Use yesterday's distinct producing animals for average baseline
+    produced_animals_yesterday = len(
+        {p.animal_id for p in yesterday_productions if getattr(p, "animal_id", None)}
+    )
     yesterday_avg = (
-        (yesterday_liters / active_animals_count) if active_animals_count > 0 else Decimal("0")
+        (yesterday_liters / produced_animals_yesterday)
+        if produced_animals_yesterday > 0
+        else Decimal("0")
     )
 
     # Calculate percentage changes
@@ -211,31 +221,46 @@ async def get_daily_progress(
         animal_id=None,  # All animals
     )
 
-    # Separate by shifts (AM before 12:00, PM after 12:00)
+    # Separate by shifts. Prefer recorded shift (AM/PM) over hour heuristic.
     morning_liters = Decimal("0")
     evening_liters = Decimal("0")
     morning_completed_at = None
     evening_completed_at = None
 
     for prod in productions:
-        if prod.date_time.hour < 12:
+        shift_val = (getattr(prod, "shift", None) or "").upper()
+        if shift_val == "AM":
             morning_liters += prod.volume_l
             if not morning_completed_at or prod.date_time > morning_completed_at:
                 morning_completed_at = prod.date_time
-        else:
+        elif shift_val == "PM":
             evening_liters += prod.volume_l
             if not evening_completed_at or prod.date_time > evening_completed_at:
                 evening_completed_at = prod.date_time
+        else:
+            # Fallback to time-based heuristic if shift missing/unknown
+            if prod.date_time.hour < 12:
+                morning_liters += prod.volume_l
+                if not morning_completed_at or prod.date_time > morning_completed_at:
+                    morning_completed_at = prod.date_time
+            else:
+                evening_liters += prod.volume_l
+                if not evening_completed_at or prod.date_time > evening_completed_at:
+                    evening_completed_at = prod.date_time
 
     from src.interfaces.http.schemas.dashboard import ShiftProgress
 
     # Determine shift status
     current_time = datetime.now(timezone.utc)
-    morning_status = "completed" if morning_liters > 0 else "pending"
+    morning_status = (
+        "completed"
+        if morning_liters > 0
+        else ("in_progress" if 6 <= current_time.hour < 12 else "pending")
+    )
     evening_status = (
         "completed"
         if evening_liters > 0
-        else ("in_progress" if current_time.hour >= 17 else "pending")
+        else ("in_progress" if 12 <= current_time.hour < 22 else "pending")
     )
 
     shifts = {

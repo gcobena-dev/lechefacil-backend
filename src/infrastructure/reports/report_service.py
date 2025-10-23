@@ -236,6 +236,31 @@ class ReportService:
             # Sort animals by tag
             animal_info.sort(key=lambda x: x["tag"])
 
+            # Compute suggested Y-axis domains (frontend hint)
+            if period_production_data or period_delivery_data:
+                all_liters_values = list(period_production_data.values()) + list(
+                    period_delivery_data.values()
+                )
+                if all_liters_values:
+                    try:
+                        liters_min_val = float(min(all_liters_values))
+                        liters_max_val = float(max(all_liters_values))
+                        # Add padding like frontend (±10 liters, floor at 0)
+                        suggested_liters_min = max(0.0, float(int(liters_min_val - 10)))
+                        suggested_liters_max = float(int(liters_max_val + 10))
+                        chart_suggestions = {
+                            "liters_axis": {
+                                "min": suggested_liters_min,
+                                "max": suggested_liters_max,
+                            }
+                        }
+                    except Exception:
+                        chart_suggestions = None
+                else:
+                    chart_suggestions = None
+            else:
+                chart_suggestions = None
+
             data = {
                 "summary": {
                     "total_liters_produced": float(total_liters_produced),
@@ -260,6 +285,7 @@ class ReportService:
                 ],
                 "daily_by_animal": daily_by_animal,
                 "animals": animal_info,
+                "chart_suggestions": chart_suggestions,
             }
             # Normalize floats to 2 decimals across data
             data = ReportService._round_floats(data, 2)
