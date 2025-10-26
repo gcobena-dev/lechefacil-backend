@@ -383,6 +383,17 @@ class PDFGenerator:
         chart.bars[0].fillColor = colors.lightgreen
         chart.bars[1].fillColor = colors.lightblue
 
+        # Add value labels on top of each bar
+        try:
+            chart.barLabelFormat = "%.1f"
+            chart.barLabels.nudge = 5
+            chart.barLabels.fontName = "Helvetica"
+            chart.barLabels.fontSize = 7
+            chart.barLabels.fillColor = colors.black
+        except Exception:
+            # If ReportLab version differs, avoid crashing
+            pass
+
         # Apply Y-axis padding so low values aren't clipped
         all_vals = [v for v in series_a + series_b if v is not None]
         self._apply_value_axis_padding(chart, all_vals, padding=15.0)
@@ -436,6 +447,16 @@ class PDFGenerator:
         chart.data = [values]
         chart.categoryAxis.categoryNames = labels
         chart.bars[0].fillColor = colors.lightblue
+
+        # Add value labels on top of each bar
+        try:
+            chart.barLabelFormat = "%.1f"
+            chart.barLabels.nudge = 5
+            chart.barLabels.fontName = "Helvetica"
+            chart.barLabels.fontSize = 7
+            chart.barLabels.fillColor = colors.black
+        except Exception:
+            pass
 
         drawing.add(chart)
         return drawing

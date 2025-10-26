@@ -337,11 +337,29 @@ class ReportService:
 
         # Combined Production vs Delivery chart
         if period_production_data or period_delivery_data:
+            # If many daily points, group to improve readability
+            chart_period = request.period
+            if request.period == "daily":
+                period_days_inclusive = (request.date_to - request.date_from).days + 1
+                # Heuristics: >45 días -> mensual, >21 -> semanal
+                if period_days_inclusive > 45:
+                    chart_period = "monthly"
+                elif period_days_inclusive > 21:
+                    chart_period = "weekly"
+
+            # Re-group for chart if period was adjusted
+            if chart_period != request.period:
+                chart_production = self._group_by_period(productions, chart_period)
+                chart_delivery = self._group_deliveries_by_period(deliveries, chart_period)
+            else:
+                chart_production = period_production_data
+                chart_delivery = period_delivery_data
+
             elements.extend(
                 self.pdf_generator.create_combined_chart_section(
-                    f"Producción y Entregas por {request.period.title()}",
-                    {k: float(v) for k, v in period_production_data.items()},
-                    {k: float(v) for k, v in period_delivery_data.items()},
+                    f"Producción y Entregas por {chart_period.title()}",
+                    {k: float(v) for k, v in chart_production.items()},
+                    {k: float(v) for k, v in chart_delivery.items()},
                 )
             )
 
@@ -523,6 +541,7 @@ class ReportService:
                     )
             # Add summary section if more than one chunk/section
             if len(headers_chunks) > 1 and totals_by_date:
+                # Build per-day rows
                 summary_rows = [
                     {
                         "fecha": date_key,
@@ -531,6 +550,27 @@ class ReportService:
                     }
                     for date_key, vals in sorted(totals_by_date.items(), key=lambda x: x[0])
                 ]
+                # Add totals row at the end: number of days, total liters, total revenue
+                days_count = len(summary_rows)
+                total_liters_sum = (
+                    sum(r["total_litros"] for r in summary_rows) if summary_rows else 0.0
+                )
+                total_revenue_sum = (
+                    sum(
+                        float(str(r["ingresos"]).split(" ")[0].replace(",", ""))
+                        for r in summary_rows
+                    )
+                    if summary_rows
+                    else 0.0
+                )
+                summary_rows.append(
+                    {
+                        "fecha": f"Totales ({days_count} días)",
+                        "total_litros": round(total_liters_sum, 2),
+                        "ingresos": f"{total_revenue_sum:,.2f} {currency_label}",
+                        "is_total": True,
+                    }
+                )
                 elements.extend(
                     self.pdf_generator.create_table_section(
                         "Detalle Diario - Resumen por Fecha",
