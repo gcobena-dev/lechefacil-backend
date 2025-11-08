@@ -752,6 +752,42 @@
               "title": "Status Codes"
             },
             "description": "Filter by status codes. Repeat param or use comma-separated"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Text search across tag, name, breed, lot",
+              "title": "Q"
+            },
+            "description": "Text search across tag, name, breed, lot"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of q for text search",
+              "title": "Search"
+            },
+            "description": "Alias of q for text search"
           }
         ],
         "responses": {

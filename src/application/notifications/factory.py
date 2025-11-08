@@ -31,6 +31,17 @@ def _fmt(value: Any, decimals: int = 1) -> str:
         return str(value)
 
 
+def _short_label(s: str | None, *, max_len: int = 16) -> str | None:
+    """Shorten labels like actor name to a safe length with ellipsis.
+
+    Keeps UI tidy on mobile; 16 chars balances readability and space.
+    """
+    if not s:
+        return s
+    s = str(s)
+    return s if len(s) <= max_len else (s[: max(0, max_len - 1)] + "…")
+
+
 def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
     """
     Central place to build notification title/message/data from templates.
@@ -45,8 +56,11 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         buyer_id = kwargs.get("buyer_id")
         d = kwargs.get("date_time")
         title_suffix = format_day_date(d)
+        actor: str | None = _short_label(kwargs.get("actor_label"))
         title = f"Entrega registrada {title_suffix}"
         message = f"Se entregaron {_fmt(volume_l)}L por {currency} {_fmt(amount, 2)}"
+        if actor:
+            message += f" • por {actor}"
         data = {
             "delivery_id": str(delivery_id) if delivery_id is not None else None,
             "buyer_id": str(buyer_id) if buyer_id is not None else None,
@@ -55,6 +69,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
             "amount": str(amount),
             "currency": currency,
             "date": str(d) if d is not None else None,
+            "actor": actor,
         }
         return BuiltNotification(ntype, title, message, data)
 
@@ -70,16 +85,20 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         production_id = kwargs.get("production_id")
         d = kwargs.get("date_time")
         title_date = format_day_date(d)
+        actor: str | None = _short_label(kwargs.get("actor_label"))
         title = f"Producción registrada: {animal_label}" + (
             f" - {short_name}" if short_name else ""
         )
         message = f"Se registró {_fmt(volume_l)}L de leche - {title_date} {shift}"
+        if actor:
+            message += f" • por {actor}"
         data = {
             "animal_id": str(animal_id) if animal_id is not None else None,
             "production_id": str(production_id) if production_id is not None else None,
             "volume_l": str(volume_l),
             "shift": shift,
             "date": str(d) if d is not None else None,
+            "actor": actor,
         }
         return BuiltNotification(ntype, title, message, data)
 
@@ -96,8 +115,11 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         production_id = kwargs.get("production_id")
         d = kwargs.get("date_time")
         date_str = format_day_date(d)
+        actor: str | None = _short_label(kwargs.get("actor_label"))
         title = f"⚠️ Producción baja: {animal_label}" + (f" - {short_name}" if short_name else "")
         message = f"{_fmt(volume_l)}L vs prom. {_fmt(avg_hist)}L - {date_str} {shift}"
+        if actor:
+            message += f" • por {actor}"
         data = {
             "animal_id": str(animal_id) if animal_id is not None else None,
             "production_id": str(production_id) if production_id is not None else None,
@@ -105,6 +127,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
             "avg_hist": str(avg_hist),
             "shift": shift,
             "date": str(d) if d is not None else None,
+            "actor": actor,
         }
         return BuiltNotification(ntype, title, message, data)
 
@@ -114,13 +137,17 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         shift: str = kwargs.get("shift", "AM")
         d = kwargs.get("date_time")
         title_date = format_day_date(d)
+        actor: str | None = _short_label(kwargs.get("actor_label"))
         title = f"Registro masivo completado - {title_date} {shift}"
         message = f"Se registraron {count} animales con {_fmt(total_volume_l)}L totales"
+        if actor:
+            message += f" • por {actor}"
         data = {
             "count": int(count),
             "total_volume_l": str(total_volume_l),
             "shift": shift,
             "date": str(d) if d is not None else None,
+            "actor": actor,
         }
         return BuiltNotification(ntype, title, message, data)
 

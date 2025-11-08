@@ -113,8 +113,27 @@ class LactationsSQLAlchemyRepository(LactationsRepository):
         raise ValueError(f"Lactation {lactation.id} not found")
 
     async def sum_volume(self, lactation_id: UUID) -> float:
+        """Sum volume for a lactation including legacy records without lactation_id.
+
+        Includes productions that either:
+        - are explicitly linked via lactation_id, or
+        - match the lactation animal_id and have date within [start_date, end_date or today]
+        """
+        # Load lactation details
+        lact_stmt = select(LactationORM).where(LactationORM.id == lactation_id)
+        lact_res = await self.session.execute(lact_stmt)
+        lact = lact_res.scalar_one_or_none()
+        if lact is None:
+            return 0.0
+
+        # Build range predicate
+        range_pred = MilkProductionORM.date >= lact.start_date
+        if lact.end_date is not None:
+            range_pred = range_pred & (MilkProductionORM.date <= lact.end_date)
+
         stmt = select(func.sum(MilkProductionORM.volume_l)).where(
-            MilkProductionORM.lactation_id == lactation_id
+            (MilkProductionORM.lactation_id == lactation_id)
+            | ((MilkProductionORM.animal_id == lact.animal_id) & range_pred)
         )
         result = await self.session.execute(stmt)
         total = result.scalar_one_or_none()

@@ -94,6 +94,11 @@ async def _handle_delivery_recorded(
 ):
     buyer = await uow.buyers.get(e.tenant_id, e.buyer_id)
     buyer_name = buyer.name if buyer else "Comprador"
+    # Resolve actor label from user
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = None
+    if actor_user:
+        actor_label = (actor_user.email.split("@")[0]) if actor_user.email else None
     built = build_notification(
         NotificationType.DELIVERY_RECORDED,
         buyer_name=buyer_name,
@@ -103,6 +108,7 @@ async def _handle_delivery_recorded(
         delivery_id=e.delivery_id,
         buyer_id=e.buyer_id,
         date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
+        actor_label=actor_label,
     )
 
     async def send(user_id):
@@ -124,6 +130,8 @@ async def _handle_production_recorded(
     animal = await uow.animals.get(e.tenant_id, e.animal_id)
     animal_label = animal.tag if animal else "Animal"
     animal_name = animal.name if animal and animal.name else ""
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
     built = build_notification(
         NotificationType.PRODUCTION_RECORDED,
         animal_label=animal_label,
@@ -133,6 +141,7 @@ async def _handle_production_recorded(
         date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
         animal_id=e.animal_id,
         production_id=e.production_id,
+        actor_label=actor_label,
     )
 
     async def send(user_id):
@@ -154,6 +163,8 @@ async def _handle_production_low(
     animal = await uow.animals.get(e.tenant_id, e.animal_id)
     animal_label = animal.tag if animal else "Animal"
     animal_name = animal.name if animal and animal.name else ""
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
     built = build_notification(
         NotificationType.PRODUCTION_LOW,
         animal_label=animal_label,
@@ -164,6 +175,7 @@ async def _handle_production_low(
         date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
         animal_id=e.animal_id,
         production_id=e.production_id,
+        actor_label=actor_label,
     )
 
     async def send(user_id):
@@ -184,12 +196,15 @@ async def _handle_production_bulk_recorded(
     notification_service: NotificationService,
     e: ProductionBulkRecordedEvent,
 ):
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
     built = build_notification(
         NotificationType.PRODUCTION_BULK_RECORDED,
         count=e.count,
         total_volume_l=e.total_volume_l,
         shift=e.shift,
         date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
+        actor_label=actor_label,
     )
 
     async def send(user_id):

@@ -93,6 +93,14 @@ async def list_animals_endpoint(
     status_codes: list[str] = Query(
         None, description="Filter by status codes. Repeat param or use comma-separated"
     ),
+    q: str | None = Query(
+        None,
+        description="Text search across tag, name, breed, lot",
+    ),
+    search: str | None = Query(
+        None,
+        description="Alias of q for text search",
+    ),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalsListResponse:
@@ -100,6 +108,9 @@ async def list_animals_endpoint(
     # Normalize comma-separated single value into list
     if status_codes and len(status_codes) == 1 and "," in status_codes[0]:
         status_codes = [code.strip() for code in status_codes[0].split(",") if code.strip()]
+
+    # Resolve search term preferring q, then search
+    text_search = q if q is not None else search
 
     result = await list_animals.execute(
         uow,
@@ -110,6 +121,7 @@ async def list_animals_endpoint(
         status_codes=status_codes,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        search=text_search,
     )
     # Enrich with primary_photo_url, photos_count, and
     # status fields (code, text, description)

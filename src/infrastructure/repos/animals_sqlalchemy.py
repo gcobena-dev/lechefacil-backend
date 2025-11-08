@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -100,6 +100,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         status_ids: list[UUID] | None = None,
         sort_by: str | None = None,
         sort_dir: str | None = None,
+        search: str | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]:
         from sqlalchemy import asc, desc
 
@@ -107,6 +108,18 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
 
         stmt = select(AnimalORM).where(AnimalORM.tenant_id == tenant_id)
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
+
+        # Text search across common fields (case-insensitive)
+        if search:
+            pattern = f"%{search.lower()}%"
+            stmt = stmt.where(
+                or_(
+                    func.lower(AnimalORM.tag).like(pattern),
+                    func.lower(AnimalORM.name).like(pattern),
+                    func.lower(AnimalORM.breed).like(pattern),
+                    func.lower(AnimalORM.lot).like(pattern),
+                )
+            )
 
         # Filter by status_ids if provided
         if status_ids is not None:
@@ -203,9 +216,21 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         *,
         is_active: bool | None = None,
         status_ids: list[UUID] | None = None,
+        search: str | None = None,
     ) -> int:
         stmt = select(func.count(AnimalORM.id)).where(AnimalORM.tenant_id == tenant_id)
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
+
+        if search:
+            pattern = f"%{search.lower()}%"
+            stmt = stmt.where(
+                or_(
+                    func.lower(AnimalORM.tag).like(pattern),
+                    func.lower(AnimalORM.name).like(pattern),
+                    func.lower(AnimalORM.breed).like(pattern),
+                    func.lower(AnimalORM.lot).like(pattern),
+                )
+            )
 
         # Filter by status_ids if provided
         if status_ids is not None:

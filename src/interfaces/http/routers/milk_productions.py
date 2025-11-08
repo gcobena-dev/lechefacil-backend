@@ -14,6 +14,7 @@ from src.application.events.models import (
     ProductionLowEvent,
     ProductionRecordedEvent,
 )
+from src.application.use_cases.animals import auto_link_production_to_lactation
 from src.domain.models.milk_production import MilkProduction
 from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.auth.context import AuthContext
@@ -190,10 +191,16 @@ async def create_production(
             },
         )
 
+    # Auto-link to lactation if exists for this date
+    lactation_id = await auto_link_production_to_lactation.execute(
+        uow, context.tenant_id, payload.animal_id, dt
+    )
+
     mp = MilkProduction.create(
         tenant_id=context.tenant_id,
         animal_id=payload.animal_id,
         buyer_id=buyer_id,
+        lactation_id=lactation_id,
         date_time=dt,
         shift=shift_val,
         input_unit=unit,
@@ -364,10 +371,15 @@ async def create_productions_bulk(
             )
             continue
 
+        # Auto-link to lactation for each item
+        lact_id = await auto_link_production_to_lactation.execute(
+            uow, context.tenant_id, item.animal_id, dt_shared
+        )
         mp = MilkProduction.create(
             tenant_id=context.tenant_id,
             animal_id=item.animal_id,
             buyer_id=buyer_shared,
+            lactation_id=lact_id,
             date_time=dt_shared,
             shift=shift_val,
             input_unit=unit_shared,
@@ -528,6 +540,19 @@ async def update_production(
             updates["price_snapshot"] = price
             updates["currency"] = currency
             updates["amount"] = (vol * price).quantize(Decimal("0.01"))
+    # Re-link lactation when date_time or animal_id changes
+    if {"date_time", "animal_id"} & updates.keys():
+        existing = await uow.milk_productions.get(context.tenant_id, _UUID(production_id))
+        if not existing:
+            from src.application.errors import NotFound
+
+            raise NotFound("Production not found")
+        new_dt = updates.get("date_time", existing.date_time)
+        new_animal = updates.get("animal_id", existing.animal_id)
+        lact_id = await auto_link_production_to_lactation.execute(
+            uow, context.tenant_id, new_animal, new_dt
+        )
+        updates["lactation_id"] = lact_id
     updated = await uow.milk_productions.update(context.tenant_id, _UUID(production_id), updates)
     if not updated:
         from src.application.errors import NotFound

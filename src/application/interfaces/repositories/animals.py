@@ -17,11 +17,22 @@ class AnimalRepository(Protocol):
         *,
         limit: int | None = None,
         cursor: UUID | None = None,
+        offset: int | None = None,
         is_active: bool | None = None,
         status_ids: list[UUID] | None = None,
+        sort_by: str | None = None,
+        sort_dir: str | None = None,
+        search: str | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]: ...
 
-    async def count(self, tenant_id: UUID, *, is_active: bool | None = None) -> int: ...
+    async def count(
+        self,
+        tenant_id: UUID,
+        *,
+        is_active: bool | None = None,
+        status_ids: list[UUID] | None = None,
+        search: str | None = None,
+    ) -> int: ...
 
     async def update(
         self,
