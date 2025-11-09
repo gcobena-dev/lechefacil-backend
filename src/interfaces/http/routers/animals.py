@@ -82,9 +82,14 @@ async def get_next_tag(
 
 @router.get("/", response_model=AnimalsListResponse)
 async def list_animals_endpoint(
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
     cursor: str | None = Query(None),
     offset: int | None = Query(None, ge=0),
+    page: int | None = Query(
+        None,
+        ge=1,
+        description="Page number (1-based). If provided, uses offset pagination and returns total.",
+    ),
     sort_by: str | None = Query(
         None,
         description="Sort by one of: tag, name, breed, age, lot, classification",
@@ -111,6 +116,12 @@ async def list_animals_endpoint(
 
     # Resolve search term preferring q, then search
     text_search = q if q is not None else search
+
+    # If page is provided (and no explicit offset), translate to offset-based pagination
+    if page is not None and offset is None:
+        offset = (page - 1) * limit
+        # When using offset pagination, ignore cursor to avoid mixed modes
+        cursor_uuid = None
 
     result = await list_animals.execute(
         uow,
