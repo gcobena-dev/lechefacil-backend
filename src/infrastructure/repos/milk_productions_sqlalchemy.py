@@ -84,9 +84,14 @@ class MilkProductionsSQLAlchemyRepository(MilkProductionsRepository):
         date_from: date | None,
         date_to: date | None,
         animal_id: UUID | None,
+        order_by: str | None = None,
+        order: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[MilkProduction]:
+        from sqlalchemy import desc, asc
+        from src.infrastructure.db.orm.animal import AnimalORM
+
         conds = [MilkProductionORM.tenant_id == tenant_id, MilkProductionORM.deleted_at.is_(None)]
         if date_from:
             conds.append(MilkProductionORM.date >= date_from)
@@ -95,6 +100,27 @@ class MilkProductionsSQLAlchemyRepository(MilkProductionsRepository):
         if animal_id is not None:
             conds.append(MilkProductionORM.animal_id == animal_id)
         stmt = select(MilkProductionORM).where(and_(*conds))
+        # Determine ordering
+        ob = (order_by or "recent").lower()
+        od = (order or "desc").lower()
+        dir_fn = desc if od == "desc" else asc
+        if ob == "volume":
+            stmt = stmt.order_by(dir_fn(MilkProductionORM.volume_l), dir_fn(MilkProductionORM.id))
+        elif ob == "name":
+            # Join animal to order by name/tag
+            stmt = (
+                stmt.join(AnimalORM, and_(AnimalORM.id == MilkProductionORM.animal_id, AnimalORM.tenant_id == MilkProductionORM.tenant_id), isouter=True)
+                .order_by(dir_fn(AnimalORM.name), dir_fn(AnimalORM.tag), dir_fn(MilkProductionORM.id))
+            )
+        elif ob == "code":
+            # Order by animal tag (code), then name
+            stmt = (
+                stmt.join(AnimalORM, and_(AnimalORM.id == MilkProductionORM.animal_id, AnimalORM.tenant_id == MilkProductionORM.tenant_id), isouter=True)
+                .order_by(dir_fn(AnimalORM.tag), dir_fn(AnimalORM.name), dir_fn(MilkProductionORM.id))
+            )
+        else:
+            # Default: most recent first
+            stmt = stmt.order_by(dir_fn(MilkProductionORM.date_time), dir_fn(MilkProductionORM.id))
         if limit is not None:
             stmt = stmt.limit(limit)
         if offset is not None:

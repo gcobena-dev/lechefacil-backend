@@ -13,7 +13,7 @@ class MilkProductionCreate(BaseModel):
     # Preferred simple inputs
     date: DtDate | None = None
     shift: Literal["AM", "PM"] | None = "AM"
-    # Advanced override (if provided, ignores date/shift)
+    # Optional explicit timestamp. If 'date' is provided, 'date' + 'shift' take precedence.
     date_time: datetime | None = None
     # Required association to animal
     animal_id: UUID

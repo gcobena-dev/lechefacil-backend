@@ -56,6 +56,8 @@ async def list_productions(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     animal_id: str | None = Query(None),
+    order_by: str | None = Query(None, description="recent|volume|name|code"),
+    order: str | None = Query(None, description="asc|desc"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     context: AuthContext = Depends(get_auth_context),
@@ -78,11 +80,20 @@ async def list_productions(
         date_to=dt,
         animal_id=aid,
     )
+    # Normalize order params
+    ob = (order_by or "recent").lower()
+    if ob not in {"recent", "volume", "name", "code"}:
+        ob = "recent"
+    od = (order or ("desc" if ob in {"recent", "volume"} else "asc")).lower()
+    if od not in {"asc", "desc"}:
+        od = "desc"
     items = await uow.milk_productions.list(
         context.tenant_id,
         date_from=df,
         date_to=dt,
         animal_id=aid,
+        order_by=ob,
+        order=od,
         limit=limit,
         offset=offset,
     )
@@ -122,16 +133,20 @@ async def create_production(
         payload.input_unit if payload.input_unit is not None else cfg.default_production_input_unit
     )
     vol_l, _ = _to_liters(unit, payload.input_quantity, density)
-    # Resolve datetime from date/shift if date_time not provided
-    dt = payload.date_time
-    if dt is None:
-        d = payload.date or DtDate.today()
-        shift = (payload.shift or "AM").upper()
+    # Resolve datetime preferring provided business date + shift
+    # Precedence: (1) date + shift, (2) explicit date_time, (3) today + shift
+    dt: datetime | None = None
+    shift = (payload.shift or "AM").upper()
+    if payload.date is not None:
         # Simple convention: AM -> 06:00, PM -> 18:00 UTC
         base_time = DtTime(hour=6, minute=0) if shift == "AM" else DtTime(hour=18, minute=0)
+        dt = datetime.combine(payload.date, base_time).replace(tzinfo=timezone.utc)
+    elif payload.date_time is not None:
+        dt = payload.date_time if payload.date_time.tzinfo else payload.date_time.replace(tzinfo=timezone.utc)
+    else:
+        d = DtDate.today()
+        base_time = DtTime(hour=6, minute=0) if shift == "AM" else DtTime(hour=18, minute=0)
         dt = datetime.combine(d, base_time).replace(tzinfo=timezone.utc)
-    elif dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
     # Resolve buyer & price snapshot for approximate value
     buyer_id = payload.buyer_id or (cfg.default_buyer_id if cfg else None)
     price = None
@@ -300,15 +315,20 @@ async def create_productions_bulk(
     unit_shared = (
         payload.input_unit if payload.input_unit is not None else cfg.default_production_input_unit
     )
-    # Resolve datetime from date/shift if date_time not provided
-    dt_shared = payload.date_time
-    if dt_shared is None:
-        d = payload.date or DtDate.today()
-        sh = (payload.shift or "AM").upper()
+    # Resolve datetime preferring provided business date + shift (batch)
+    # Precedence: (1) date + shift, (2) explicit date_time, (3) today + shift
+    sh = (payload.shift or "AM").upper()
+    if payload.date is not None:
+        base_time = DtTime(hour=6, minute=0) if sh == "AM" else DtTime(hour=18, minute=0)
+        dt_shared = datetime.combine(payload.date, base_time).replace(tzinfo=timezone.utc)
+    elif payload.date_time is not None:
+        dt_shared = (
+            payload.date_time if payload.date_time.tzinfo else payload.date_time.replace(tzinfo=timezone.utc)
+        )
+    else:
+        d = DtDate.today()
         base_time = DtTime(hour=6, minute=0) if sh == "AM" else DtTime(hour=18, minute=0)
         dt_shared = datetime.combine(d, base_time).replace(tzinfo=timezone.utc)
-    elif dt_shared.tzinfo is None:
-        dt_shared = dt_shared.replace(tzinfo=timezone.utc)
     # Resolve price snapshot and currency based on buyer/date
     buyer_shared = payload.buyer_id or (cfg.default_buyer_id if cfg else None)
     price_shared = None
