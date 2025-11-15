@@ -89,7 +89,8 @@ class MilkProductionsSQLAlchemyRepository(MilkProductionsRepository):
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[MilkProduction]:
-        from sqlalchemy import desc, asc
+        from sqlalchemy import asc, desc
+
         from src.infrastructure.db.orm.animal import AnimalORM
 
         conds = [MilkProductionORM.tenant_id == tenant_id, MilkProductionORM.deleted_at.is_(None)]
@@ -108,16 +109,24 @@ class MilkProductionsSQLAlchemyRepository(MilkProductionsRepository):
             stmt = stmt.order_by(dir_fn(MilkProductionORM.volume_l), dir_fn(MilkProductionORM.id))
         elif ob == "name":
             # Join animal to order by name/tag
-            stmt = (
-                stmt.join(AnimalORM, and_(AnimalORM.id == MilkProductionORM.animal_id, AnimalORM.tenant_id == MilkProductionORM.tenant_id), isouter=True)
-                .order_by(dir_fn(AnimalORM.name), dir_fn(AnimalORM.tag), dir_fn(MilkProductionORM.id))
-            )
+            stmt = stmt.join(
+                AnimalORM,
+                and_(
+                    AnimalORM.id == MilkProductionORM.animal_id,
+                    AnimalORM.tenant_id == MilkProductionORM.tenant_id,
+                ),
+                isouter=True,
+            ).order_by(dir_fn(AnimalORM.name), dir_fn(AnimalORM.tag), dir_fn(MilkProductionORM.id))
         elif ob == "code":
             # Order by animal tag (code), then name
-            stmt = (
-                stmt.join(AnimalORM, and_(AnimalORM.id == MilkProductionORM.animal_id, AnimalORM.tenant_id == MilkProductionORM.tenant_id), isouter=True)
-                .order_by(dir_fn(AnimalORM.tag), dir_fn(AnimalORM.name), dir_fn(MilkProductionORM.id))
-            )
+            stmt = stmt.join(
+                AnimalORM,
+                and_(
+                    AnimalORM.id == MilkProductionORM.animal_id,
+                    AnimalORM.tenant_id == MilkProductionORM.tenant_id,
+                ),
+                isouter=True,
+            ).order_by(dir_fn(AnimalORM.tag), dir_fn(AnimalORM.name), dir_fn(MilkProductionORM.id))
         else:
             # Default: most recent first
             stmt = stmt.order_by(dir_fn(MilkProductionORM.date_time), dir_fn(MilkProductionORM.id))

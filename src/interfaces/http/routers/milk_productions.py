@@ -142,7 +142,11 @@ async def create_production(
         base_time = DtTime(hour=6, minute=0) if shift == "AM" else DtTime(hour=18, minute=0)
         dt = datetime.combine(payload.date, base_time).replace(tzinfo=timezone.utc)
     elif payload.date_time is not None:
-        dt = payload.date_time if payload.date_time.tzinfo else payload.date_time.replace(tzinfo=timezone.utc)
+        dt = (
+            payload.date_time
+            if payload.date_time.tzinfo
+            else payload.date_time.replace(tzinfo=timezone.utc)
+        )
     else:
         d = DtDate.today()
         base_time = DtTime(hour=6, minute=0) if shift == "AM" else DtTime(hour=18, minute=0)
@@ -323,7 +327,9 @@ async def create_productions_bulk(
         dt_shared = datetime.combine(payload.date, base_time).replace(tzinfo=timezone.utc)
     elif payload.date_time is not None:
         dt_shared = (
-            payload.date_time if payload.date_time.tzinfo else payload.date_time.replace(tzinfo=timezone.utc)
+            payload.date_time
+            if payload.date_time.tzinfo
+            else payload.date_time.replace(tzinfo=timezone.utc)
         )
     else:
         d = DtDate.today()

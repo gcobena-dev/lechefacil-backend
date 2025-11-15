@@ -18,7 +18,7 @@ class MilkProductionsRepository(Protocol):
         date_to: date | None,
         animal_id: UUID | None,
         order_by: str | None = None,  # 'recent' | 'volume' | 'name'
-        order: str | None = None,      # 'asc' | 'desc'
+        order: str | None = None,  # 'asc' | 'desc'
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[MilkProduction]: ...
