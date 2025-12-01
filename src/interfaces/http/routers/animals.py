@@ -83,6 +83,7 @@ async def get_next_tag(
 
 @router.get("/", response_model=AnimalsListResponse)
 async def list_animals_endpoint(
+    request: Request,
     limit: int = Query(10, ge=1, le=100),
     cursor: str | None = Query(None),
     offset: int | None = Query(None, ge=0),
@@ -111,6 +112,8 @@ async def list_animals_endpoint(
     uow=Depends(get_uow),
 ) -> AnimalsListResponse:
     cursor_uuid = UUID(cursor) if cursor else None
+    # Best-effort storage service for signed URLs (may be missing in tests)
+    storage_svc = getattr(getattr(request.app, "state", None), "storage_service", None)
     # Normalize comma-separated single value into list
     if status_codes and len(status_codes) == 1 and "," in status_codes[0]:
         status_codes = [code.strip() for code in status_codes[0].split(",") if code.strip()]
@@ -162,6 +165,12 @@ async def list_animals_endpoint(
             context.tenant_id, OwnerType.ANIMAL, item.id
         )
         count = await uow.attachments.count_for_owner(context.tenant_id, OwnerType.ANIMAL, item.id)
+        signed_url: str | None = None
+        if primary and storage_svc:
+            try:
+                signed_url = await storage_svc.get_public_url(primary.storage_key)
+            except Exception:
+                signed_url = None
         data = AnimalResponse.model_validate(item).model_dump()
         # add derived status details
         sid = data.get("status_id")
@@ -186,6 +195,7 @@ async def list_animals_endpoint(
             if lot_obj:
                 data["lot_id"] = lot_obj.id
         data["primary_photo_url"] = primary.storage_key if primary else None
+        data["primary_photo_signed_url"] = signed_url
         data["photos_count"] = count
         enriched_items.append(AnimalResponse.model_validate(data))
     items = enriched_items
@@ -289,6 +299,7 @@ async def create_animal_endpoint(
 @router.get("/{animal_id}", response_model=AnimalResponse)
 async def get_animal_endpoint(
     animal_id: UUID,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalResponse:
@@ -296,6 +307,13 @@ async def get_animal_endpoint(
     primary = await uow.attachments.get_primary_for_owner(
         context.tenant_id, OwnerType.ANIMAL, animal_id
     )
+    storage_svc = getattr(getattr(request.app, "state", None), "storage_service", None)
+    signed_url: str | None = None
+    if primary and storage_svc:
+        try:
+            signed_url = await storage_svc.get_public_url(primary.storage_key)
+        except Exception:
+            signed_url = None
     data = AnimalResponse.model_validate(result).model_dump()
     # add derived status fields
     if data.get("status_id"):
@@ -311,6 +329,7 @@ async def get_animal_endpoint(
             # If statuses table is missing in certain environments/tests, skip enrichment
             pass
     data["photo_url"] = primary.storage_key if primary else None
+    data["primary_photo_signed_url"] = signed_url
     return AnimalResponse.model_validate(data)
 
 

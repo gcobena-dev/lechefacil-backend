@@ -153,6 +153,7 @@ class AnimalResponse(BaseModel):
     version: int
     # Derived fields for attachments (optional in responses)
     primary_photo_url: str | None = None
+    primary_photo_signed_url: str | None = None
     photos_count: int | None = None
 
 

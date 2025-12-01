@@ -5902,6 +5902,17 @@
             ],
             "title": "Primary Photo Url"
           },
+          "primary_photo_signed_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Photo Signed Url"
+          },
           "photos_count": {
             "anyOf": [
               {
