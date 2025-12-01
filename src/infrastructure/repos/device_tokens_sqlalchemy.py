@@ -69,3 +69,15 @@ class DeviceTokensSQLAlchemyRepository:
         stmt = select(DeviceTokenORM).where(DeviceTokenORM.user_id == user_id)
         res = await self.session.execute(stmt)
         return list(res.scalars())
+
+    async def disable_tokens(self, tokens: list[str]) -> int:
+        """Mark tokens as disabled to avoid repeated push errors."""
+        if not tokens:
+            return 0
+        stmt = (
+            update(DeviceTokenORM)
+            .where(DeviceTokenORM.token.in_(tokens))
+            .values(disabled=True, last_active_at=datetime.now(timezone.utc))
+        )
+        res = await self.session.execute(stmt)
+        return res.rowcount or 0

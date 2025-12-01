@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response, status
 
+from src.application.events.dispatcher import dispatch_events
 from src.application.use_cases.animals import (
     create_animal,
     delete_animal,
@@ -195,6 +196,8 @@ async def list_animals_endpoint(
 @router.post("/", response_model=AnimalResponse, status_code=status.HTTP_201_CREATED)
 async def create_animal_endpoint(
     payload: AnimalCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalResponse:
@@ -238,6 +241,7 @@ async def create_animal_endpoint(
         uow,
         context.tenant_id,
         context.role,
+        context.user_id,
         create_animal.CreateAnimalInput(
             tag=payload.tag,
             name=payload.name,
@@ -274,6 +278,11 @@ async def create_animal_endpoint(
                 data["lot_id"] = lot.id
     except Exception:
         pass
+    # Dispatch notifications in background (post-commit)
+    events = uow.drain_events()
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory and events:
+        background_tasks.add_task(dispatch_events, session_factory, events)
     return AnimalResponse.model_validate(data)
 
 
@@ -309,6 +318,8 @@ async def get_animal_endpoint(
 async def update_animal_endpoint(
     animal_id: UUID,
     payload: AnimalUpdate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalResponse:
@@ -367,6 +378,7 @@ async def update_animal_endpoint(
         uow,
         context.tenant_id,
         context.role,
+        context.user_id,
         animal_id,
         update_animal.UpdateAnimalInput(**updates),
     )
@@ -385,6 +397,11 @@ async def update_animal_endpoint(
                 data["lot_id"] = lot.id
     except Exception:
         pass
+    # Dispatch notifications in background (post-commit)
+    events = uow.drain_events()
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory and events:
+        background_tasks.add_task(dispatch_events, session_factory, events)
     return AnimalResponse.model_validate(data)
 
 
@@ -392,6 +409,8 @@ async def update_animal_endpoint(
 async def set_animal_lot(
     animal_id: UUID,
     payload: dict,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalResponse:
@@ -415,6 +434,7 @@ async def set_animal_lot(
         uow,
         context.tenant_id,
         context.role,
+        context.user_id,
         animal_id,
         update_animal.UpdateAnimalInput(
             version=req.version,
@@ -428,6 +448,11 @@ async def set_animal_lot(
         data["lot_id"] = req.lot_id
     else:
         data["lot_id"] = None
+    # Dispatch notifications in background (post-commit)
+    events = uow.drain_events()
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory and events:
+        background_tasks.add_task(dispatch_events, session_factory, events)
     return AnimalResponse.model_validate(data)
 
 

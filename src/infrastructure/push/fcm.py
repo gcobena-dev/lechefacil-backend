@@ -22,7 +22,7 @@ class FCMClient:
         title: str,
         body: str,
         data: dict | None = None,
-    ) -> None:
+    ) -> list[str]:
         headers = {
             "Authorization": f"key={self.server_key}",
             "Content-Type": "application/json",
@@ -33,9 +33,12 @@ class FCMClient:
             "data": data or {},
             "priority": "high",
         }
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(self.endpoint, headers=headers, json=payload)
             if resp.status_code >= 400:
                 logger.error("FCM error %s: %s", resp.status_code, resp.text)
             else:
                 logger.debug("FCM sent: %s", resp.text)
+        # Legacy API returns per-token status, but we don't
+        # parse here; return empty list (no invalids detected)
+        return []

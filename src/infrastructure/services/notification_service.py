@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from uuid import UUID
 
@@ -120,7 +121,6 @@ class NotificationService:
         if not self.push_sender or not self.device_tokens_repo:
             return
         try:
-            # Load user's device tokens
             tokens = [
                 dt.token
                 for dt in await self.device_tokens_repo.list_for_user(user_id=notification.user_id)
@@ -134,13 +134,54 @@ class NotificationService:
                 "tenant_id": str(notification.tenant_id),
                 "user_id": str(notification.user_id),
             }
-            # push_sender must expose send_to_tokens
-            await self.push_sender.send_to_tokens(
-                tokens=tokens,
-                title=notification.title,
-                body=notification.message,
-                data=data,
-            )
-            logger.info("Notification sent via Push: id=%s tokens=%s", notification.id, len(tokens))
+            attempts = 3
+            delay = 2
+            for attempt in range(1, attempts + 1):
+                try:
+                    invalid_tokens = await self.push_sender.send_to_tokens(
+                        tokens=tokens,
+                        title=notification.title,
+                        body=notification.message,
+                        data=data,
+                    )
+                    if invalid_tokens:
+                        try:
+                            disabled = await self.device_tokens_repo.disable_tokens(invalid_tokens)
+                            logger.info(
+                                "Disabled %s invalid push tokens (notification id=%s)",
+                                disabled,
+                                notification.id,
+                            )
+                        except Exception as disable_err:
+                            logger.error(
+                                "Error disabling invalid tokens %s: %s",
+                                invalid_tokens,
+                                disable_err,
+                                exc_info=True,
+                            )
+                    logger.info(
+                        "Notification sent via Push: id=%s tokens=%s attempt=%s",
+                        notification.id,
+                        len(tokens),
+                        attempt,
+                    )
+                    break
+                except Exception as e:
+                    if attempt == attempts:
+                        logger.error(
+                            "Error sending notification via Push after %s attempts: %s",
+                            attempt,
+                            e,
+                            exc_info=True,
+                        )
+                    else:
+                        logger.warning(
+                            "Push send attempt %s failed (%s), retrying in %ss",
+                            attempt,
+                            e,
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                        delay *= 2
         except Exception as e:
-            logger.error("Error sending notification via Push: %s", e, exc_info=True)
+            logger.error("Error preparing push notification: %s", e, exc_info=True)

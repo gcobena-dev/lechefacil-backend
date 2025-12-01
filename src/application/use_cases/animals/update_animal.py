@@ -40,6 +40,7 @@ async def execute(
     uow: UnitOfWork,
     tenant_id: UUID,
     role: Role,
+    actor_user_id: UUID,
     animal_id: UUID,
     payload: UpdateAnimalInput,
 ) -> Animal:
@@ -81,5 +82,21 @@ async def execute(
     )
     if not updated:
         raise ConflictError("Version mismatch while updating animal")
+    # Emit event for notifications
+    try:
+        from src.application.events.models import AnimalUpdatedEvent
+
+        uow.add_event(
+            AnimalUpdatedEvent(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                animal_id=updated.id,
+                tag=updated.tag,
+                name=updated.name,
+                changed_fields=list(data.keys()),
+            )
+        )
+    except Exception:
+        pass
     await uow.commit()
     return updated

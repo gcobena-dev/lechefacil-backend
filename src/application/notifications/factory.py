@@ -57,7 +57,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         d = kwargs.get("date_time")
         title_suffix = format_day_date(d)
         actor: str | None = _short_label(kwargs.get("actor_label"))
-        title = f"Entrega registrada {title_suffix}"
+        title = f"🚚 Entrega registrada {title_suffix}"
         message = f"Se entregaron {_fmt(volume_l)}L por {currency} {_fmt(amount, 2)}"
         if actor:
             message += f" • por {actor}"
@@ -86,7 +86,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         d = kwargs.get("date_time")
         title_date = format_day_date(d)
         actor: str | None = _short_label(kwargs.get("actor_label"))
-        title = f"Producción registrada: {animal_label}" + (
+        title = f"🥛 Producción registrada: {animal_label}" + (
             f" - {short_name}" if short_name else ""
         )
         message = f"Se registró {_fmt(volume_l)}L de leche - {title_date} {shift}"
@@ -138,7 +138,7 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         d = kwargs.get("date_time")
         title_date = format_day_date(d)
         actor: str | None = _short_label(kwargs.get("actor_label"))
-        title = f"Registro masivo completado - {title_date} {shift}"
+        title = f"🥛📦 Registro masivo completado - {title_date} {shift}"
         message = f"Se registraron {count} animales con {_fmt(total_volume_l)}L totales"
         if actor:
             message += f" • por {actor}"
@@ -147,6 +147,80 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
             "total_volume_l": str(total_volume_l),
             "shift": shift,
             "date": str(d) if d is not None else None,
+            "actor": actor,
+        }
+        return BuiltNotification(ntype, title, message, data)
+
+    if ntype == NotificationType.ANIMAL_CREATED:
+        tag: str = kwargs.get("tag", "Animal")
+        name: str | None = kwargs.get("name")
+        actor: str | None = _short_label(kwargs.get("actor_label"))
+        title = "🐄 Nueva vaca registrada"
+        message = f"Se creó la vaca {tag}" + (f" {name}" if name else "")
+        if actor:
+            message += f" • por {actor}"
+        data = {
+            "animal_id": str(kwargs.get("animal_id")) if kwargs.get("animal_id") else None,
+            "tag": tag,
+            "name": name,
+            "actor": actor,
+        }
+        return BuiltNotification(ntype, title, message, data)
+
+    if ntype == NotificationType.ANIMAL_UPDATED:
+        tag: str = kwargs.get("tag", "Animal")
+        name: str | None = kwargs.get("name")
+        changed_fields = kwargs.get("changed_fields") or []
+        actor: str | None = _short_label(kwargs.get("actor_label"))
+        title = "🔄🐄 Vaca actualizada"
+        message = f"Se actualizó la vaca {tag}" + (f" {name}" if name else "")
+        if actor:
+            message += f" • por {actor}"
+        data = {
+            "animal_id": str(kwargs.get("animal_id")) if kwargs.get("animal_id") else None,
+            "tag": tag,
+            "name": name,
+            "changed_fields": changed_fields,
+            "actor": actor,
+        }
+        return BuiltNotification(ntype, title, message, data)
+
+    if ntype == NotificationType.ANIMAL_EVENT_CREATED:
+        tag: str = kwargs.get("tag", "Animal")
+        name: str | None = kwargs.get("name")
+        event_name: str = kwargs.get("event_name", "Evento")
+        category: str = kwargs.get("category", "Evento")
+        date_str: str | None = kwargs.get("date")
+        actor: str | None = _short_label(kwargs.get("actor_label"))
+        cat_lower = category.lower()
+        if any(x in cat_lower for x in ["birth", "nacimiento", "calf", "parto"]):
+            icon = "🐣"
+        elif any(
+            x in cat_lower
+            for x in ["health", "salud", "sick", "enfermo", "vacuna", "medication", "treatment"]
+        ):
+            icon = "🩺"
+        elif any(
+            x in cat_lower
+            for x in ["breeding", "insemin", "servicio", "mating", "gest", "gestation"]
+        ):
+            icon = "❤️"
+        else:
+            icon = "🐾"
+        title = f"{icon} Evento de vaca: {category}"
+        message = f"{category}: {event_name} para {tag}" + (f" {name}" if name else "")
+        if date_str:
+            message += f" • {date_str}"
+        if actor:
+            message += f" • por {actor}"
+        data = {
+            "animal_id": str(kwargs.get("animal_id")) if kwargs.get("animal_id") else None,
+            "event_id": str(kwargs.get("event_id")) if kwargs.get("event_id") else None,
+            "category": category,
+            "event_name": event_name,
+            "date": date_str,
+            "tag": tag,
+            "name": name,
             "actor": actor,
         }
         return BuiltNotification(ntype, title, message, data)

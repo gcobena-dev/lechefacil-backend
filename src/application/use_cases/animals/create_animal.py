@@ -40,6 +40,7 @@ async def execute(
     uow: UnitOfWork,
     tenant_id: UUID,
     role: Role,
+    actor_user_id: UUID,
     payload: CreateAnimalInput,
 ) -> Animal:
     ensure_can_create(role)
@@ -64,5 +65,21 @@ async def execute(
         external_sire_registry=payload.external_sire_registry,
     )
     created = await uow.animals.add(animal)
+    # Emit event for notifications
+    try:
+        from src.application.events.models import AnimalCreatedEvent
+
+        uow.add_event(
+            AnimalCreatedEvent(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                animal_id=created.id,
+                tag=created.tag,
+                name=created.name,
+            )
+        )
+    except Exception:
+        # best-effort; don't block creation on event creation
+        pass
     await uow.commit()
     return created

@@ -310,6 +310,7 @@ async def execute(
     uow: UnitOfWork,
     tenant_id: UUID,
     role: Role,
+    actor_user_id: UUID,
     payload: RegisterEventInput,
 ) -> RegisterEventOutput:
     """Register an animal event and apply its effects."""
@@ -362,6 +363,25 @@ async def execute(
             event=created_event,
             message=f"{payload.type} event recorded",
         )
+
+    # Emit event for notifications
+    try:
+        from src.application.events.models import AnimalEventCreatedEvent
+
+        uow.add_event(
+            AnimalEventCreatedEvent(
+                tenant_id=tenant_id,
+                actor_user_id=actor_user_id,
+                animal_id=animal.id,
+                event_id=created_event.id,
+                event_type=created_event.type,
+                occurred_at=created_event.occurred_at,
+                tag=animal.tag,
+                name=animal.name,
+            )
+        )
+    except Exception:
+        pass
 
     await uow.commit()
     return output

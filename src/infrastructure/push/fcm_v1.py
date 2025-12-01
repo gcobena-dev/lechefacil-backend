@@ -34,14 +34,15 @@ class FCMv1Client:
         title: str,
         body: str,
         data: dict | None = None,
-    ) -> None:
+    ) -> list[str]:
         if not tokens:
-            return
+            return []
         access_token = await self._get_access_token()
         url = f"https://fcm.googleapis.com/v1/projects/{self.project_id}/messages:send"
         headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+        invalid_tokens: list[str] = []
 
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=20) as client:
             # Send as multicast by iterating (v1 API lacks registration_ids batch)
             for token in tokens:
                 payload = {
@@ -53,9 +54,25 @@ class FCMv1Client:
                 }
                 resp = await client.post(url, headers=headers, json=payload)
                 if resp.status_code >= 400:
-                    logger.error("FCM v1 error %s: %s", resp.status_code, resp.text)
+                    # Detect unregistered token to disable it
+                    try:
+                        body_json = resp.json()
+                        details = body_json.get("error", {}).get("details", [])
+                        is_unregistered = any(
+                            d.get("errorCode") == "UNREGISTERED"
+                            for d in details
+                            if isinstance(d, dict)
+                        )
+                    except Exception:
+                        is_unregistered = False
+                    if resp.status_code == 404 and is_unregistered:
+                        invalid_tokens.append(token)
+                        logger.warning("FCM v1 token unregistered, will disable: %s", token)
+                    else:
+                        logger.error("FCM v1 error %s: %s", resp.status_code, resp.text)
                 else:
                     logger.debug("FCM v1 sent: %s", resp.text)
+        return invalid_tokens
 
     async def _get_access_token(self) -> str:
         now = int(time.time())

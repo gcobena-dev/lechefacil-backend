@@ -48,7 +48,23 @@ def make_uow(repo: StubRepo):
     async def rollback():
         return None
 
-    return SimpleNamespace(animals=repo, commit=commit, rollback=rollback)
+    events: list = []
+
+    def add_event(event):
+        events.append(event)
+
+    def drain_events():
+        nonlocal events
+        evts, events = events, []
+        return evts
+
+    return SimpleNamespace(
+        animals=repo,
+        commit=commit,
+        rollback=rollback,
+        add_event=add_event,
+        drain_events=drain_events,
+    )
 
 
 @pytest.mark.asyncio
@@ -60,6 +76,7 @@ async def test_create_animal_denies_worker():
             uow,
             uuid4(),
             Role.WORKER,
+            uuid4(),
             create_animal.CreateAnimalInput(tag="TAG-1"),
         )
     assert not repo.add_called
@@ -73,6 +90,7 @@ async def test_create_animal_with_manager_succeeds():
         uow,
         uuid4(),
         Role.MANAGER,
+        uuid4(),
         create_animal.CreateAnimalInput(tag="TAG-2", status_id=None),
     )
     assert repo.add_called
@@ -102,6 +120,7 @@ async def test_update_conflict_raises():
             uow,
             uuid4(),
             Role.ADMIN,
+            uuid4(),
             uuid4(),
             update_animal.UpdateAnimalInput(version=1, name="New"),
         )

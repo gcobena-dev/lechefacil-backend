@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 
+from src.application.events.dispatcher import dispatch_events
 from src.application.use_cases.animals import list_events, register_event
 from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import get_auth_context, get_uow
@@ -25,6 +26,8 @@ router = APIRouter(tags=["animal-events"])
 async def create_animal_event(
     animal_id: UUID,
     payload: AnimalEventCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalEventEffects:
@@ -50,6 +53,7 @@ async def create_animal_event(
         uow=uow,
         tenant_id=context.tenant_id,
         role=context.role,
+        actor_user_id=context.user_id,
         payload=input_data,
     )
 
@@ -61,6 +65,12 @@ async def create_animal_event(
             animal_status = await uow.animal_statuses.get_by_id(result.new_status_id)
             if animal_status:
                 status_code = animal_status.code
+
+    # Dispatch notifications in background (post-commit)
+    events = uow.drain_events()
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory and events:
+        background_tasks.add_task(dispatch_events, session_factory, events)
 
     return AnimalEventEffects(
         event=AnimalEventResponse.model_validate(result.event),

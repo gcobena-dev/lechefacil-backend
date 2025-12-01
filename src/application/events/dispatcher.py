@@ -4,6 +4,9 @@ import logging
 from typing import Iterable
 
 from src.application.events.models import (
+    AnimalCreatedEvent,
+    AnimalEventCreatedEvent,
+    AnimalUpdatedEvent,
     DeliveryRecordedEvent,
     ProductionBulkRecordedEvent,
     ProductionLowEvent,
@@ -73,6 +76,12 @@ async def dispatch_events(session_factory, events: Iterable[object]) -> None:
                     await _handle_production_recorded(uow, notification_service, event)
                 elif isinstance(event, ProductionBulkRecordedEvent):
                     await _handle_production_bulk_recorded(uow, notification_service, event)
+                elif isinstance(event, AnimalCreatedEvent):
+                    await _handle_animal_created(uow, notification_service, event)
+                elif isinstance(event, AnimalUpdatedEvent):
+                    await _handle_animal_updated(uow, notification_service, event)
+                elif isinstance(event, AnimalEventCreatedEvent):
+                    await _handle_animal_event_created(uow, notification_service, event)
             except Exception as e:
                 logger.error(
                     "Error dispatching event %s: %s", type(event).__name__, e, exc_info=True
@@ -108,6 +117,99 @@ async def _handle_delivery_recorded(
         delivery_id=e.delivery_id,
         buyer_id=e.buyer_id,
         date_time=(e.date_time.isoformat() if getattr(e, "date_time", None) else None),
+        actor_label=actor_label,
+    )
+
+    async def send(user_id):
+        await notification_service.send_notification(
+            tenant_id=e.tenant_id,
+            user_id=user_id,
+            type=built.type,
+            title=built.title,
+            message=built.message,
+            data=built.data,
+        )
+
+    await _send_to_all_users_except_actor(uow, e.tenant_id, e.actor_user_id, send)
+
+
+async def _handle_animal_created(
+    uow: SQLAlchemyUnitOfWork, notification_service: NotificationService, e: AnimalCreatedEvent
+):
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    built = build_notification(
+        NotificationType.ANIMAL_CREATED,
+        animal_id=e.animal_id,
+        tag=e.tag,
+        name=e.name,
+        actor_label=actor_label,
+    )
+
+    async def send(user_id):
+        await notification_service.send_notification(
+            tenant_id=e.tenant_id,
+            user_id=user_id,
+            type=built.type,
+            title=built.title,
+            message=built.message,
+            data=built.data,
+        )
+
+    await _send_to_all_users_except_actor(uow, e.tenant_id, e.actor_user_id, send)
+
+
+async def _handle_animal_updated(
+    uow: SQLAlchemyUnitOfWork, notification_service: NotificationService, e: AnimalUpdatedEvent
+):
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    built = build_notification(
+        NotificationType.ANIMAL_UPDATED,
+        animal_id=e.animal_id,
+        tag=e.tag,
+        name=e.name,
+        changed_fields=e.changed_fields,
+        actor_label=actor_label,
+    )
+
+    async def send(user_id):
+        await notification_service.send_notification(
+            tenant_id=e.tenant_id,
+            user_id=user_id,
+            type=built.type,
+            title=built.title,
+            message=built.message,
+            data=built.data,
+        )
+
+    await _send_to_all_users_except_actor(uow, e.tenant_id, e.actor_user_id, send)
+
+
+async def _handle_animal_event_created(
+    uow: SQLAlchemyUnitOfWork,
+    notification_service: NotificationService,
+    e: AnimalEventCreatedEvent,
+):
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    # Try to resolve animal if tag/name missing
+    tag = e.tag
+    name = e.name
+    if not tag or not name:
+        animal = await uow.animals.get(e.tenant_id, e.animal_id)
+        if animal:
+            tag = tag or animal.tag
+            name = name or animal.name
+    built = build_notification(
+        NotificationType.ANIMAL_EVENT_CREATED,
+        animal_id=e.animal_id,
+        event_id=e.event_id,
+        category=e.event_type,
+        event_name=e.event_type,
+        date=e.occurred_at.isoformat() if e.occurred_at else None,
+        tag=tag,
+        name=name,
         actor_label=actor_label,
     )
 
