@@ -30,6 +30,8 @@ class TopProducer(BaseModel):
     today_liters: Decimal
     trend: Literal["up", "down", "stable"]
     trend_percentage: str
+    primary_photo_url: str | None = None
+    primary_photo_signed_url: str | None = None
 
 
 class TopProducersResponse(BaseModel):

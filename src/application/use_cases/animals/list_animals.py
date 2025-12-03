@@ -27,8 +27,8 @@ async def execute(
     sort_dir: str | None = None,
     search: str | None = None,
 ) -> ListAnimalsResult:
-    if limit <= 0 or limit > 100:
-        raise ValidationError("limit must be between 1 and 100")
+    if limit <= 0 or limit > 500:
+        raise ValidationError("limit must be between 1 and 500")
 
     # Convert status codes to status IDs if provided
     status_ids = None

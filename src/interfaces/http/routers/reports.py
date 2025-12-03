@@ -4,7 +4,7 @@ import asyncio
 from datetime import date, datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from src.application.errors import PermissionDenied
 from src.infrastructure.auth.context import AuthContext
@@ -151,7 +151,8 @@ async def get_report_definitions(
 
 @router.post("/production", response_model=ReportResponse)
 async def generate_production_report(
-    request: ReportRequest,
+    payload: ReportRequest,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> ReportResponse:
@@ -160,7 +161,7 @@ async def generate_production_report(
         raise PermissionDenied("Role not allowed to generate reports")
 
     # Validate date range
-    if request.date_from > request.date_to:
+    if payload.date_from > payload.date_to:
         from src.application.errors import ValidationError
 
         raise ValidationError("date_from must be before or equal to date_to")
@@ -168,13 +169,16 @@ async def generate_production_report(
     # Validate date range is not too large (max 1 year)
     from datetime import timedelta
 
-    if (request.date_to - request.date_from) > timedelta(days=365):
+    if (payload.date_to - payload.date_from) > timedelta(days=365):
         from src.application.errors import ValidationError
 
         raise ValidationError("Date range cannot exceed 365 days")
 
     async with uow:
-        return await report_service.generate_production_report(context.tenant_id, request, uow)
+        storage_svc = getattr(getattr(request.app, "state", None), "storage_service", None)
+        return await report_service.generate_production_report(
+            context.tenant_id, payload, uow, storage_service=storage_svc
+        )
 
 
 @router.post("/financial", response_model=ReportResponse)
@@ -256,6 +260,7 @@ async def generate_health_report(
 async def export_all_reports(
     date_from: date,
     date_to: date,
+    request: Request,
     format: Literal["pdf", "json"] = "pdf",
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
@@ -264,14 +269,17 @@ async def export_all_reports(
     if not context.role.can_read():
         raise PermissionDenied("Role not allowed to generate reports")
 
-    request = ReportRequest(date_from=date_from, date_to=date_to, format=format)
+    report_request = ReportRequest(date_from=date_from, date_to=date_to, format=format)
 
     async with uow:
+        storage_svc = getattr(getattr(request.app, "state", None), "storage_service", None)
         # Generate all reports concurrently
         tasks = [
-            report_service.generate_production_report(context.tenant_id, request, uow),
-            report_service.generate_financial_report(context.tenant_id, request, uow),
-            report_service.generate_animals_report(context.tenant_id, request, uow),
+            report_service.generate_production_report(
+                context.tenant_id, report_request, uow, storage_service=storage_svc
+            ),
+            report_service.generate_financial_report(context.tenant_id, report_request, uow),
+            report_service.generate_animals_report(context.tenant_id, report_request, uow),
         ]
 
         reports = await asyncio.gather(*tasks)

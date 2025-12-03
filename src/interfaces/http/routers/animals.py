@@ -23,6 +23,7 @@ from src.interfaces.http.schemas.animals import (
     AnimalsListResponse,
     AnimalUpdate,
     AnimalValueResponse,
+    AnimalsSummary,
 )
 from src.interfaces.http.schemas.attachments import (
     AttachmentResponse,
@@ -84,7 +85,7 @@ async def get_next_tag(
 @router.get("/", response_model=AnimalsListResponse)
 async def list_animals_endpoint(
     request: Request,
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=500),
     cursor: str | None = Query(None),
     offset: int | None = Query(None, ge=0),
     page: int | None = Query(
@@ -145,8 +146,10 @@ async def list_animals_endpoint(
     try:
         statuses = await uow.animal_statuses.list_for_tenant(context.tenant_id)
         status_by_id = {s.id: s for s in statuses}
+        status_by_code = {s.code: s for s in statuses}
     except Exception:
         status_by_id = {}
+        status_by_code = {}
     # Preload breeds and lots to enrich IDs by name (best-effort)
     try:
         breeds = await uow.breeds.list_for_tenant(context.tenant_id)
@@ -200,7 +203,31 @@ async def list_animals_endpoint(
         enriched_items.append(AnimalResponse.model_validate(data))
     items = enriched_items
     next_cursor = str(result.next_cursor) if result.next_cursor else None
-    return AnimalsListResponse(items=items, next_cursor=next_cursor, total=result.total)
+    # Summary counters to power the animals page header
+    async def count_by_code(code: str) -> int:
+        status = status_by_code.get(code)
+        if not status:
+            return 0
+        return await uow.animals.count(context.tenant_id, status_ids=[status.id], search=text_search)
+
+    summary = None
+    try:
+        summary = AnimalsSummary(
+            production=await count_by_code("LACTATING"),
+            sold=await count_by_code("SOLD"),
+            culled=await count_by_code("CULLED"),
+            total=await uow.animals.count(context.tenant_id, search=text_search),
+        )
+    except Exception:
+        # If summary calculation fails, continue returning the list
+        summary = None
+
+    return AnimalsListResponse(
+        items=items,
+        next_cursor=next_cursor,
+        total=result.total,
+        summary=summary,
+    )
 
 
 @router.post("/", response_model=AnimalResponse, status_code=status.HTTP_201_CREATED)

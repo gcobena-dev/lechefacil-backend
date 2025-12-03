@@ -664,7 +664,7 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 100,
+              "maximum": 500,
               "minimum": 1,
               "default": 10,
               "title": "Limit"
@@ -6257,6 +6257,16 @@
               }
             ],
             "title": "Total"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnimalsSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -6264,6 +6274,32 @@
           "items"
         ],
         "title": "AnimalsListResponse"
+      },
+      "AnimalsSummary": {
+        "properties": {
+          "production": {
+            "type": "integer",
+            "title": "Production",
+            "default": 0
+          },
+          "sold": {
+            "type": "integer",
+            "title": "Sold",
+            "default": 0
+          },
+          "culled": {
+            "type": "integer",
+            "title": "Culled",
+            "default": 0
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "AnimalsSummary"
       },
       "AttachmentResponse": {
         "properties": {
@@ -9770,6 +9806,28 @@
           "trend_percentage": {
             "type": "string",
             "title": "Trend Percentage"
+          },
+          "primary_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Photo Url"
+          },
+          "primary_photo_signed_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Photo Signed Url"
           }
         },
         "type": "object",

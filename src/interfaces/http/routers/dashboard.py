@@ -4,10 +4,11 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import get_auth_context, get_uow
+from src.domain.value_objects.owner_type import OwnerType
 from src.interfaces.http.schemas.dashboard import (
     AdminOverviewResponse,
     AlertsResponse,
@@ -110,6 +111,7 @@ async def get_daily_kpis(
 
 @router.get("/top-producers", response_model=TopProducersResponse)
 async def get_top_producers(
+    request: Request,
     date_param: date = Query(
         alias="date", default_factory=lambda: datetime.now(timezone.utc).date()
     ),
@@ -154,6 +156,7 @@ async def get_top_producers(
     # Get animal details
     animals_data = await uow.animals.list(context.tenant_id)
     animals_dict = {animal.id: animal for animal in animals_data}
+    storage_svc = getattr(getattr(request.app, "state", None), "storage_service", None)
 
     # Create top producers list
     from src.interfaces.http.schemas.dashboard import TopProducer
@@ -191,6 +194,16 @@ async def get_top_producers(
             else today_liters
         )
 
+        primary = await uow.attachments.get_primary_for_owner(
+            context.tenant_id, OwnerType.ANIMAL, animal_id
+        )
+        signed_url: str | None = None
+        if primary and storage_svc:
+            try:
+                signed_url = await storage_svc.get_public_url(primary.storage_key)
+            except Exception:
+                signed_url = None
+
         top_producers.append(
             TopProducer(
                 animal_id=animal_id,
@@ -199,6 +212,8 @@ async def get_top_producers(
                 today_liters=today_liters_q,
                 trend=trend,
                 trend_percentage=trend_percentage,
+                primary_photo_url=primary.storage_key if primary else None,
+                primary_photo_signed_url=signed_url,
             )
         )
 

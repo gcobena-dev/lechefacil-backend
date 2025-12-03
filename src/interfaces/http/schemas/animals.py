@@ -161,6 +161,7 @@ class AnimalsListResponse(BaseModel):
     items: list[AnimalResponse]
     next_cursor: str | None = None
     total: int | None = None
+    summary: AnimalsSummary | None = None
 
 
 class AnimalValueResponse(BaseModel):
@@ -171,3 +172,10 @@ class AnimalValueResponse(BaseModel):
     currency: str
     amount: Decimal
     source: str  # deliveries_average | price_daily | tenant_default
+
+
+class AnimalsSummary(BaseModel):
+    production: int = 0
+    sold: int = 0
+    culled: int = 0
+    total: int = 0

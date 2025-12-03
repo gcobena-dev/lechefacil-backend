@@ -6,6 +6,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.reports.pdf_generator import PDFGenerator
 from src.interfaces.http.schemas.reports import ReportRequest, ReportResponse
 
@@ -85,7 +86,11 @@ class ReportService:
         return None
 
     async def generate_production_report(
-        self, tenant_id: UUID, request: ReportRequest, uow: UnitOfWork
+        self,
+        tenant_id: UUID,
+        request: ReportRequest,
+        uow: UnitOfWork,
+        storage_service=None,
     ) -> ReportResponse:
         """Generate production report"""
         report_id = str(uuid.uuid4())
@@ -152,6 +157,25 @@ class ReportService:
         if animal_ids:
             animals = [a for a in animals if a.id in animal_ids]
         animals_dict = {a.id: a for a in animals}
+        # Map of primary photo urls per animal
+        primary_by_animal: dict[UUID, tuple[str | None, str | None]] = {}
+        for animal in animals:
+            try:
+                primary = await uow.attachments.get_primary_for_owner(
+                    tenant_id, OwnerType.ANIMAL, animal.id
+                )
+            except Exception:
+                primary = None
+            signed_url: str | None = None
+            if primary and storage_service:
+                try:
+                    signed_url = await storage_service.get_public_url(primary.storage_key)
+                except Exception:
+                    signed_url = None
+            primary_by_animal[animal.id] = (
+                primary.storage_key if primary else None,
+                signed_url,
+            )
 
         # Calculate top producers
         animal_totals = {}
@@ -197,12 +221,15 @@ class ReportService:
                 # this animal; fallback to inclusive period days
                 days_count = len(days_per_animal.get(animal_id, set())) or period_days_inclusive
                 avg_per_day = (total_liters / days_count) if days_count > 0 else Decimal("0")
+                photo_key, signed = primary_by_animal.get(animal_id, (None, None))
                 top_producers.append(
                     {
                         "animal_name": animal.name,
                         "animal_tag": animal.tag,
                         "total_liters": total_liters,
                         "avg_per_day": avg_per_day,
+                        "primary_photo_url": photo_key,
+                        "primary_photo_signed_url": signed,
                     }
                 )
 
@@ -238,11 +265,14 @@ class ReportService:
                     str(animal_id) in daily_data for daily_data in daily_by_animal.values()
                 )
                 if has_production:
+                    photo_key, signed = primary_by_animal.get(animal_id, (None, None))
                     animal_info.append(
                         {
                             "id": str(animal_id),
                             "tag": animal.tag,
                             "name": animal.name,
+                            "primary_photo_url": photo_key,
+                            "primary_photo_signed_url": signed,
                         }
                     )
 
@@ -294,6 +324,8 @@ class ReportService:
                         "animal_tag": tp["animal_tag"],
                         "total_liters": float(tp["total_liters"]),
                         "avg_per_day": float(tp["avg_per_day"]),
+                        "primary_photo_url": tp.get("primary_photo_url"),
+                        "primary_photo_signed_url": tp.get("primary_photo_signed_url"),
                     }
                     for tp in top_producers
                 ],
