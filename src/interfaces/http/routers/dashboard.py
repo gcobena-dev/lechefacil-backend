@@ -6,9 +6,9 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 
+from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import get_auth_context, get_uow
-from src.domain.value_objects.owner_type import OwnerType
 from src.interfaces.http.schemas.dashboard import (
     AdminOverviewResponse,
     AlertsResponse,

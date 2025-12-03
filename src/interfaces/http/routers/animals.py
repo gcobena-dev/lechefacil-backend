@@ -21,9 +21,9 @@ from src.interfaces.http.schemas.animals import (
     AnimalCreate,
     AnimalResponse,
     AnimalsListResponse,
+    AnimalsSummary,
     AnimalUpdate,
     AnimalValueResponse,
-    AnimalsSummary,
 )
 from src.interfaces.http.schemas.attachments import (
     AttachmentResponse,
@@ -203,12 +203,15 @@ async def list_animals_endpoint(
         enriched_items.append(AnimalResponse.model_validate(data))
     items = enriched_items
     next_cursor = str(result.next_cursor) if result.next_cursor else None
+
     # Summary counters to power the animals page header
     async def count_by_code(code: str) -> int:
         status = status_by_code.get(code)
         if not status:
             return 0
-        return await uow.animals.count(context.tenant_id, status_ids=[status.id], search=text_search)
+        return await uow.animals.count(
+            context.tenant_id, status_ids=[status.id], search=text_search
+        )
 
     summary = None
     try:
