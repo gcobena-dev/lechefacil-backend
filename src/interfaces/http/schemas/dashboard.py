@@ -32,6 +32,7 @@ class TopProducer(BaseModel):
     trend_percentage: str
     primary_photo_url: str | None = None
     primary_photo_signed_url: str | None = None
+    photos: list[dict] | None = None
 
 
 class TopProducersResponse(BaseModel):

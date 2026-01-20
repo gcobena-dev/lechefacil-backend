@@ -201,16 +201,28 @@ async def _handle_animal_event_created(
         if animal:
             tag = tag or animal.tag
             name = name or animal.name
+
+    # Get event data and enrich with sire name if applicable
+    event_data = dict(e.event_data) if e.event_data else {}
+    if event_data.get("sire_id"):
+        try:
+            sire = await uow.animals.get(e.tenant_id, event_data["sire_id"])
+            if sire:
+                event_data["sire_name"] = f"{sire.tag}" + (f" {sire.name}" if sire.name else "")
+        except Exception:
+            pass
+
     built = build_notification(
         NotificationType.ANIMAL_EVENT_CREATED,
         animal_id=e.animal_id,
         event_id=e.event_id,
         category=e.event_type,
         event_name=e.event_type,
-        date=e.occurred_at.isoformat() if e.occurred_at else None,
+        date=e.occurred_at,
         tag=tag,
         name=name,
         actor_label=actor_label,
+        event_data=event_data,
     )
 
     async def send(user_id):

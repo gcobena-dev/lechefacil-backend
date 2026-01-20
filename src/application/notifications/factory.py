@@ -190,38 +190,216 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         name: str | None = kwargs.get("name")
         event_name: str = kwargs.get("event_name", "Evento")
         category: str = kwargs.get("category", "Evento")
-        date_str: str | None = kwargs.get("date")
+        d = kwargs.get("date")
+        event_data: dict = kwargs.get("event_data") or {}
         actor: str | None = _short_label(kwargs.get("actor_label"))
         cat_lower = category.lower()
-        if any(x in cat_lower for x in ["birth", "nacimiento", "calf", "parto"]):
-            icon = "🐣"
-        elif any(
-            x in cat_lower
-            for x in ["health", "salud", "sick", "enfermo", "vacuna", "medication", "treatment"]
-        ):
-            icon = "🩺"
-        elif any(
-            x in cat_lower
-            for x in ["breeding", "insemin", "servicio", "mating", "gest", "gestation"]
-        ):
-            icon = "❤️"
+
+        # Map event types to icons and Spanish labels
+        event_config = {
+            "birth": ("🐣", "Nacimiento"),
+            "calving": ("🐄", "Parto"),
+            "service": ("❤️", "Servicio"),
+            "embryo_transfer": ("🧬", "Transferencia de embrión"),
+            "dry_off": ("🥛", "Secado"),
+            "sale": ("💰", "Venta"),
+            "death": ("⚫", "Muerte"),
+            "cull": ("📤", "Descarte"),
+            "abortion": ("⚠️", "Aborto"),
+            "transfer": ("🔄", "Traslado"),
+        }
+
+        icon, label = event_config.get(cat_lower, (None, None))
+        if not icon:
+            # Fallback for legacy/custom types
+            if any(x in cat_lower for x in ["birth", "nacimiento", "calf", "parto"]):
+                icon = "🐣"
+            elif any(
+                x in cat_lower
+                for x in ["health", "salud", "sick", "enfermo", "vacuna", "medication", "treatment"]
+            ):
+                icon = "🩺"
+            elif any(
+                x in cat_lower
+                for x in ["breeding", "insemin", "servicio", "mating", "gest", "gestation"]
+            ):
+                icon = "❤️"
+            else:
+                icon = "🐾"
+        if not label:
+            label = category
+
+        # Format date nicely
+        date_str = format_day_date(d, include_time=True) if d else None
+
+        # Build animal description for title (shorter) and message
+        animal_short = f"{tag}" + (f" {name}" if name else "")
+
+        if cat_lower == "service":
+            # Service: "❤️ Servicio a 010 Vaca Nombre"
+            title = f"{icon} {label} a {animal_short}"
+            method = event_data.get("method")
+            technician = event_data.get("technician")
+            external_sire_code = event_data.get("external_sire_code")
+            sire_name = event_data.get("sire_name")
+
+            method_labels = {"AI": "IA", "NATURAL": "Monta natural", "ET": "TE"}
+            method_label = method_labels.get(method, method) if method else None
+
+            parts = []
+            if method_label:
+                parts.append(f"Método: {method_label}")
+            if sire_name:
+                parts.append(f"Toro: {sire_name}")
+            elif external_sire_code:
+                parts.append(f"Toro: {external_sire_code}")
+            if technician:
+                parts.append(f"Técnico: {technician}")
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else f"{date_str or ''}"
+        elif cat_lower == "calving":
+            # Calving: "🐄 Parto de 010 Vaca Nombre"
+            title = f"{icon} {label} de {animal_short}"
+            parts = []
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Parto registrado"
+        elif cat_lower == "birth":
+            # Birth: "🐣 Nacimiento: cría 011 de 010 Vaca"
+            calf_tag = event_data.get("calf_tag")
+            calf_sex = event_data.get("calf_sex")
+            calf_name = event_data.get("calf_name")
+            sex_label = {"MALE": "macho", "FEMALE": "hembra"}.get(calf_sex, "")
+            calf_desc = calf_tag or "nueva cría"
+            if calf_name:
+                calf_desc += f" {calf_name}"
+            title = f"{icon} {label}: {calf_desc} de {animal_short}"
+            parts = []
+            if sex_label:
+                parts.append(sex_label.capitalize())
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Nacimiento registrado"
+        elif cat_lower == "dry_off":
+            # Dry off: "🥛 Secado de 010 Vaca Nombre"
+            title = f"{icon} {label} de {animal_short}"
+            parts = []
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Secado registrado"
+        elif cat_lower == "sale":
+            # Sale: "💰 Venta de 010 Vaca Nombre"
+            title = f"{icon} {label} de {animal_short}"
+            reason = event_data.get("reason")
+            buyer = event_data.get("buyer")
+            price = event_data.get("price")
+            parts = []
+            if buyer:
+                parts.append(f"Comprador: {buyer}")
+            if price:
+                parts.append(f"Precio: {price}")
+            if reason:
+                parts.append(reason)
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Venta registrada"
+        elif cat_lower == "death":
+            # Death: "⚫ Muerte de 010 Vaca Nombre"
+            title = f"{icon} {label} de {animal_short}"
+            cause = event_data.get("cause")
+            parts = []
+            if cause:
+                parts.append(f"Causa: {cause}")
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Muerte registrada"
+        elif cat_lower == "cull":
+            # Cull: "📤 Descarte de 010 Vaca Nombre"
+            title = f"{icon} {label} de {animal_short}"
+            reason = event_data.get("reason")
+            parts = []
+            if reason:
+                parts.append(f"Razón: {reason}")
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Descarte registrado"
+        elif cat_lower == "abortion":
+            # Abortion: "⚠️ Aborto de 010 Vaca Nombre"
+            title = f"{icon} {label} de {animal_short}"
+            cause = event_data.get("cause")
+            gestation_days = event_data.get("gestation_days")
+            parts = []
+            if gestation_days:
+                parts.append(f"{gestation_days} días de gestación")
+            if cause:
+                parts.append(f"Causa: {cause}")
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Aborto registrado"
+        elif cat_lower == "transfer":
+            # Transfer: "🔄 Traslado de 010 Vaca Nombre"
+            title = f"{icon} {label} de {animal_short}"
+            from_lot = event_data.get("from_lot")
+            to_lot = event_data.get("to_lot")
+            parts = []
+            if from_lot and to_lot:
+                parts.append(f"De {from_lot} a {to_lot}")
+            elif to_lot:
+                parts.append(f"A {to_lot}")
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Traslado registrado"
+        elif cat_lower == "embryo_transfer":
+            # Embryo transfer: "🧬 Transferencia de embrión a 010 Vaca"
+            title = f"{icon} {label} a {animal_short}"
+            embryo_code = event_data.get("embryo_code")
+            parts = []
+            if embryo_code:
+                parts.append(f"Embrión: {embryo_code}")
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Transferencia registrada"
         else:
-            icon = "🐾"
-        title = f"{icon} Evento de vaca: {category}"
-        message = f"{category}: {event_name} para {tag}" + (f" {name}" if name else "")
-        if date_str:
-            message += f" • {date_str}"
-        if actor:
-            message += f" • por {actor}"
+            # Generic event: "🐾 Evento para 010 Vaca Nombre"
+            title = f"{icon} {label} para {animal_short}"
+            parts = []
+            if date_str:
+                parts.append(date_str)
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else f"{label} registrado"
+
         data = {
             "animal_id": str(kwargs.get("animal_id")) if kwargs.get("animal_id") else None,
             "event_id": str(kwargs.get("event_id")) if kwargs.get("event_id") else None,
             "category": category,
             "event_name": event_name,
-            "date": date_str,
+            "date": str(d) if d else None,
             "tag": tag,
             "name": name,
             "actor": actor,
+            "event_data": event_data,
         }
         return BuiltNotification(ntype, title, message, data)
 

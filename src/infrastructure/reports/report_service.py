@@ -157,15 +157,17 @@ class ReportService:
         if animal_ids:
             animals = [a for a in animals if a.id in animal_ids]
         animals_dict = {a.id: a for a in animals}
-        # Map of primary photo urls per animal
+        # Map of primary photo urls per animal and full photo list
         primary_by_animal: dict[UUID, tuple[str | None, str | None]] = {}
+        photos_by_animal: dict[UUID, list[dict]] = {}
         for animal in animals:
             try:
-                primary = await uow.attachments.get_primary_for_owner(
+                attachments = await uow.attachments.list_for_owner(
                     tenant_id, OwnerType.ANIMAL, animal.id
                 )
             except Exception:
-                primary = None
+                attachments = []
+            primary = next((a for a in attachments if getattr(a, "is_primary", False)), None)
             signed_url: str | None = None
             if primary and storage_service:
                 try:
@@ -176,6 +178,22 @@ class ReportService:
                 primary.storage_key if primary else None,
                 signed_url,
             )
+            photos_payload: list[dict] = []
+            for att in attachments:
+                att_signed = None
+                if storage_service:
+                    try:
+                        att_signed = await storage_service.get_public_url(att.storage_key)
+                    except Exception:
+                        att_signed = None
+                photos_payload.append(
+                    {
+                        "url": att.storage_key,
+                        "signed_url": att_signed,
+                        "is_primary": getattr(att, "is_primary", False),
+                    }
+                )
+            photos_by_animal[animal.id] = photos_payload
 
         # Calculate top producers
         animal_totals = {}
@@ -228,6 +246,7 @@ class ReportService:
                         "animal_tag": animal.tag,
                         "total_liters": total_liters,
                         "avg_per_day": avg_per_day,
+                        "photos": photos_by_animal.get(animal_id, []),
                         "primary_photo_url": photo_key,
                         "primary_photo_signed_url": signed,
                     }
@@ -273,6 +292,7 @@ class ReportService:
                             "name": animal.name,
                             "primary_photo_url": photo_key,
                             "primary_photo_signed_url": signed,
+                            "photos": photos_by_animal.get(animal_id, []),
                         }
                     )
 

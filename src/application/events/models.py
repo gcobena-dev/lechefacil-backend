@@ -79,3 +79,4 @@ class AnimalEventCreatedEvent:
     occurred_at: datetime | None = None
     tag: str | None = None
     name: str | None = None
+    event_data: dict | None = None

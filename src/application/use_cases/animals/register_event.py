@@ -378,6 +378,7 @@ async def execute(
                 occurred_at=created_event.occurred_at,
                 tag=animal.tag,
                 name=animal.name,
+                event_data=created_event.data,
             )
         )
     except Exception:

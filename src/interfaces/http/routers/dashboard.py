@@ -194,15 +194,31 @@ async def get_top_producers(
             else today_liters
         )
 
-        primary = await uow.attachments.get_primary_for_owner(
+        attachments = await uow.attachments.list_for_owner(
             context.tenant_id, OwnerType.ANIMAL, animal_id
         )
         signed_url: str | None = None
+        primary = next((a for a in attachments if getattr(a, "is_primary", False)), None)
         if primary and storage_svc:
             try:
                 signed_url = await storage_svc.get_public_url(primary.storage_key)
             except Exception:
                 signed_url = None
+        photos_payload = []
+        for att in attachments:
+            att_signed = None
+            if storage_svc:
+                try:
+                    att_signed = await storage_svc.get_public_url(att.storage_key)
+                except Exception:
+                    att_signed = None
+            photos_payload.append(
+                {
+                    "url": att.storage_key,
+                    "signed_url": att_signed,
+                    "is_primary": getattr(att, "is_primary", False),
+                }
+            )
 
         top_producers.append(
             TopProducer(
@@ -214,6 +230,7 @@ async def get_top_producers(
                 trend_percentage=trend_percentage,
                 primary_photo_url=primary.storage_key if primary else None,
                 primary_photo_signed_url=signed_url,
+                photos=photos_payload or None,
             )
         )
 
