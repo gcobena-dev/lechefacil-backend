@@ -26,6 +26,10 @@ from src.config.settings import Settings
 from src.domain.value_objects.role import Role
 from src.infrastructure.auth.password import PasswordHasher
 from src.infrastructure.db.base import Base
+
+# SQLite does not support named schemas; clear default schema before ORM imports.
+Base.metadata.schema = None
+
 from src.infrastructure.db.orm import animal, attachment, membership, user  # noqa: F401
 from src.infrastructure.db.orm.membership import MembershipORM
 from src.infrastructure.db.orm.user import UserORM
