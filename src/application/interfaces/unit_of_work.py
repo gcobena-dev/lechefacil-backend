@@ -20,7 +20,10 @@ from src.application.interfaces.repositories.tenant_config import TenantConfigRe
 from src.application.interfaces.repositories.users import UserRepository
 from src.domain.ports.animal_statuses_repo import AnimalStatusesRepo
 from src.infrastructure.repos.health_records_sqlalchemy import HealthRecordsSQLAlchemyRepository
+from src.infrastructure.repos.inseminations_sqlalchemy import InseminationsSQLAlchemyRepository
 from src.infrastructure.repos.one_time_tokens_sqlalchemy import OneTimeTokenRepository
+from src.infrastructure.repos.semen_inventory_sqlalchemy import SemenInventorySQLAlchemyRepository
+from src.infrastructure.repos.sire_catalog_sqlalchemy import SireCatalogSQLAlchemyRepository
 
 
 class UnitOfWork(Protocol):
@@ -40,6 +43,9 @@ class UnitOfWork(Protocol):
     milk_deliveries: MilkDeliveriesRepository
     tenant_config: TenantConfigRepository
     one_time_tokens: OneTimeTokenRepository
+    sire_catalog: SireCatalogSQLAlchemyRepository
+    semen_inventory: SemenInventorySQLAlchemyRepository
+    inseminations: InseminationsSQLAlchemyRepository
     # Domain events collected during the transaction
     events: list
 

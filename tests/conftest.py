@@ -30,7 +30,30 @@ from src.infrastructure.db.base import Base
 # SQLite does not support named schemas; clear default schema before ORM imports.
 Base.metadata.schema = None
 
-from src.infrastructure.db.orm import animal, attachment, membership, user  # noqa: F401
+from src.infrastructure.db.orm import (  # noqa: F401
+    animal,
+    animal_certificate,
+    animal_event,
+    animal_parentage,
+    animal_status,
+    attachment,
+    breed,
+    buyer,
+    health_record,
+    insemination,
+    lactation,
+    lot,
+    membership,
+    milk_delivery,
+    milk_price,
+    milk_production,
+    notification,
+    one_time_token,
+    semen_inventory,
+    sire_catalog,
+    tenant_config,
+    user,
+)
 from src.infrastructure.db.orm.membership import MembershipORM
 from src.infrastructure.db.orm.user import UserORM
 from src.interfaces.http.main import create_app

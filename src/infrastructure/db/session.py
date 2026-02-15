@@ -43,6 +43,9 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.lots = None
         self.one_time_tokens = None
         self.health_records = None
+        self.sire_catalog = None
+        self.semen_inventory = None
+        self.inseminations = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
@@ -63,6 +66,9 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         from src.infrastructure.repos.health_records_sqlalchemy import (
             HealthRecordsSQLAlchemyRepository,
         )
+        from src.infrastructure.repos.inseminations_sqlalchemy import (
+            InseminationsSQLAlchemyRepository,
+        )
         from src.infrastructure.repos.lactations_sqlalchemy import LactationsSQLAlchemyRepository
         from src.infrastructure.repos.lots_sqlalchemy import LotsSQLAlchemyRepository
         from src.infrastructure.repos.memberships_sqlalchemy import MembershipsSQLAlchemyRepository
@@ -74,6 +80,12 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             MilkProductionsSQLAlchemyRepository,
         )
         from src.infrastructure.repos.one_time_tokens_sqlalchemy import OneTimeTokenRepository
+        from src.infrastructure.repos.semen_inventory_sqlalchemy import (
+            SemenInventorySQLAlchemyRepository,
+        )
+        from src.infrastructure.repos.sire_catalog_sqlalchemy import (
+            SireCatalogSQLAlchemyRepository,
+        )
         from src.infrastructure.repos.tenant_config_sqlalchemy import (
             TenantConfigSQLAlchemyRepository,
         )
@@ -97,6 +109,9 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.lots = LotsSQLAlchemyRepository(self.session)
         self.one_time_tokens = OneTimeTokenRepository(self.session)
         self.health_records = HealthRecordsSQLAlchemyRepository(self.session)
+        self.sire_catalog = SireCatalogSQLAlchemyRepository(self.session)
+        self.semen_inventory = SemenInventorySQLAlchemyRepository(self.session)
+        self.inseminations = InseminationsSQLAlchemyRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -127,6 +142,9 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.lots = None
             self.one_time_tokens = None
             self.health_records = None
+            self.sire_catalog = None
+            self.semen_inventory = None
+            self.inseminations = None
 
     async def commit(self) -> None:
         if not self.session:

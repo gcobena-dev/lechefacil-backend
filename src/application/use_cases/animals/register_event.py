@@ -89,6 +89,16 @@ async def _handle_calving_event(
             expected_version=animal.version,
         )
 
+    # Link the most recent CONFIRMED insemination to this calving event
+    try:
+        confirmed_insemination = await uow.inseminations.get_latest_confirmed(tenant_id, animal.id)
+        if confirmed_insemination:
+            confirmed_insemination.calving_event_id = event.id
+            confirmed_insemination.bump_version()
+            await uow.inseminations.update(confirmed_insemination)
+    except Exception:
+        pass  # best-effort; don't block calving on insemination linkage
+
     return RegisterEventOutput(
         event=event,
         lactation_opened=lactation_opened,
@@ -210,6 +220,32 @@ async def _handle_service_event(
     return RegisterEventOutput(
         event=event,
         message="Service recorded",
+    )
+
+
+async def _handle_abortion_event(
+    uow: UnitOfWork,
+    tenant_id: UUID,
+    animal: Animal,
+    event: AnimalEvent,
+) -> RegisterEventOutput:
+    """Handle ABORTION event: mark the most recent CONFIRMED insemination as LOST."""
+
+    # Best-effort: find the latest CONFIRMED insemination and mark it LOST
+    try:
+        confirmed = await uow.inseminations.get_latest_confirmed(tenant_id, animal.id)
+        if confirmed:
+            confirmed.mark_lost(
+                check_date=event.occurred_at,
+                checked_by=event.data.get("checked_by") if event.data else None,
+            )
+            await uow.inseminations.update(confirmed)
+    except Exception:
+        pass  # best-effort; don't block abortion event on insemination linkage
+
+    return RegisterEventOutput(
+        event=event,
+        message="Abortion recorded",
     )
 
 
@@ -357,8 +393,10 @@ async def execute(
         output = await _handle_service_event(uow, tenant_id, animal, created_event)
     elif payload.type == AnimalEventType.BIRTH:
         output = await _handle_birth_event(uow, tenant_id, animal, created_event)
+    elif payload.type == AnimalEventType.ABORTION:
+        output = await _handle_abortion_event(uow, tenant_id, animal, created_event)
     else:
-        # For other event types (ABORTION, TRANSFER), just record the event
+        # For other event types (TRANSFER, etc.), just record the event
         output = RegisterEventOutput(
             event=created_event,
             message=f"{payload.type} event recorded",

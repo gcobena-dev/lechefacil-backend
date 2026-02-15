@@ -29,10 +29,13 @@ from src.interfaces.http.routers import (
 )
 from src.interfaces.http.routers import auth as auth_router
 from src.interfaces.http.routers import buyers as buyers_router
+from src.interfaces.http.routers import inseminations as inseminations_router
 from src.interfaces.http.routers import milk_deliveries as deliveries_router
 from src.interfaces.http.routers import milk_prices as prices_router
 from src.interfaces.http.routers import milk_productions as productions_router
+from src.interfaces.http.routers import semen_inventory as semen_inventory_router
 from src.interfaces.http.routers import settings as settings_router
+from src.interfaces.http.routers import sire_catalog as sire_catalog_router
 from src.interfaces.middleware.auth_middleware import AuthMiddleware
 from src.interfaces.middleware.error_handler import register_error_handlers
 
@@ -156,6 +159,9 @@ def create_app(
     api.include_router(reports.router)
     api.include_router(mobile.router)
     api.include_router(notifications.router)
+    api.include_router(sire_catalog_router.router)
+    api.include_router(semen_inventory_router.router)
+    api.include_router(inseminations_router.router)
     from src.interfaces.http.routers import devices as devices_router
 
     api.include_router(devices_router.router)

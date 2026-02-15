@@ -13,5 +13,9 @@ RUN poetry install --no-root --only main
 
 COPY src ./src
 COPY scripts ./scripts
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 
-CMD ["uvicorn", "src.interfaces.http.main:app", "--host", "0.0.0.0", "--port", "8000"]
+RUN chmod +x scripts/start.sh
+
+CMD ["scripts/start.sh"]

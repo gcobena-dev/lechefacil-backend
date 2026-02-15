@@ -4,7 +4,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from src.config.settings import get_settings
@@ -29,6 +29,9 @@ from src.infrastructure.db.orm import (
     notification,  # noqa: F401
     one_time_token,  # noqa: F401
     health_record,  # noqa: F401
+    sire_catalog,  # noqa: F401
+    semen_inventory,  # noqa: F401
+    insemination,  # noqa: F401
 )
 
 config = context.config
@@ -58,6 +61,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
+    # Ensure the lechefacil schema exists and set it as default search_path
+    # so all unqualified table names resolve to lechefacil (not public).
+    connection.execute(text("CREATE SCHEMA IF NOT EXISTS lechefacil"))
+    connection.execute(text("SET search_path TO lechefacil"))
+
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -75,6 +83,7 @@ def run_migrations_online() -> None:
     async def run_async_migrations() -> None:
         async with connectable.connect() as connection:
             await connection.run_sync(do_run_migrations)
+            await connection.commit()
         await connectable.dispose()
 
     asyncio.run(run_async_migrations())
