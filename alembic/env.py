@@ -61,11 +61,6 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    # Ensure the lechefacil schema exists and set it as default search_path
-    # so all unqualified table names resolve to lechefacil (not public).
-    connection.execute(text("CREATE SCHEMA IF NOT EXISTS lechefacil"))
-    connection.execute(text("SET search_path TO lechefacil"))
-
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
