@@ -73,13 +73,20 @@ async def list_inseminations_endpoint(
         offset=offset,
     )
 
-    # Enrich with animal tag/name
+    # Enrich with animal tag/name and sire name
     animal_ids = {ins.animal_id for ins in result.items}
     animals_map = {}
     for aid in animal_ids:
         animal = await uow.animals.get(context.tenant_id, aid)
         if animal:
             animals_map[aid] = animal
+
+    sire_ids = {ins.sire_catalog_id for ins in result.items if ins.sire_catalog_id}
+    sires_map = {}
+    for sid in sire_ids:
+        sire = await uow.sire_catalog.get(context.tenant_id, sid)
+        if sire:
+            sires_map[sid] = sire
 
     enriched = []
     for ins in result.items:
@@ -88,6 +95,9 @@ async def list_inseminations_endpoint(
         if animal:
             data.animal_tag = animal.tag
             data.animal_name = animal.name
+        sire = sires_map.get(ins.sire_catalog_id) if ins.sire_catalog_id else None
+        if sire:
+            data.sire_name = sire.name
         enriched.append(data)
 
     return {
@@ -105,9 +115,38 @@ async def pending_pregnancy_checks_endpoint(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
-    return await get_pending_pregnancy_checks.execute(
+    items = await get_pending_pregnancy_checks.execute(
         uow, context.tenant_id, min_days=min_days, max_days=max_days
     )
+
+    # Enrich with animal tag/name and sire name
+    animal_ids = {ins.animal_id for ins in items}
+    animals_map = {}
+    for aid in animal_ids:
+        animal = await uow.animals.get(context.tenant_id, aid)
+        if animal:
+            animals_map[aid] = animal
+
+    sire_ids = {ins.sire_catalog_id for ins in items if ins.sire_catalog_id}
+    sires_map = {}
+    for sid in sire_ids:
+        sire = await uow.sire_catalog.get(context.tenant_id, sid)
+        if sire:
+            sires_map[sid] = sire
+
+    enriched = []
+    for ins in items:
+        data = InseminationResponse.model_validate(ins)
+        animal = animals_map.get(ins.animal_id)
+        if animal:
+            data.animal_tag = animal.tag
+            data.animal_name = animal.name
+        sire = sires_map.get(ins.sire_catalog_id) if ins.sire_catalog_id else None
+        if sire:
+            data.sire_name = sire.name
+        enriched.append(data)
+
+    return enriched
 
 
 @router.get("/{insemination_id}", response_model=InseminationResponse)

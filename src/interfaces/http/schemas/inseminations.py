@@ -53,6 +53,7 @@ class InseminationResponse(BaseModel):
     animal_tag: str | None = None
     animal_name: str | None = None
     sire_catalog_id: UUID | None
+    sire_name: str | None = None
     semen_inventory_id: UUID | None
     service_event_id: UUID | None
     service_date: datetime
