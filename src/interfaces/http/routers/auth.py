@@ -14,6 +14,7 @@ from src.application.use_cases.auth import (
     register_account,
     register_user,
     remove_membership,
+    update_membership_role,
 )
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.auth.jwt_service import JWTService
@@ -43,6 +44,8 @@ from src.interfaces.http.schemas.auth import (
     RegisterTenantResponse,
     RemoveMembershipRequest,
     RemoveMembershipResponse,
+    UpdateMembershipRoleRequest,
+    UpdateMembershipRoleResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
     SelfRegisterRequest,
@@ -739,6 +742,47 @@ async def list_tenant_users_endpoint(
             total=result.total,
             pages=total_pages,
         ),
+    )
+
+
+@router.patch(
+    "/tenants/{tenant_id}/users/{user_id}/membership",
+    response_model=UpdateMembershipRoleResponse,
+)
+async def update_membership_role_endpoint(
+    tenant_id: str,
+    user_id: str,
+    payload: UpdateMembershipRoleRequest,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> UpdateMembershipRoleResponse:
+    from uuid import UUID
+
+    tenant_uuid = UUID(tenant_id)
+    user_uuid = UUID(user_id)
+
+    if context.tenant_id != tenant_uuid:
+        from src.application.errors import PermissionDenied
+
+        raise PermissionDenied("Cannot manage memberships for a different tenant")
+
+    result = await update_membership_role.execute(
+        uow=uow,
+        requester_id=context.user_id,
+        requester_role=context.role,
+        payload=update_membership_role.UpdateMembershipRoleInput(
+            user_id=user_uuid,
+            tenant_id=tenant_uuid,
+            new_role=payload.role,
+        ),
+    )
+
+    return UpdateMembershipRoleResponse(
+        message=result.message,
+        user_id=result.user_id,
+        tenant_id=result.tenant_id,
+        role=result.new_role,
+        updated_at=result.updated_at,
     )
 
 

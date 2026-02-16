@@ -137,6 +137,18 @@ class RemoveMembershipResponse(BaseModel):
     removed_at: str
 
 
+class UpdateMembershipRoleRequest(BaseModel):
+    role: Role
+
+
+class UpdateMembershipRoleResponse(BaseModel):
+    message: str
+    user_id: UUID
+    tenant_id: UUID
+    role: Role
+    updated_at: str
+
+
 # Password reset (forgot password)
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

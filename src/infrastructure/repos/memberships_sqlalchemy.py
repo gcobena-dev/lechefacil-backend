@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.errors import NotFound
@@ -46,6 +46,16 @@ class MembershipsSQLAlchemyRepository(MembershipRepository):
     async def remove(self, user_id: UUID, tenant_id: UUID) -> None:
         stmt = delete(MembershipORM).where(
             MembershipORM.user_id == user_id, MembershipORM.tenant_id == tenant_id
+        )
+        result = await self.session.execute(stmt)
+        if result.rowcount == 0:
+            raise NotFound("Membership not found")
+
+    async def update_role(self, user_id: UUID, tenant_id: UUID, new_role: Role) -> None:
+        stmt = (
+            update(MembershipORM)
+            .where(MembershipORM.user_id == user_id, MembershipORM.tenant_id == tenant_id)
+            .values(role=new_role)
         )
         result = await self.session.execute(stmt)
         if result.rowcount == 0:
