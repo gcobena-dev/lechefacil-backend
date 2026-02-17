@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from src.application.errors import PermissionDenied
 from src.application.use_cases.reproduction import (
     get_pending_pregnancy_checks,
     list_inseminations,
@@ -58,6 +59,8 @@ async def list_inseminations_endpoint(
     date_to: datetime | None = None,
     limit: int = 50,
     offset: int = 0,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
@@ -71,6 +74,8 @@ async def list_inseminations_endpoint(
         date_to=date_to,
         limit=limit,
         offset=offset,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
 
     # Enrich with animal tag/name and sire name
@@ -168,6 +173,8 @@ async def update_insemination_endpoint(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
+    if not context.role.can_update():
+        raise PermissionDenied("Role not allowed to update inseminations")
     record = await uow.inseminations.get(context.tenant_id, insemination_id)
     if not record:
         raise HTTPException(status_code=404, detail="Insemination not found")
@@ -186,6 +193,23 @@ async def update_insemination_endpoint(
     updated = await uow.inseminations.update(record)
     await uow.commit()
     return updated
+
+
+@router.delete("/{insemination_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_insemination_endpoint(
+    insemination_id: UUID,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+):
+    if not context.role.can_delete():
+        raise PermissionDenied("Role not allowed to delete inseminations")
+    record = await uow.inseminations.get(context.tenant_id, insemination_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Insemination not found")
+    record.deleted_at = datetime.now(timezone.utc)
+    await uow.inseminations.delete(record)
+    await uow.commit()
+    return None
 
 
 @router.post("/{insemination_id}/pregnancy-check", response_model=InseminationResponse)

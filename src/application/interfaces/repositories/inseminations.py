@@ -24,6 +24,8 @@ class InseminationsRepository(Protocol):
         date_to: datetime | None = None,
         limit: int | None = None,
         offset: int = 0,
+        sort_by: str | None = None,
+        sort_dir: str | None = None,
     ) -> list[Insemination]: ...
 
     async def count(

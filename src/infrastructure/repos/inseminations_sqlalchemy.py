@@ -3,11 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import asc, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.models.insemination import Insemination, PregnancyStatus
+from src.infrastructure.db.orm.animal import AnimalORM
 from src.infrastructure.db.orm.insemination import InseminationORM
+from src.infrastructure.db.orm.sire_catalog import SireCatalogORM
 
 
 class InseminationsSQLAlchemyRepository:
@@ -130,11 +132,40 @@ class InseminationsSQLAlchemyRepository:
         date_to: datetime | None = None,
         limit: int | None = None,
         offset: int = 0,
+        sort_by: str | None = None,
+        sort_dir: str | None = None,
     ) -> list[Insemination]:
-        stmt = select(InseminationORM).order_by(InseminationORM.service_date.desc()).offset(offset)
+        stmt = select(InseminationORM)
         stmt = self._apply_filters(
             stmt, tenant_id, animal_id, sire_catalog_id, pregnancy_status, date_from, date_to
         )
+
+        # Order handling
+        order_direction = (sort_dir or "desc").lower()
+        direction_fn = asc if order_direction != "desc" else desc
+        sort_key = (sort_by or "service_date").lower()
+
+        if sort_key == "animal":
+            stmt = stmt.join(AnimalORM, AnimalORM.id == InseminationORM.animal_id, isouter=True)
+            stmt = stmt.order_by(direction_fn(AnimalORM.tag))
+        elif sort_key == "sire":
+            stmt = stmt.join(
+                SireCatalogORM, SireCatalogORM.id == InseminationORM.sire_catalog_id, isouter=True
+            )
+            stmt = stmt.order_by(direction_fn(SireCatalogORM.name))
+        elif sort_key == "method":
+            stmt = stmt.order_by(direction_fn(InseminationORM.method))
+        elif sort_key == "technician":
+            stmt = stmt.order_by(direction_fn(InseminationORM.technician))
+        elif sort_key == "pregnancy_status":
+            stmt = stmt.order_by(direction_fn(InseminationORM.pregnancy_status))
+        elif sort_key == "expected_calving_date":
+            stmt = stmt.order_by(direction_fn(InseminationORM.expected_calving_date))
+        else:
+            # default: service_date
+            stmt = stmt.order_by(direction_fn(InseminationORM.service_date))
+
+        stmt = stmt.offset(offset)
         if limit is not None:
             stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)

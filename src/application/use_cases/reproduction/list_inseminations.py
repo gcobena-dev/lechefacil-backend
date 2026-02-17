@@ -24,6 +24,8 @@ async def execute(
     date_to: datetime | None = None,
     limit: int = 50,
     offset: int = 0,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
 ) -> ListInseminationsOutput:
     items = await uow.inseminations.list(
         tenant_id,
@@ -34,6 +36,8 @@ async def execute(
         date_to=date_to,
         limit=limit,
         offset=offset,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
     total = await uow.inseminations.count(
         tenant_id,
