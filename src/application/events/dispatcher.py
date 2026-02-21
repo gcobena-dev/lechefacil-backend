@@ -8,9 +8,11 @@ from src.application.events.models import (
     AnimalEventCreatedEvent,
     AnimalUpdatedEvent,
     DeliveryRecordedEvent,
+    PregnancyCheckRecordedEvent,
     ProductionBulkRecordedEvent,
     ProductionLowEvent,
     ProductionRecordedEvent,
+    SemenStockLowEvent,
 )
 from src.application.notifications.factory import build_notification
 from src.application.notifications.types import NotificationType
@@ -82,6 +84,10 @@ async def dispatch_events(session_factory, events: Iterable[object]) -> None:
                     await _handle_animal_updated(uow, notification_service, event)
                 elif isinstance(event, AnimalEventCreatedEvent):
                     await _handle_animal_event_created(uow, notification_service, event)
+                elif isinstance(event, PregnancyCheckRecordedEvent):
+                    await _handle_pregnancy_check_recorded(uow, notification_service, event)
+                elif isinstance(event, SemenStockLowEvent):
+                    await _handle_semen_stock_low(uow, notification_service, event)
             except Exception as e:
                 logger.error(
                     "Error dispatching event %s: %s", type(event).__name__, e, exc_info=True
@@ -95,6 +101,13 @@ async def _send_to_all_users_except_actor(
     for uwr in users_with_roles:
         if uwr.user.id == actor_user_id:
             continue
+        await send_cb(uwr.user.id)
+
+
+async def _send_to_all_users(uow: SQLAlchemyUnitOfWork, tenant_id, send_cb):
+    """Broadcast to ALL users in the tenant (including actor). Used for system alerts."""
+    users_with_roles, _total = await uow.users.list_by_tenant(tenant_id, page=1, limit=1000)
+    for uwr in users_with_roles:
         await send_cb(uwr.user.id)
 
 
@@ -303,6 +316,65 @@ async def _handle_production_low(
         )
 
     await _send_to_all_users_except_actor(uow, e.tenant_id, e.actor_user_id, send)
+
+
+async def _handle_pregnancy_check_recorded(
+    uow: SQLAlchemyUnitOfWork,
+    notification_service: NotificationService,
+    e: PregnancyCheckRecordedEvent,
+):
+    actor_user = await uow.users.get(e.actor_user_id)
+    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    built = build_notification(
+        NotificationType.PREGNANCY_CHECK_RECORDED,
+        insemination_id=e.insemination_id,
+        animal_id=e.animal_id,
+        result=e.result,
+        tag=e.tag,
+        name=e.name,
+        checked_by=e.checked_by,
+        expected_calving_date=e.expected_calving_date,
+        actor_label=actor_label,
+    )
+
+    async def send(user_id):
+        await notification_service.send_notification(
+            tenant_id=e.tenant_id,
+            user_id=user_id,
+            type=built.type,
+            title=built.title,
+            message=built.message,
+            data=built.data,
+        )
+
+    await _send_to_all_users_except_actor(uow, e.tenant_id, e.actor_user_id, send)
+
+
+async def _handle_semen_stock_low(
+    uow: SQLAlchemyUnitOfWork,
+    notification_service: NotificationService,
+    e: SemenStockLowEvent,
+):
+    built = build_notification(
+        NotificationType.SEMEN_STOCK_LOW,
+        sire_catalog_id=e.sire_catalog_id,
+        sire_name=e.sire_name,
+        current_quantity=e.current_quantity,
+        batch_code=e.batch_code,
+    )
+
+    async def send(user_id):
+        await notification_service.send_notification(
+            tenant_id=e.tenant_id,
+            user_id=user_id,
+            type=built.type,
+            title=built.title,
+            message=built.message,
+            data=built.data,
+        )
+
+    # System alert: broadcast to ALL users including actor
+    await _send_to_all_users(uow, e.tenant_id, send)
 
 
 async def _handle_production_bulk_recorded(

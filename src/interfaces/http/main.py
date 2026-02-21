@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, time, timezone
 
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,11 +42,53 @@ from src.interfaces.middleware.auth_middleware import AuthMiddleware
 from src.interfaces.middleware.error_handler import register_error_handlers
 
 
+async def _scheduler_loop(app: FastAPI, run_at_hour: int = 6) -> None:
+    """Run reproduction scheduled tasks daily at the configured hour (UTC)."""
+    from src.infrastructure.scheduler.reproduction_tasks import (
+        check_expected_calvings,
+        check_pending_pregnancy_checks,
+    )
+
+    logger = logging.getLogger("scheduler")
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            target = datetime.combine(now.date(), time(run_at_hour, 0), tzinfo=timezone.utc)
+            if now >= target:
+                # Already past today's run time, schedule for tomorrow
+                from datetime import timedelta
+
+                target += timedelta(days=1)
+            wait_seconds = (target - now).total_seconds()
+            logger.info("Scheduler sleeping %.0fs until %s UTC", wait_seconds, target.isoformat())
+            await asyncio.sleep(wait_seconds)
+
+            session_factory = getattr(app.state, "session_factory", None)
+            if session_factory:
+                logger.info("Running scheduled reproduction tasks")
+                await check_pending_pregnancy_checks(session_factory)
+                await check_expected_calvings(session_factory)
+                logger.info("Scheduled reproduction tasks completed")
+        except asyncio.CancelledError:
+            logger.info("Scheduler loop cancelled")
+            break
+        except Exception as exc:
+            logger.error("Scheduler error: %s", exc, exc_info=True)
+            # Sleep 60s before retrying on unexpected errors
+            await asyncio.sleep(60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    scheduler_task = asyncio.create_task(_scheduler_loop(app))
     try:
         yield
     finally:
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
         engine = getattr(app.state, "engine", None)
         if engine is not None:
             await engine.dispose()

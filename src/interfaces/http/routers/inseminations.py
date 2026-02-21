@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 
 from src.application.errors import PermissionDenied
+from src.application.events.dispatcher import dispatch_events
 from src.application.use_cases.reproduction import (
     get_pending_pregnancy_checks,
     list_inseminations,
@@ -28,6 +29,8 @@ router = APIRouter(prefix="/reproduction/inseminations", tags=["reproduction"])
 @router.post("", response_model=InseminationResponse, status_code=status.HTTP_201_CREATED)
 async def create_insemination_endpoint(
     payload: InseminationCreate,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
@@ -47,6 +50,13 @@ async def create_insemination_endpoint(
         uow, context.tenant_id, input_data, actor_user_id=context.user_id
     )
     await uow.commit()
+
+    # Dispatch notifications in background (post-commit)
+    events = uow.drain_events()
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory and events:
+        background_tasks.add_task(dispatch_events, session_factory, events)
+
     return result.insemination
 
 
@@ -216,6 +226,8 @@ async def delete_insemination_endpoint(
 async def pregnancy_check_endpoint(
     insemination_id: UUID,
     payload: PregnancyCheckInput,
+    background_tasks: BackgroundTasks,
+    request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
@@ -225,6 +237,15 @@ async def pregnancy_check_endpoint(
         check_date=payload.check_date,
         checked_by=payload.checked_by,
     )
-    result = await record_pregnancy_check.execute(uow, context.tenant_id, input_data)
+    result = await record_pregnancy_check.execute(
+        uow, context.tenant_id, input_data, actor_user_id=context.user_id
+    )
     await uow.commit()
+
+    # Dispatch notifications in background (post-commit)
+    events = uow.drain_events()
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory and events:
+        background_tasks.add_task(dispatch_events, session_factory, events)
+
     return result

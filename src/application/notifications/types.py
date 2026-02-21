@@ -11,6 +11,10 @@ class NotificationType:
     ANIMAL_CREATED = "animal_created"
     ANIMAL_UPDATED = "animal_updated"
     ANIMAL_EVENT_CREATED = "animal_event_created"
+    PREGNANCY_CHECK_RECORDED = "pregnancy_check_recorded"
+    SEMEN_STOCK_LOW = "semen_stock_low"
+    PREGNANCY_CHECK_DUE = "pregnancy_check_due"
+    CALVING_EXPECTED_SOON = "calving_expected_soon"
 
 
 ALL_TYPES = {
@@ -21,4 +25,8 @@ ALL_TYPES = {
     NotificationType.ANIMAL_CREATED,
     NotificationType.ANIMAL_UPDATED,
     NotificationType.ANIMAL_EVENT_CREATED,
+    NotificationType.PREGNANCY_CHECK_RECORDED,
+    NotificationType.SEMEN_STOCK_LOW,
+    NotificationType.PREGNANCY_CHECK_DUE,
+    NotificationType.CALVING_EXPECTED_SOON,
 }

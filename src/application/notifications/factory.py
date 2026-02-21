@@ -403,6 +403,89 @@ def build_notification(ntype: str, **kwargs: Any) -> BuiltNotification:
         }
         return BuiltNotification(ntype, title, message, data)
 
+    if ntype == NotificationType.PREGNANCY_CHECK_RECORDED:
+        result: str = kwargs.get("result", "CONFIRMED")
+        tag: str = kwargs.get("tag", "Animal")
+        name: str | None = kwargs.get("name")
+        checked_by: str | None = kwargs.get("checked_by")
+        expected_calving_date = kwargs.get("expected_calving_date")
+        actor: str | None = _short_label(kwargs.get("actor_label"))
+        animal_short = f"{tag}" + (f" {name}" if name else "")
+
+        if result == "CONFIRMED":
+            title = f"\U0001f930 Preñez confirmada: {animal_short}"
+            parts = []
+            if expected_calving_date:
+                parts.append(f"Parto esperado: {expected_calving_date}")
+            if checked_by:
+                parts.append(f"Verificado por: {checked_by}")
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Preñez confirmada"
+        elif result == "OPEN":
+            title = f"\U0001f534 Vacía: {animal_short}"
+            parts = ["Requiere re-servicio"]
+            if checked_by:
+                parts.append(f"Verificado por: {checked_by}")
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts)
+        else:  # LOST
+            title = f"\u26a0\ufe0f Pérdida gestacional: {animal_short}"
+            parts = []
+            if checked_by:
+                parts.append(f"Verificado por: {checked_by}")
+            if actor:
+                parts.append(f"por {actor}")
+            message = " • ".join(parts) if parts else "Pérdida gestacional registrada"
+
+        data = {
+            "insemination_id": str(kwargs.get("insemination_id"))
+            if kwargs.get("insemination_id")
+            else None,
+            "animal_id": str(kwargs.get("animal_id")) if kwargs.get("animal_id") else None,
+            "result": result,
+            "tag": tag,
+            "name": name,
+            "checked_by": checked_by,
+            "expected_calving_date": str(expected_calving_date) if expected_calving_date else None,
+            "actor": actor,
+        }
+        return BuiltNotification(ntype, title, message, data)
+
+    if ntype == NotificationType.SEMEN_STOCK_LOW:
+        sire_name: str = kwargs.get("sire_name", "Toro")
+        quantity: int = int(kwargs.get("current_quantity", 0) or 0)
+        batch_code: str | None = kwargs.get("batch_code")
+        title = "\U0001f9ca Stock de semen bajo"
+        message = f"Toro: {sire_name} — quedan {quantity} pajillas"
+        if batch_code:
+            message += f" (lote {batch_code})"
+        data = {
+            "sire_catalog_id": str(kwargs.get("sire_catalog_id"))
+            if kwargs.get("sire_catalog_id")
+            else None,
+            "sire_name": sire_name,
+            "current_quantity": quantity,
+            "batch_code": batch_code,
+        }
+        return BuiltNotification(ntype, title, message, data)
+
+    if ntype == NotificationType.PREGNANCY_CHECK_DUE:
+        count: int = int(kwargs.get("count", 0) or 0)
+        title = "\U0001f4cb Chequeos de preñez pendientes"
+        message = f"{count} animales entre 35-50 días post-servicio"
+        data = {"count": count}
+        return BuiltNotification(ntype, title, message, data)
+
+    if ntype == NotificationType.CALVING_EXPECTED_SOON:
+        count: int = int(kwargs.get("count", 0) or 0)
+        days: int = int(kwargs.get("days", 7) or 7)
+        title = "\U0001f404 Partos próximos"
+        message = f"{count} animales con parto esperado en los próximos {days} días"
+        data = {"count": count, "days": days}
+        return BuiltNotification(ntype, title, message, data)
+
     # Fallback to pass-through
     return BuiltNotification(
         ntype,

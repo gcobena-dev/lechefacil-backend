@@ -67,6 +67,25 @@ async def execute(
             stock.use_straws(payload.straw_count)
             await uow.semen_inventory.update(stock)
 
+            # Emit low stock alert if quantity dropped to 5 or below
+            if stock.current_quantity <= 5 and actor_user_id:
+                try:
+                    from src.application.events.models import SemenStockLowEvent
+
+                    sire_name_for_alert = sire.name if sire else "Desconocido"
+                    uow.add_event(
+                        SemenStockLowEvent(
+                            tenant_id=tenant_id,
+                            actor_user_id=actor_user_id,
+                            sire_catalog_id=stock.sire_catalog_id,
+                            sire_name=sire_name_for_alert,
+                            current_quantity=stock.current_quantity,
+                            batch_code=stock.batch_code,
+                        )
+                    )
+                except Exception:
+                    pass  # best-effort
+
     # Ensure service_date is tz-aware
     service_date = payload.service_date
     if service_date.tzinfo is None:

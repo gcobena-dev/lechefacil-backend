@@ -21,6 +21,7 @@ async def execute(
     uow: UnitOfWork,
     tenant_id: UUID,
     payload: RecordPregnancyCheckInput,
+    actor_user_id: UUID | None = None,
 ) -> Insemination:
     valid_results = {
         PregnancyStatus.CONFIRMED.value,
@@ -45,4 +46,29 @@ async def execute(
     elif payload.result == PregnancyStatus.LOST.value:
         insemination.mark_lost(check_date, payload.checked_by)
 
-    return await uow.inseminations.update(insemination)
+    updated = await uow.inseminations.update(insemination)
+
+    # Emit pregnancy check notification event
+    if actor_user_id:
+        try:
+            from src.application.events.models import PregnancyCheckRecordedEvent
+
+            animal = await uow.animals.get(tenant_id, insemination.animal_id)
+            uow.add_event(
+                PregnancyCheckRecordedEvent(
+                    tenant_id=tenant_id,
+                    actor_user_id=actor_user_id,
+                    insemination_id=insemination.id,
+                    animal_id=insemination.animal_id,
+                    result=payload.result,
+                    check_date=check_date,
+                    checked_by=payload.checked_by,
+                    tag=animal.tag if animal else None,
+                    name=animal.name if animal else None,
+                    expected_calving_date=updated.expected_calving_date,
+                )
+            )
+        except Exception:
+            pass  # best-effort
+
+    return updated

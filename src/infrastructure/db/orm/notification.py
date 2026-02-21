@@ -20,7 +20,7 @@ class NotificationORM(Base):
     tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     user_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     data: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
     read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)

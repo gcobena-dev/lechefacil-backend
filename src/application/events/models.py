@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 
@@ -80,3 +80,27 @@ class AnimalEventCreatedEvent:
     tag: str | None = None
     name: str | None = None
     event_data: dict | None = None
+
+
+@dataclass(frozen=True)
+class PregnancyCheckRecordedEvent:
+    tenant_id: UUID
+    actor_user_id: UUID
+    insemination_id: UUID
+    animal_id: UUID
+    result: str  # CONFIRMED, OPEN, LOST
+    check_date: datetime
+    checked_by: str | None = None
+    tag: str | None = None
+    name: str | None = None
+    expected_calving_date: date | None = None
+
+
+@dataclass(frozen=True)
+class SemenStockLowEvent:
+    tenant_id: UUID
+    actor_user_id: UUID
+    sire_catalog_id: UUID
+    sire_name: str
+    current_quantity: int
+    batch_code: str | None = None
