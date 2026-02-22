@@ -120,14 +120,12 @@ async def _handle_dry_off_event(
     if animal.sex == "MALE":
         raise ValidationError("Male animals cannot have dry-off events")
 
-    # Validate: must have an open lactation
+    # Close open lactation if one exists (not required)
+    lactation_closed = None
     open_lactation = await uow.lactations.get_open(tenant_id, animal.id)
-    if not open_lactation:
-        raise ValidationError("No open lactation to close")
-
-    # Close the lactation
-    open_lactation.close(end_date=event.occurred_at.date())
-    lactation_closed = await uow.lactations.update(open_lactation)
+    if open_lactation:
+        open_lactation.close(end_date=event.occurred_at.date())
+        lactation_closed = await uow.lactations.update(open_lactation)
 
     # Get DRY status
     dry_status = await uow.animal_statuses.get_by_code(tenant_id, "DRY")

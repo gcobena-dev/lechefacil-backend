@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select, update
@@ -25,6 +26,7 @@ class UsersSQLAlchemyRepository(UserRepository):
             hashed_password=orm.hashed_password,
             is_active=orm.is_active,
             must_change_password=orm.must_change_password,
+            last_login=orm.last_login,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
         )
@@ -74,6 +76,10 @@ class UsersSQLAlchemyRepository(UserRepository):
         if result.rowcount == 0:
             raise InfrastructureError("Failed to update user status")
 
+    async def update_last_login(self, user_id: UUID, last_login: datetime) -> None:
+        stmt = update(UserORM).where(UserORM.id == user_id).values(last_login=last_login)
+        await self.session.execute(stmt)
+
     async def list_by_tenant(
         self,
         tenant_id: UUID,
@@ -111,6 +117,12 @@ class UsersSQLAlchemyRepository(UserRepository):
         users_with_roles = []
         for user_orm, role in rows:
             user = self._to_domain(user_orm)
-            users_with_roles.append(UserWithRole(user=user, role=role))
+            users_with_roles.append(
+                UserWithRole(
+                    user=user,
+                    role=role,
+                    last_login=user.last_login.isoformat() if user.last_login else None,
+                )
+            )
 
         return users_with_roles, total

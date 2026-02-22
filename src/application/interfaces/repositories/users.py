@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -40,6 +41,8 @@ class UserRepository(Protocol):
     async def update_password(self, user_id: UUID, hashed_password: str) -> None: ...
 
     async def set_active(self, user_id: UUID, is_active: bool) -> None: ...
+
+    async def update_last_login(self, user_id: UUID, last_login: datetime) -> None: ...
 
     async def list_by_tenant(
         self,

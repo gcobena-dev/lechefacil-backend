@@ -215,11 +215,18 @@ async def list_animals_endpoint(
 
     summary = None
     try:
+        production = await count_by_code("LACTATING")
+        sold = await count_by_code("SOLD")
+        culled = await count_by_code("CULLED")
+        dead = await count_by_code("DEAD")
+        total = await uow.animals.count(context.tenant_id, search=text_search)
+        withdrawn = sold + culled + dead
+        other = total - production - withdrawn
         summary = AnimalsSummary(
-            production=await count_by_code("LACTATING"),
-            sold=await count_by_code("SOLD"),
-            culled=await count_by_code("CULLED"),
-            total=await uow.animals.count(context.tenant_id, search=text_search),
+            production=production,
+            withdrawn=withdrawn,
+            other=max(other, 0),
+            total=total,
         )
     except Exception:
         # If summary calculation fails, continue returning the list

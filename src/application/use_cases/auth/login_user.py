@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -51,6 +52,10 @@ async def execute(
         }
     else:
         extra_claims = {}
+
+    # Record last login timestamp
+    await uow.users.update_last_login(user.id, datetime.now(timezone.utc))
+    await uow.commit()
 
     token = jwt_service.create_access_token(subject=user.id, extra_claims=extra_claims)
     return LoginResult(

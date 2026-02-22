@@ -176,6 +176,6 @@ class AnimalValueResponse(BaseModel):
 
 class AnimalsSummary(BaseModel):
     production: int = 0
-    sold: int = 0
-    culled: int = 0
+    withdrawn: int = 0
+    other: int = 0
     total: int = 0
