@@ -314,7 +314,8 @@ async def get_daily_progress(
         ),
     }
 
-    # Compute dynamic daily goal from last 30 days average
+    # Compute dynamic daily goal based on liters-per-cow average
+    from collections import defaultdict
     from datetime import timedelta
 
     window_days = 30
@@ -325,9 +326,34 @@ async def get_daily_progress(
         date_to=date_param,
         animal_id=None,
     )
-    total_recent = sum(p.volume_l for p in recent_productions)
-    # Include days without data by dividing by fixed window size
-    target_liters = (total_recent / Decimal(window_days)) if window_days > 0 else Decimal("0")
+
+    # Group production by day: {date: {total_liters, distinct_animals}}
+    daily_stats: dict = defaultdict(lambda: {"liters": Decimal("0"), "animals": set()})
+    for p in recent_productions:
+        daily_stats[p.date]["liters"] += p.volume_l
+        if p.animal_id:
+            daily_stats[p.date]["animals"].add(p.animal_id)
+
+    # Compute liters/cow per day (only days with identified animals)
+    daily_avg_per_cow: list[Decimal] = []
+    for _day, stats in daily_stats.items():
+        n_animals = len(stats["animals"])
+        if n_animals > 0:
+            daily_avg_per_cow.append(stats["liters"] / Decimal(n_animals))
+
+    avg_liters_per_cow = (
+        sum(daily_avg_per_cow) / Decimal(len(daily_avg_per_cow))
+        if daily_avg_per_cow
+        else Decimal("0")
+    )
+
+    # Cows milked today
+    cows_today = len({p.animal_id for p in productions if p.animal_id})
+
+    # Target = avg_liters_per_cow × cows_today (fallback to avg alone if no cows yet today)
+    target_liters = (
+        avg_liters_per_cow * Decimal(cows_today) if cows_today > 0 else avg_liters_per_cow
+    )
 
     current_liters = morning_liters + evening_liters
     completion_percentage = (
@@ -488,7 +514,9 @@ async def get_admin_overview(
     )
     produced_liters_mtd: Decimal = sum(p.volume_l for p in productions_mtd)
 
-    # Compute daily goal from last 30 days average (include zero-production days)
+    # Compute daily goal based on liters-per-cow average (last 30 days)
+    from collections import defaultdict
+
     window_days = 30
     window_start = date_param - timedelta(days=window_days)
     recent_productions = await uow.milk_productions.list(
@@ -497,8 +525,37 @@ async def get_admin_overview(
         date_to=date_param,
         animal_id=None,
     )
-    total_recent = sum(p.volume_l for p in recent_productions)
-    daily_goal_liters = (total_recent / Decimal(window_days)) if window_days > 0 else Decimal("0")
+
+    daily_stats_admin: dict = defaultdict(lambda: {"liters": Decimal("0"), "animals": set()})
+    for p in recent_productions:
+        daily_stats_admin[p.date]["liters"] += p.volume_l
+        if p.animal_id:
+            daily_stats_admin[p.date]["animals"].add(p.animal_id)
+
+    daily_avg_per_cow_admin: list[Decimal] = []
+    for _day, stats in daily_stats_admin.items():
+        n_animals = len(stats["animals"])
+        if n_animals > 0:
+            daily_avg_per_cow_admin.append(stats["liters"] / Decimal(n_animals))
+
+    avg_liters_per_cow_admin = (
+        sum(daily_avg_per_cow_admin) / Decimal(len(daily_avg_per_cow_admin))
+        if daily_avg_per_cow_admin
+        else Decimal("0")
+    )
+
+    # Average cows per day this month for MTD goal
+    mtd_stats: dict = defaultdict(lambda: {"animals": set()})
+    for p in productions_mtd:
+        if p.animal_id:
+            mtd_stats[p.date]["animals"].add(p.animal_id)
+    avg_cows_mtd = (
+        Decimal(sum(len(s["animals"]) for s in mtd_stats.values())) / Decimal(len(mtd_stats))
+        if mtd_stats
+        else Decimal("0")
+    )
+
+    daily_goal_liters = avg_liters_per_cow_admin * avg_cows_mtd
     monthly_goal_to_date = daily_goal_liters * Decimal(days_elapsed)
     production_vs_goal_pct = (
         (produced_liters_mtd / monthly_goal_to_date * Decimal("100"))

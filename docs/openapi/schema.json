@@ -7323,14 +7323,14 @@
             "title": "Production",
             "default": 0
           },
-          "sold": {
+          "withdrawn": {
             "type": "integer",
-            "title": "Sold",
+            "title": "Withdrawn",
             "default": 0
           },
-          "culled": {
+          "other": {
             "type": "integer",
-            "title": "Culled",
+            "title": "Other",
             "default": 0
           },
           "total": {
