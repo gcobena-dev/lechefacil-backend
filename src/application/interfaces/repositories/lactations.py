@@ -22,6 +22,8 @@ class LactationsRepository(Protocol):
 
     async def sum_volume(self, lactation_id: UUID) -> float: ...
 
+    async def list_open_with_animal(self, tenant_id: UUID) -> list[dict]: ...
+
     async def find_by_date(
         self, tenant_id: UUID, animal_id: UUID, target_date: date
     ) -> Lactation | None:

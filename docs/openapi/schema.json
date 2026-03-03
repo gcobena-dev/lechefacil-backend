@@ -3900,6 +3900,59 @@
         }
       }
     },
+    "/api/v1/dashboard/reproduction-kpis": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Reproduction Kpis",
+        "operationId": "get_reproduction_kpis_api_v1_dashboard_reproduction_kpis_get",
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Date To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReproductionKPIsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/definitions": {
       "get": {
         "tags": [
@@ -10086,6 +10139,57 @@
         ],
         "title": "MilkProductionsBulkCreate"
       },
+      "MonthlyActivity": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "straws_used": {
+            "type": "integer",
+            "title": "Straws Used"
+          },
+          "cows_inseminated": {
+            "type": "integer",
+            "title": "Cows Inseminated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "straws_used",
+          "cows_inseminated"
+        ],
+        "title": "MonthlyActivity"
+      },
+      "MonthlyTrend": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "conception_rate": {
+            "type": "number",
+            "title": "Conception Rate"
+          },
+          "insemination_count": {
+            "type": "integer",
+            "title": "Insemination Count"
+          },
+          "services_per_cow": {
+            "type": "number",
+            "title": "Services Per Cow"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "conception_rate",
+          "insemination_count",
+          "services_per_cow"
+        ],
+        "title": "MonthlyTrend"
+      },
       "NotificationListResponse": {
         "properties": {
           "notifications": {
@@ -10280,6 +10384,53 @@
           "pages"
         ],
         "title": "PaginationInfo"
+      },
+      "PostpartumAlert": {
+        "properties": {
+          "animal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Animal Id"
+          },
+          "animal_tag": {
+            "type": "string",
+            "title": "Animal Tag"
+          },
+          "animal_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Animal Name"
+          },
+          "calving_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Calving Date"
+          },
+          "days_postpartum": {
+            "type": "integer",
+            "title": "Days Postpartum"
+          },
+          "alert_level": {
+            "type": "string",
+            "title": "Alert Level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "animal_id",
+          "animal_tag",
+          "animal_name",
+          "calving_date",
+          "days_postpartum",
+          "alert_level"
+        ],
+        "title": "PostpartumAlert"
       },
       "PregnancyCheckInput": {
         "properties": {
@@ -10968,6 +11119,109 @@
         ],
         "title": "ReportResponse"
       },
+      "ReproductionKPIsResponse": {
+        "properties": {
+          "cows_inseminated": {
+            "type": "integer",
+            "title": "Cows Inseminated"
+          },
+          "straws_used": {
+            "type": "integer",
+            "title": "Straws Used"
+          },
+          "services_per_cow": {
+            "type": "number",
+            "title": "Services Per Cow"
+          },
+          "pregnant_pct": {
+            "type": "number",
+            "title": "Pregnant Pct"
+          },
+          "open_pct": {
+            "type": "number",
+            "title": "Open Pct"
+          },
+          "pending_pct": {
+            "type": "number",
+            "title": "Pending Pct"
+          },
+          "conception_rate": {
+            "type": "number",
+            "title": "Conception Rate"
+          },
+          "status_breakdown": {
+            "$ref": "#/components/schemas/ReproductiveStatusBreakdown"
+          },
+          "services_distribution": {
+            "$ref": "#/components/schemas/ServicesDistribution"
+          },
+          "monthly_activity": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyActivity"
+            },
+            "type": "array",
+            "title": "Monthly Activity"
+          },
+          "monthly_trends": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyTrend"
+            },
+            "type": "array",
+            "title": "Monthly Trends"
+          },
+          "postpartum_alerts": {
+            "items": {
+              "$ref": "#/components/schemas/PostpartumAlert"
+            },
+            "type": "array",
+            "title": "Postpartum Alerts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cows_inseminated",
+          "straws_used",
+          "services_per_cow",
+          "pregnant_pct",
+          "open_pct",
+          "pending_pct",
+          "conception_rate",
+          "status_breakdown",
+          "services_distribution",
+          "monthly_activity",
+          "monthly_trends",
+          "postpartum_alerts"
+        ],
+        "title": "ReproductionKPIsResponse"
+      },
+      "ReproductiveStatusBreakdown": {
+        "properties": {
+          "pregnant": {
+            "type": "integer",
+            "title": "Pregnant"
+          },
+          "open": {
+            "type": "integer",
+            "title": "Open"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "lost": {
+            "type": "integer",
+            "title": "Lost"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pregnant",
+          "open",
+          "pending",
+          "lost"
+        ],
+        "title": "ReproductiveStatusBreakdown"
+      },
       "ResetPasswordRequest": {
         "properties": {
           "token": {
@@ -11472,6 +11726,29 @@
         },
         "type": "object",
         "title": "SemenInventoryUpdate"
+      },
+      "ServicesDistribution": {
+        "properties": {
+          "one_service": {
+            "type": "integer",
+            "title": "One Service"
+          },
+          "two_services": {
+            "type": "integer",
+            "title": "Two Services"
+          },
+          "three_plus_services": {
+            "type": "integer",
+            "title": "Three Plus Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "one_service",
+          "two_services",
+          "three_plus_services"
+        ],
+        "title": "ServicesDistribution"
       },
       "SetPasswordRequest": {
         "properties": {

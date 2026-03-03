@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import asc, desc, func, select
+from sqlalchemy import asc, case, desc, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.models.insemination import Insemination, PregnancyStatus
@@ -257,6 +257,181 @@ class InseminationsSQLAlchemyRepository:
         )
         result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
+
+    async def get_reproductive_stats(
+        self,
+        tenant_id: UUID,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> dict:
+        """Aggregate: cows inseminated, straws used, and
+        status counts (based on last insemination per animal)."""
+        # Cows inseminated & straws used (direct aggregation, no subquery)
+        agg_stmt = (
+            select(
+                func.count(func.distinct(InseminationORM.animal_id)).label("cows_inseminated"),
+                func.coalesce(func.sum(InseminationORM.straw_count), 0).label("straws_used"),
+            )
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .where(InseminationORM.service_date >= date_from)
+            .where(InseminationORM.service_date <= date_to)
+        )
+
+        agg_result = await self.session.execute(agg_stmt)
+        row = agg_result.one()
+
+        # Status counts based on last insemination per animal (within date range)
+        ranked = (
+            select(
+                InseminationORM.animal_id,
+                InseminationORM.pregnancy_status,
+                func.row_number()
+                .over(
+                    partition_by=InseminationORM.animal_id,
+                    order_by=InseminationORM.service_date.desc(),
+                )
+                .label("rn"),
+            )
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .where(InseminationORM.service_date >= date_from)
+            .where(InseminationORM.service_date <= date_to)
+            .subquery()
+        )
+
+        status_stmt = (
+            select(
+                ranked.c.pregnancy_status,
+                func.count().label("cnt"),
+            )
+            .where(ranked.c.rn == 1)
+            .group_by(ranked.c.pregnancy_status)
+        )
+
+        status_result = await self.session.execute(status_stmt)
+        status_counts = {r.pregnancy_status: r.cnt for r in status_result.all()}
+
+        return {
+            "cows_inseminated": row.cows_inseminated or 0,
+            "straws_used": row.straws_used or 0,
+            "status_counts": status_counts,
+        }
+
+    async def get_services_distribution(
+        self,
+        tenant_id: UUID,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> dict:
+        """Count animals by number of services: 1, 2, 3+."""
+        animal_counts = (
+            select(
+                InseminationORM.animal_id,
+                func.count().label("svc_count"),
+            )
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .where(InseminationORM.service_date >= date_from)
+            .where(InseminationORM.service_date <= date_to)
+            .group_by(InseminationORM.animal_id)
+            .subquery()
+        )
+
+        dist_stmt = select(
+            func.sum(case((animal_counts.c.svc_count == 1, 1), else_=0)).label("one_service"),
+            func.sum(case((animal_counts.c.svc_count == 2, 1), else_=0)).label("two_services"),
+            func.sum(case((animal_counts.c.svc_count >= 3, 1), else_=0)).label("three_plus"),
+        ).select_from(animal_counts)
+
+        result = await self.session.execute(dist_stmt)
+        r = result.one()
+        return {
+            "one_service": r.one_service or 0,
+            "two_services": r.two_services or 0,
+            "three_plus_services": r.three_plus or 0,
+        }
+
+    async def get_monthly_activity(
+        self,
+        tenant_id: UUID,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> list[dict]:
+        """Monthly straws used and cows inseminated."""
+        month_expr = func.to_char(InseminationORM.service_date, literal_column("'YYYY-MM'"))
+
+        stmt = (
+            select(
+                month_expr.label("month"),
+                func.coalesce(func.sum(InseminationORM.straw_count), 0).label("straws_used"),
+                func.count(func.distinct(InseminationORM.animal_id)).label("cows_inseminated"),
+            )
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .where(InseminationORM.service_date >= date_from)
+            .where(InseminationORM.service_date <= date_to)
+            .group_by(month_expr)
+            .order_by(month_expr)
+        )
+
+        result = await self.session.execute(stmt)
+        return [
+            {
+                "month": r.month,
+                "straws_used": r.straws_used or 0,
+                "cows_inseminated": r.cows_inseminated or 0,
+            }
+            for r in result.all()
+        ]
+
+    async def get_monthly_trends(
+        self,
+        tenant_id: UUID,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> list[dict]:
+        """Monthly conception rate, insemination count, and services per cow."""
+        month_expr = func.to_char(InseminationORM.service_date, literal_column("'YYYY-MM'"))
+
+        stmt = (
+            select(
+                month_expr.label("month"),
+                func.count().label("insemination_count"),
+                func.count(func.distinct(InseminationORM.animal_id)).label("distinct_animals"),
+                func.sum(
+                    case(
+                        (InseminationORM.pregnancy_status == PregnancyStatus.CONFIRMED.value, 1),
+                        else_=0,
+                    )
+                ).label("confirmed_count"),
+                func.coalesce(func.sum(InseminationORM.straw_count), 0).label("straws_used"),
+            )
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .where(InseminationORM.service_date >= date_from)
+            .where(InseminationORM.service_date <= date_to)
+            .group_by(month_expr)
+            .order_by(month_expr)
+        )
+
+        result = await self.session.execute(stmt)
+        rows = []
+        for r in result.all():
+            straws = r.straws_used or 1
+            conception_rate = round((r.confirmed_count / straws) * 100, 1) if straws else 0.0
+            services_per_cow = (
+                round(r.insemination_count / r.distinct_animals, 2) if r.distinct_animals else 0.0
+            )
+            rows.append(
+                {
+                    "month": r.month,
+                    "conception_rate": conception_rate,
+                    "insemination_count": r.insemination_count,
+                    "services_per_cow": services_per_cow,
+                }
+            )
+        return rows
 
     async def delete(self, insemination: Insemination) -> None:
         orm = await self.session.get(InseminationORM, insemination.id)

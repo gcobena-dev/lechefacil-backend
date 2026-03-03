@@ -63,4 +63,20 @@ class InseminationsRepository(Protocol):
         sire_catalog_id: UUID,
     ) -> int: ...
 
+    async def get_reproductive_stats(
+        self, tenant_id: UUID, date_from: datetime, date_to: datetime
+    ) -> dict: ...
+
+    async def get_services_distribution(
+        self, tenant_id: UUID, date_from: datetime, date_to: datetime
+    ) -> dict: ...
+
+    async def get_monthly_activity(
+        self, tenant_id: UUID, date_from: datetime, date_to: datetime
+    ) -> list[dict]: ...
+
+    async def get_monthly_trends(
+        self, tenant_id: UUID, date_from: datetime, date_to: datetime
+    ) -> list[dict]: ...
+
     async def delete(self, insemination: Insemination) -> None: ...

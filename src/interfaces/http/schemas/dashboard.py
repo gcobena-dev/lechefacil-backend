@@ -113,3 +113,56 @@ class AdminManagementOverview(BaseModel):
 
 class AdminOverviewResponse(BaseModel):
     management_overview: AdminManagementOverview
+
+
+# --- Reproduction Dashboard KPIs ---
+
+
+class ReproductiveStatusBreakdown(BaseModel):
+    pregnant: int
+    open: int
+    pending: int
+    lost: int
+
+
+class ServicesDistribution(BaseModel):
+    one_service: int
+    two_services: int
+    three_plus_services: int
+
+
+class MonthlyActivity(BaseModel):
+    month: str
+    straws_used: int
+    cows_inseminated: int
+
+
+class MonthlyTrend(BaseModel):
+    month: str
+    conception_rate: float
+    insemination_count: int
+    services_per_cow: float
+
+
+class PostpartumAlert(BaseModel):
+    animal_id: UUID
+    animal_tag: str
+    animal_name: str | None
+    calving_date: date
+    days_postpartum: int
+    alert_level: str
+
+
+class ReproductionKPIsResponse(BaseModel):
+    cows_inseminated: int
+    straws_used: int
+    services_per_cow: float
+    pregnant_pct: float
+    open_pct: float
+    pending_pct: float
+    conception_rate: float
+    status_breakdown: ReproductiveStatusBreakdown
+    services_distribution: ServicesDistribution
+    monthly_activity: list[MonthlyActivity]
+    monthly_trends: list[MonthlyTrend]
+    postpartum_alerts: list[PostpartumAlert]

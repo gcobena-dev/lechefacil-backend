@@ -14,6 +14,7 @@ from src.interfaces.http.schemas.dashboard import (
     AlertsResponse,
     DailyKPIsResponse,
     DailyProgressResponse,
+    ReproductionKPIsResponse,
     TopProducersResponse,
     VetAlertsResponse,
     WorkerProgressResponse,
@@ -609,3 +610,92 @@ async def get_admin_overview(
     )
 
     return AdminOverviewResponse(management_overview=management_overview)
+
+
+@router.get("/reproduction-kpis", response_model=ReproductionKPIsResponse)
+async def get_reproduction_kpis(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> ReproductionKPIsResponse:
+    from datetime import datetime as dt
+    from datetime import timezone as tz
+
+    from src.interfaces.http.schemas.dashboard import (
+        MonthlyActivity,
+        MonthlyTrend,
+        PostpartumAlert,
+        ReproductiveStatusBreakdown,
+        ServicesDistribution,
+    )
+
+    dt_from = dt.combine(date_from, dt.min.time(), tzinfo=tz.utc)
+    dt_to = dt.combine(date_to, dt.max.time().replace(microsecond=0), tzinfo=tz.utc)
+    tenant_id = context.tenant_id
+
+    # 1. Aggregate stats from inseminations
+    stats = await uow.inseminations.get_reproductive_stats(tenant_id, dt_from, dt_to)
+    distribution = await uow.inseminations.get_services_distribution(tenant_id, dt_from, dt_to)
+    monthly_activity = await uow.inseminations.get_monthly_activity(tenant_id, dt_from, dt_to)
+    monthly_trends = await uow.inseminations.get_monthly_trends(tenant_id, dt_from, dt_to)
+
+    # 2. Compute derived KPIs
+    cows_inseminated = stats["cows_inseminated"]
+    straws_used = stats["straws_used"]
+    sc = stats["status_counts"]
+    pregnant = sc.get("CONFIRMED", 0)
+    open_count = sc.get("OPEN", 0)
+    pending = sc.get("PENDING", 0)
+    lost = sc.get("LOST", 0)
+    total_animals = pregnant + open_count + pending + lost
+
+    services_per_cow = round(straws_used / cows_inseminated, 2) if cows_inseminated else 0.0
+    pregnant_pct = round((pregnant / total_animals) * 100, 1) if total_animals else 0.0
+    open_pct = round((open_count / total_animals) * 100, 1) if total_animals else 0.0
+    pending_pct = round((pending / total_animals) * 100, 1) if total_animals else 0.0
+    conception_rate = round((pregnant / straws_used) * 100, 1) if straws_used else 0.0
+
+    # 3. Postpartum alerts from open lactations (no date filter)
+    open_lactations = await uow.lactations.list_open_with_animal(tenant_id)
+    today = dt.now(tz.utc).date()
+    alerts: list[PostpartumAlert] = []
+    for lac in open_lactations:
+        days_pp = (today - lac["start_date"]).days
+        if days_pp < 90:
+            level = "optimal"
+        elif days_pp <= 120:
+            level = "warning"
+        else:
+            level = "critical"
+        alerts.append(
+            PostpartumAlert(
+                animal_id=lac["animal_id"],
+                animal_tag=lac["animal_tag"],
+                animal_name=lac["animal_name"],
+                calving_date=lac["start_date"],
+                days_postpartum=days_pp,
+                alert_level=level,
+            )
+        )
+
+    # Sort: critical > warning > optimal
+    level_order = {"critical": 0, "warning": 1, "optimal": 2}
+    alerts.sort(key=lambda a: level_order.get(a.alert_level, 3))
+
+    return ReproductionKPIsResponse(
+        cows_inseminated=cows_inseminated,
+        straws_used=straws_used,
+        services_per_cow=services_per_cow,
+        pregnant_pct=pregnant_pct,
+        open_pct=open_pct,
+        pending_pct=pending_pct,
+        conception_rate=conception_rate,
+        status_breakdown=ReproductiveStatusBreakdown(
+            pregnant=pregnant, open=open_count, pending=pending, lost=lost
+        ),
+        services_distribution=ServicesDistribution(**distribution),
+        monthly_activity=[MonthlyActivity(**m) for m in monthly_activity],
+        monthly_trends=[MonthlyTrend(**m) for m in monthly_trends],
+        postpartum_alerts=alerts,
+    )

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.repositories.lactations import LactationsRepository
 from src.domain.models.lactation import Lactation
+from src.infrastructure.db.orm.animal import AnimalORM
 from src.infrastructure.db.orm.lactation import LactationORM
 from src.infrastructure.db.orm.milk_production import MilkProductionORM
 
@@ -138,6 +139,30 @@ class LactationsSQLAlchemyRepository(LactationsRepository):
         result = await self.session.execute(stmt)
         total = result.scalar_one_or_none()
         return float(total) if total else 0.0
+
+    async def list_open_with_animal(self, tenant_id: UUID) -> list[dict]:
+        """List open lactations with animal tag and name via JOIN."""
+        stmt = (
+            select(
+                LactationORM.animal_id,
+                AnimalORM.tag.label("animal_tag"),
+                AnimalORM.name.label("animal_name"),
+                LactationORM.start_date,
+            )
+            .join(AnimalORM, AnimalORM.id == LactationORM.animal_id)
+            .where(LactationORM.tenant_id == tenant_id)
+            .where(LactationORM.status == "open")
+        )
+        result = await self.session.execute(stmt)
+        return [
+            {
+                "animal_id": r.animal_id,
+                "animal_tag": r.animal_tag,
+                "animal_name": r.animal_name,
+                "start_date": r.start_date,
+            }
+            for r in result.all()
+        ]
 
     async def find_by_date(
         self, tenant_id: UUID, animal_id: UUID, target_date: date
