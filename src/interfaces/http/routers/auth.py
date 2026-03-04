@@ -15,6 +15,7 @@ from src.application.use_cases.auth import (
     register_user,
     remove_membership,
     update_membership_role,
+    update_profile,
 )
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.auth.jwt_service import JWTService
@@ -52,6 +53,8 @@ from src.interfaces.http.schemas.auth import (
     SetPasswordResponse,
     UpdateMembershipRoleRequest,
     UpdateMembershipRoleResponse,
+    UpdateProfileRequest,
+    UpdateProfileResponse,
     UserListResponse,
     UsersListResponse,
 )
@@ -61,7 +64,10 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/me", response_model=MeResponse)
-async def read_me(context: AuthContext = Depends(get_auth_context)) -> MeResponse:
+async def read_me(
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> MeResponse:
     result = await get_me.execute(
         user_id=context.user_id,
         email=context.email,
@@ -71,9 +77,13 @@ async def read_me(context: AuthContext = Depends(get_auth_context)) -> MeRespons
         claims=context.claims,
     )
     memberships = [MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in result.memberships]
+    # Fetch user from DB to get first_name/last_name (not in JWT)
+    user = await uow.users.get(context.user_id)
     return MeResponse(
         user_id=result.user_id,
         email=result.email,
+        first_name=user.first_name if user else None,
+        last_name=user.last_name if user else None,
         active_tenant=result.active_tenant,
         active_role=result.active_role,
         memberships=memberships,
@@ -122,6 +132,8 @@ async def login(
         token_type=result.token_type,
         user_id=result.user_id,
         email=result.email,
+        first_name=result.first_name,
+        last_name=result.last_name,
         must_change_password=result.must_change_password,
         memberships=memberships,
         refresh_token=refresh if include_refresh else None,
@@ -324,6 +336,14 @@ async def set_password_endpoint(
 
         # Mark the token as used
         await uow.one_time_tokens.mark_as_used(token.id)
+
+        # Update profile names if provided
+        if payload.first_name is not None or payload.last_name is not None:
+            await uow.users.update_profile(
+                user_id=token.user_id,
+                first_name=payload.first_name,
+                last_name=payload.last_name,
+            )
 
         await uow.commit()
 
@@ -648,6 +668,8 @@ async def refresh_token(
         token_type="bearer",
         user_id=user.id,
         email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
         must_change_password=user.must_change_password,
         memberships=[MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in memberships],
         refresh_token=new_refresh if include_refresh else None,
@@ -660,6 +682,27 @@ async def logout_endpoint(response: Response) -> dict[str, str]:
     return {"status": "ok"}
 
 
+@router.patch("/auth/profile", response_model=UpdateProfileResponse)
+async def update_profile_endpoint(
+    payload: UpdateProfileRequest,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> UpdateProfileResponse:
+    result = await update_profile.execute(
+        uow=uow,
+        payload=update_profile.UpdateProfileInput(
+            user_id=context.user_id,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+        ),
+    )
+    return UpdateProfileResponse(
+        first_name=result.first_name,
+        last_name=result.last_name,
+        message="Profile updated successfully",
+    )
+
+
 @router.post("/auth/signin", response_model=SelfRegisterResponse, status_code=201)
 async def self_register_endpoint(
     payload: SelfRegisterRequest,
@@ -668,7 +711,12 @@ async def self_register_endpoint(
 ) -> SelfRegisterResponse:
     result = await register_account.execute(
         uow=uow,
-        payload=register_account.SelfRegisterInput(email=payload.email, password=payload.password),
+        payload=register_account.SelfRegisterInput(
+            email=payload.email,
+            password=payload.password,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+        ),
         password_hasher=password_hasher,
     )
     # Cast to expected types
@@ -725,6 +773,8 @@ async def list_tenant_users_endpoint(
             UserListResponse(
                 id=user.id,
                 email=user.email,
+                first_name=user.first_name,
+                last_name=user.last_name,
                 role=user.role,
                 is_active=user.is_active,
                 created_at=user.created_at,

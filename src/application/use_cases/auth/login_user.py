@@ -24,6 +24,8 @@ class LoginResult:
     token_type: str
     user_id: UUID
     email: str
+    first_name: str | None
+    last_name: str | None
     must_change_password: bool
     memberships: list[dict[str, Any]]
 
@@ -63,6 +65,8 @@ async def execute(
         token_type="bearer",
         user_id=user.id,
         email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
         must_change_password=user.must_change_password,
         memberships=[{"tenant_id": str(m.tenant_id), "role": m.role.value} for m in memberships],
     )

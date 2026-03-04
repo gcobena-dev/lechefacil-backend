@@ -120,7 +120,15 @@ async def _handle_delivery_recorded(
     actor_user = await uow.users.get(e.actor_user_id)
     actor_label = None
     if actor_user:
-        actor_label = (actor_user.email.split("@")[0]) if actor_user.email else None
+        actor_label = (
+            (
+                f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+                if actor_user.first_name
+                else actor_user.email.split("@")[0]
+            )
+            if actor_user.email
+            else None
+        )
     built = build_notification(
         NotificationType.DELIVERY_RECORDED,
         buyer_name=buyer_name,
@@ -150,7 +158,15 @@ async def _handle_animal_created(
     uow: SQLAlchemyUnitOfWork, notification_service: NotificationService, e: AnimalCreatedEvent
 ):
     actor_user = await uow.users.get(e.actor_user_id)
-    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    actor_label = (
+        (
+            f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+            if actor_user.first_name
+            else actor_user.email.split("@")[0]
+        )
+        if actor_user and actor_user.email
+        else None
+    )
     built = build_notification(
         NotificationType.ANIMAL_CREATED,
         animal_id=e.animal_id,
@@ -176,7 +192,15 @@ async def _handle_animal_updated(
     uow: SQLAlchemyUnitOfWork, notification_service: NotificationService, e: AnimalUpdatedEvent
 ):
     actor_user = await uow.users.get(e.actor_user_id)
-    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    actor_label = (
+        (
+            f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+            if actor_user.first_name
+            else actor_user.email.split("@")[0]
+        )
+        if actor_user and actor_user.email
+        else None
+    )
     built = build_notification(
         NotificationType.ANIMAL_UPDATED,
         animal_id=e.animal_id,
@@ -205,7 +229,15 @@ async def _handle_animal_event_created(
     e: AnimalEventCreatedEvent,
 ):
     actor_user = await uow.users.get(e.actor_user_id)
-    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    actor_label = (
+        (
+            f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+            if actor_user.first_name
+            else actor_user.email.split("@")[0]
+        )
+        if actor_user and actor_user.email
+        else None
+    )
     # Try to resolve animal if tag/name missing
     tag = e.tag
     name = e.name
@@ -258,7 +290,15 @@ async def _handle_production_recorded(
     animal_label = animal.tag if animal else "Animal"
     animal_name = animal.name if animal and animal.name else ""
     actor_user = await uow.users.get(e.actor_user_id)
-    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    actor_label = (
+        (
+            f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+            if actor_user.first_name
+            else actor_user.email.split("@")[0]
+        )
+        if actor_user and actor_user.email
+        else None
+    )
     built = build_notification(
         NotificationType.PRODUCTION_RECORDED,
         animal_label=animal_label,
@@ -291,7 +331,15 @@ async def _handle_production_low(
     animal_label = animal.tag if animal else "Animal"
     animal_name = animal.name if animal and animal.name else ""
     actor_user = await uow.users.get(e.actor_user_id)
-    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    actor_label = (
+        (
+            f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+            if actor_user.first_name
+            else actor_user.email.split("@")[0]
+        )
+        if actor_user and actor_user.email
+        else None
+    )
     built = build_notification(
         NotificationType.PRODUCTION_LOW,
         animal_label=animal_label,
@@ -324,7 +372,15 @@ async def _handle_pregnancy_check_recorded(
     e: PregnancyCheckRecordedEvent,
 ):
     actor_user = await uow.users.get(e.actor_user_id)
-    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    actor_label = (
+        (
+            f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+            if actor_user.first_name
+            else actor_user.email.split("@")[0]
+        )
+        if actor_user and actor_user.email
+        else None
+    )
     built = build_notification(
         NotificationType.PREGNANCY_CHECK_RECORDED,
         insemination_id=e.insemination_id,
@@ -383,7 +439,15 @@ async def _handle_production_bulk_recorded(
     e: ProductionBulkRecordedEvent,
 ):
     actor_user = await uow.users.get(e.actor_user_id)
-    actor_label = (actor_user.email.split("@")[0]) if actor_user and actor_user.email else None
+    actor_label = (
+        (
+            f"{actor_user.first_name} {actor_user.last_name or ''}".strip()
+            if actor_user.first_name
+            else actor_user.email.split("@")[0]
+        )
+        if actor_user and actor_user.email
+        else None
+    )
     built = build_notification(
         NotificationType.PRODUCTION_BULK_RECORDED,
         count=e.count,

@@ -23,6 +23,14 @@ class UserWithRole:
         return self.user.email
 
     @property
+    def first_name(self) -> str | None:
+        return self.user.first_name
+
+    @property
+    def last_name(self) -> str | None:
+        return self.user.last_name
+
+    @property
     def is_active(self) -> bool:
         return self.user.is_active
 
@@ -43,6 +51,10 @@ class UserRepository(Protocol):
     async def set_active(self, user_id: UUID, is_active: bool) -> None: ...
 
     async def update_last_login(self, user_id: UUID, last_login: datetime) -> None: ...
+
+    async def update_profile(
+        self, user_id: UUID, first_name: str | None, last_name: str | None
+    ) -> None: ...
 
     async def list_by_tenant(
         self,

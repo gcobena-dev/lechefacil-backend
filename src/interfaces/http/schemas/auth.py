@@ -16,6 +16,8 @@ class MembershipSchema(BaseModel):
 class MeResponse(BaseModel):
     user_id: UUID
     email: EmailStr
+    first_name: str | None = None
+    last_name: str | None = None
     active_tenant: UUID
     active_role: Role
     memberships: list[MembershipSchema]
@@ -33,6 +35,8 @@ class LoginResponse(BaseModel):
     token_type: str
     user_id: UUID
     email: EmailStr
+    first_name: str | None = None
+    last_name: str | None = None
     must_change_password: bool
     memberships: list[MembershipSchema]
     # Optional: included for mobile flows when requested or when using Authorization-based refresh
@@ -96,6 +100,8 @@ class AddMembershipResponse(BaseModel):
 class SelfRegisterRequest(BaseModel):
     email: EmailStr
     password: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class SelfRegisterResponse(BaseModel):
@@ -171,8 +177,21 @@ class ResetPasswordResponse(BaseModel):
 class SetPasswordRequest(BaseModel):
     token: str
     new_password: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class SetPasswordResponse(BaseModel):
     status: str
+    message: str
+
+
+class UpdateProfileRequest(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+
+
+class UpdateProfileResponse(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
     message: str

@@ -12,6 +12,8 @@ from src.infrastructure.auth.password import PasswordHasher
 class SelfRegisterInput:
     email: str
     password: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @dataclass(slots=True)
@@ -27,7 +29,13 @@ async def execute(
     if existing:
         raise ConflictError("Email already registered")
     hashed = password_hasher.hash(payload.password)
-    user = User.create(email=payload.email, hashed_password=hashed, is_active=True)
+    user = User.create(
+        email=payload.email,
+        hashed_password=hashed,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        is_active=True,
+    )
     created = await uow.users.add(user)
     await uow.commit()
     return SelfRegisterResult(user_id=str(created.id), email=created.email)

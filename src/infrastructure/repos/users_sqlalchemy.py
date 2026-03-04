@@ -24,6 +24,8 @@ class UsersSQLAlchemyRepository(UserRepository):
             id=orm.id,
             email=orm.email,
             hashed_password=orm.hashed_password,
+            first_name=orm.first_name,
+            last_name=orm.last_name,
             is_active=orm.is_active,
             must_change_password=orm.must_change_password,
             last_login=orm.last_login,
@@ -36,6 +38,8 @@ class UsersSQLAlchemyRepository(UserRepository):
             id=user.id,
             email=user.email,
             hashed_password=user.hashed_password,
+            first_name=user.first_name,
+            last_name=user.last_name,
             is_active=user.is_active,
             must_change_password=user.must_change_password,
             created_at=user.created_at,
@@ -80,6 +84,18 @@ class UsersSQLAlchemyRepository(UserRepository):
         stmt = update(UserORM).where(UserORM.id == user_id).values(last_login=last_login)
         await self.session.execute(stmt)
 
+    async def update_profile(
+        self, user_id: UUID, first_name: str | None, last_name: str | None
+    ) -> None:
+        stmt = (
+            update(UserORM)
+            .where(UserORM.id == user_id)
+            .values(first_name=first_name, last_name=last_name)
+        )
+        result = await self.session.execute(stmt)
+        if result.rowcount == 0:
+            raise NotFound("User not found")
+
     async def list_by_tenant(
         self,
         tenant_id: UUID,
@@ -102,6 +118,8 @@ class UsersSQLAlchemyRepository(UserRepository):
             base_query = base_query.where(
                 or_(
                     func.lower(UserORM.email).like(search_pattern),
+                    func.lower(func.coalesce(UserORM.first_name, "")).like(search_pattern),
+                    func.lower(func.coalesce(UserORM.last_name, "")).like(search_pattern),
                 )
             )
 

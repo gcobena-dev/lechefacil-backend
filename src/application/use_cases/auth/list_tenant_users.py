@@ -20,6 +20,8 @@ class ListTenantUsersInput:
 class UserResult:
     id: UUID
     email: str
+    first_name: str | None
+    last_name: str | None
     role: Role
     is_active: bool
     created_at: str
@@ -50,6 +52,8 @@ async def execute(uow: UnitOfWork, payload: ListTenantUsersInput) -> ListTenantU
                 UserResult(
                     id=user_with_role.id,
                     email=user_with_role.email,
+                    first_name=user_with_role.first_name,
+                    last_name=user_with_role.last_name,
                     role=user_with_role.role,
                     is_active=user_with_role.is_active,
                     created_at=user_with_role.created_at,
