@@ -5197,6 +5197,31 @@
         }
       }
     },
+    "/api/v1/reproduction/inseminations/technicians": {
+      "get": {
+        "tags": [
+          "reproduction"
+        ],
+        "summary": "Distinct Technicians Endpoint",
+        "operationId": "distinct_technicians_endpoint_api_v1_reproduction_inseminations_technicians_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Distinct Technicians Endpoint Api V1 Reproduction Inseminations Technicians Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reproduction/inseminations/pending-checks": {
       "get": {
         "tags": [
@@ -8884,6 +8909,18 @@
               }
             ],
             "title": "Protocol"
+          },
+          "sire_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Catalog Id"
           }
         },
         "type": "object",

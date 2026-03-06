@@ -123,6 +123,15 @@ async def list_inseminations_endpoint(
     }
 
 
+@router.get("/technicians", response_model=list[str])
+async def distinct_technicians_endpoint(
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+):
+    technicians = await uow.inseminations.get_distinct_technicians(context.tenant_id)
+    return technicians
+
+
 @router.get("/pending-checks", response_model=list[InseminationResponse])
 async def pending_pregnancy_checks_endpoint(
     min_days: int = 35,
@@ -198,6 +207,8 @@ async def update_insemination_endpoint(
         record.heat_detected = update_data["heat_detected"]
     if "protocol" in update_data:
         record.protocol = update_data["protocol"]
+    if "sire_catalog_id" in update_data:
+        record.sire_catalog_id = update_data["sire_catalog_id"]
 
     record.bump_version()
     updated = await uow.inseminations.update(record)

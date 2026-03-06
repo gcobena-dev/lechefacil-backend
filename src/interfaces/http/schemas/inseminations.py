@@ -30,6 +30,7 @@ class InseminationUpdate(BaseModel):
     notes: str | None = None
     heat_detected: bool | None = None
     protocol: str | None = None
+    sire_catalog_id: UUID | None = None
 
 
 class PregnancyCheckInput(BaseModel):

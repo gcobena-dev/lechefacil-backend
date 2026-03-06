@@ -433,6 +433,20 @@ class InseminationsSQLAlchemyRepository:
             )
         return rows
 
+    async def get_distinct_technicians(self, tenant_id: UUID, limit: int = 5) -> list[str]:
+        stmt = (
+            select(InseminationORM.technician)
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .where(InseminationORM.technician.isnot(None))
+            .where(InseminationORM.technician != "")
+            .group_by(InseminationORM.technician)
+            .order_by(func.count().desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [row[0] for row in result.all()]
+
     async def delete(self, insemination: Insemination) -> None:
         orm = await self.session.get(InseminationORM, insemination.id)
         if orm:
