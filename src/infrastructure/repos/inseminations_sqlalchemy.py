@@ -281,32 +281,17 @@ class InseminationsSQLAlchemyRepository:
         agg_result = await self.session.execute(agg_stmt)
         row = agg_result.one()
 
-        # Status counts based on last insemination per animal (within date range)
-        ranked = (
+        # Status counts based on all inseminations (within date range)
+        status_stmt = (
             select(
-                InseminationORM.animal_id,
                 InseminationORM.pregnancy_status,
-                func.row_number()
-                .over(
-                    partition_by=InseminationORM.animal_id,
-                    order_by=InseminationORM.service_date.desc(),
-                )
-                .label("rn"),
+                func.count().label("cnt"),
             )
             .where(InseminationORM.tenant_id == tenant_id)
             .where(InseminationORM.deleted_at.is_(None))
             .where(InseminationORM.service_date >= date_from)
             .where(InseminationORM.service_date <= date_to)
-            .subquery()
-        )
-
-        status_stmt = (
-            select(
-                ranked.c.pregnancy_status,
-                func.count().label("cnt"),
-            )
-            .where(ranked.c.rn == 1)
-            .group_by(ranked.c.pregnancy_status)
+            .group_by(InseminationORM.pregnancy_status)
         )
 
         status_result = await self.session.execute(status_stmt)
