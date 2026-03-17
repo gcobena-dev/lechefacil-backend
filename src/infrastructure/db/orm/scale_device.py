@@ -21,6 +21,10 @@ class ScaleDeviceORM(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     firmware_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    pairing_pin: Mapped[str | None] = mapped_column(String(6), index=True, nullable=True)
+    pairing_pin_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

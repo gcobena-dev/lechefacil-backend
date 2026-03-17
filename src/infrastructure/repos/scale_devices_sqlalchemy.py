@@ -25,6 +25,8 @@ class ScaleDevicesSQLAlchemyRepository:
             is_active=orm.is_active,
             last_seen_at=orm.last_seen_at,
             firmware_version=orm.firmware_version,
+            pairing_pin=orm.pairing_pin,
+            pairing_pin_expires_at=orm.pairing_pin_expires_at,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
         )
@@ -65,6 +67,8 @@ class ScaleDevicesSQLAlchemyRepository:
             is_active=device.is_active,
             last_seen_at=device.last_seen_at,
             firmware_version=device.firmware_version,
+            pairing_pin=device.pairing_pin,
+            pairing_pin_expires_at=device.pairing_pin_expires_at,
             created_at=device.created_at,
             updated_at=device.updated_at,
         )
@@ -82,6 +86,26 @@ class ScaleDevicesSQLAlchemyRepository:
         result = await self.session.execute(stmt)
         orm = result.scalar_one_or_none()
         return self._to_domain(orm) if orm else None
+
+    async def get_by_pairing_pin(self, pin: str) -> ScaleDevice | None:
+        now = datetime.now(timezone.utc)
+        result = await self.session.execute(
+            select(ScaleDeviceORM).where(
+                ScaleDeviceORM.pairing_pin == pin,
+                ScaleDeviceORM.is_active.is_(True),
+                ScaleDeviceORM.pairing_pin_expires_at > now,
+            )
+        )
+        orm = result.scalar_one_or_none()
+        return self._to_domain(orm) if orm else None
+
+    async def clear_pairing_pin(self, device_id: UUID) -> None:
+        stmt = (
+            update(ScaleDeviceORM)
+            .where(ScaleDeviceORM.id == device_id)
+            .values(pairing_pin=None, pairing_pin_expires_at=None)
+        )
+        await self.session.execute(stmt)
 
     async def update_last_seen(self, device_id: UUID, firmware_version: str | None = None) -> None:
         data: dict = {"last_seen_at": datetime.now(timezone.utc)}

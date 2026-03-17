@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 
 from src.interfaces.http.deps import get_uow
 from src.interfaces.http.schemas.scale_devices import (
+    ScalePairRequest,
+    ScalePairResponse,
     ScaleSyncRequest,
     ScaleSyncResponse,
 )
@@ -75,6 +77,25 @@ async def sync_records(
         accepted=len(new_records),
         duplicates=len(existing_ids),
     )
+
+
+@router.post("/pair", response_model=ScalePairResponse, status_code=status.HTTP_200_OK)
+async def pair_device(
+    payload: ScalePairRequest,
+    uow=Depends(get_uow),
+):
+    """ESP32 exchanges a pairing PIN for its API key."""
+    device = await uow.scale_devices.get_by_pairing_pin(payload.pin)
+    if device is None:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"code": "INVALID_PIN", "message": "Invalid or expired pairing PIN"},
+        )
+
+    await uow.scale_devices.clear_pairing_pin(device.id)
+    await uow.commit()
+
+    return ScalePairResponse(api_key=device.api_key, device_name=device.name)
 
 
 @router.get("/config")

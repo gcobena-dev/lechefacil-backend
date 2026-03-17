@@ -17,6 +17,8 @@ class ScaleDevice:
     is_active: bool = True
     last_seen_at: datetime | None = None
     firmware_version: str | None = None
+    pairing_pin: str | None = None
+    pairing_pin_expires_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -41,3 +43,7 @@ class ScaleDevice:
             created_at=now,
             updated_at=now,
         )
+
+    @staticmethod
+    def generate_pairing_pin() -> str:
+        return str(secrets.randbelow(900000) + 100000)

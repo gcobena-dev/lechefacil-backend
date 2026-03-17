@@ -5634,6 +5634,48 @@
         }
       }
     },
+    "/api/v1/scale/pair": {
+      "post": {
+        "tags": [
+          "scale-sync"
+        ],
+        "summary": "Pair Device",
+        "description": "ESP32 exchanges a pairing PIN for its API key.",
+        "operationId": "pair_device_api_v1_scale_pair_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScalePairRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScalePairResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/scale/config": {
       "get": {
         "tags": [
@@ -5899,6 +5941,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScaleDeviceCreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scale-devices/{device_id}/generate-pin": {
+      "post": {
+        "tags": [
+          "scale-devices"
+        ],
+        "summary": "Generate Pairing Pin",
+        "description": "Generate a new pairing PIN for an existing device. Expires in 10 minutes.",
+        "operationId": "generate_pairing_pin_api_v1_scale_devices__device_id__generate_pin_post",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Device Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingPinResponse"
                 }
               }
             }
@@ -10944,6 +11030,25 @@
         ],
         "title": "PaginationInfo"
       },
+      "PairingPinResponse": {
+        "properties": {
+          "pin": {
+            "type": "string",
+            "title": "Pin"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pin",
+          "expires_at"
+        ],
+        "title": "PairingPinResponse"
+      },
       "PendingRecordsResponse": {
         "properties": {
           "items": {
@@ -11932,6 +12037,29 @@
             ],
             "title": "Firmware Version"
           },
+          "pairing_pin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pairing Pin"
+          },
+          "pairing_pin_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pairing Pin Expires At"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -12151,6 +12279,40 @@
         },
         "type": "object",
         "title": "ScaleDeviceUpdate"
+      },
+      "ScalePairRequest": {
+        "properties": {
+          "pin": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^\\d{6}$",
+            "title": "Pin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pin"
+        ],
+        "title": "ScalePairRequest"
+      },
+      "ScalePairResponse": {
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "title": "Api Key"
+          },
+          "device_name": {
+            "type": "string",
+            "title": "Device Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "api_key",
+          "device_name"
+        ],
+        "title": "ScalePairResponse"
       },
       "ScaleSyncRecord": {
         "properties": {

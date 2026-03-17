@@ -56,6 +56,8 @@ class ScaleDeviceCreatedResponse(BaseModel):
     is_active: bool
     last_seen_at: datetime | None
     firmware_version: str | None
+    pairing_pin: str | None = None
+    pairing_pin_expires_at: datetime | None = None
     created_at: datetime
 
     @classmethod
@@ -70,8 +72,24 @@ class ScaleDeviceCreatedResponse(BaseModel):
             is_active=device.is_active,
             last_seen_at=device.last_seen_at,
             firmware_version=device.firmware_version,
+            pairing_pin=device.pairing_pin,
+            pairing_pin_expires_at=device.pairing_pin_expires_at,
             created_at=device.created_at,
         )
+
+
+class ScalePairRequest(BaseModel):
+    pin: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class ScalePairResponse(BaseModel):
+    api_key: str
+    device_name: str
+
+
+class PairingPinResponse(BaseModel):
+    pin: str
+    expires_at: datetime
 
 
 class ScaleSyncRecord(BaseModel):

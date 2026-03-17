@@ -31,6 +31,7 @@ PUBLIC_PATHS: Iterable[str] = (
     "/api/v1/mobile",  # Mobile update endpoints (no auth required)
     "/api/v1/scale/sync",  # ESP32 scale device sync (API key auth)
     "/api/v1/scale/config",  # ESP32 scale device config (API key auth)
+    "/api/v1/scale/pair",  # ESP32 scale device pairing (PIN auth)
     # memberships is admin-only and requires tenant header; do not list here
     "/docs",
     "/openapi.json",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -11,6 +12,7 @@ from src.domain.models.scale_device import ScaleDevice
 from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.scale_devices import (
+    PairingPinResponse,
     PendingRecordsResponse,
     ScaleDeviceCreate,
     ScaleDeviceCreatedResponse,
@@ -38,6 +40,10 @@ async def register_device(
         wifi_ssid=payload.wifi_ssid,
         wifi_password=payload.wifi_password,
     )
+    pin = ScaleDevice.generate_pairing_pin()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    device.pairing_pin = pin
+    device.pairing_pin_expires_at = expires_at
     created = await uow.scale_devices.add(device)
     await uow.commit()
     return ScaleDeviceCreatedResponse.from_domain(created)
@@ -124,6 +130,29 @@ async def regenerate_api_key(
         raise NotFound("Scale device not found")
     await uow.commit()
     return ScaleDeviceCreatedResponse.from_domain(updated)
+
+
+@router.post("/{device_id}/generate-pin", response_model=PairingPinResponse)
+async def generate_pairing_pin(
+    device_id: UUID,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+):
+    """Generate a new pairing PIN for an existing device. Expires in 10 minutes."""
+    if not context.role.can_update():
+        raise PermissionDenied("Role not allowed to update devices")
+
+    device = await uow.scale_devices.get(context.tenant_id, device_id)
+    if not device:
+        raise NotFound("Scale device not found")
+
+    pin = ScaleDevice.generate_pairing_pin()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await uow.scale_devices.update(
+        context.tenant_id, device_id, {"pairing_pin": pin, "pairing_pin_expires_at": expires_at}
+    )
+    await uow.commit()
+    return PairingPinResponse(pin=pin, expires_at=expires_at)
 
 
 @router.get("/{device_id}/records", response_model=PendingRecordsResponse)
