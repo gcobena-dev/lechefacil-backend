@@ -32,6 +32,8 @@ from src.infrastructure.db.orm import (
     sire_catalog,  # noqa: F401
     semen_inventory,  # noqa: F401
     insemination,  # noqa: F401
+    scale_device,  # noqa: F401
+    scale_device_record,  # noqa: F401
 )
 
 config = context.config

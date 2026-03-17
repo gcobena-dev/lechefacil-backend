@@ -212,6 +212,11 @@ def create_app(
     from src.interfaces.http.routers import access_requests as access_requests_router
 
     api.include_router(access_requests_router.router)
+    from src.interfaces.http.routers import scale_devices as scale_devices_router
+    from src.interfaces.http.routers import scale_sync as scale_sync_router
+
+    api.include_router(scale_sync_router.router)
+    api.include_router(scale_devices_router.router)
 
     @api.get("/health", tags=["health"])
     async def health(_: Settings = Depends(get_app_settings)) -> dict[str, str]:  # noqa: ANN001

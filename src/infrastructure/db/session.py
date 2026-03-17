@@ -46,6 +46,8 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.sire_catalog = None
         self.semen_inventory = None
         self.inseminations = None
+        self.scale_devices = None
+        self.scale_device_records = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
@@ -80,6 +82,12 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             MilkProductionsSQLAlchemyRepository,
         )
         from src.infrastructure.repos.one_time_tokens_sqlalchemy import OneTimeTokenRepository
+        from src.infrastructure.repos.scale_device_records_sqlalchemy import (
+            ScaleDeviceRecordsSQLAlchemyRepository,
+        )
+        from src.infrastructure.repos.scale_devices_sqlalchemy import (
+            ScaleDevicesSQLAlchemyRepository,
+        )
         from src.infrastructure.repos.semen_inventory_sqlalchemy import (
             SemenInventorySQLAlchemyRepository,
         )
@@ -112,6 +120,8 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.sire_catalog = SireCatalogSQLAlchemyRepository(self.session)
         self.semen_inventory = SemenInventorySQLAlchemyRepository(self.session)
         self.inseminations = InseminationsSQLAlchemyRepository(self.session)
+        self.scale_devices = ScaleDevicesSQLAlchemyRepository(self.session)
+        self.scale_device_records = ScaleDeviceRecordsSQLAlchemyRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -145,6 +155,8 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.sire_catalog = None
             self.semen_inventory = None
             self.inseminations = None
+            self.scale_devices = None
+            self.scale_device_records = None
 
     async def commit(self) -> None:
         if not self.session:
