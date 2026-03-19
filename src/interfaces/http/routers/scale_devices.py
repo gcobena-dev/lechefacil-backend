@@ -160,6 +160,7 @@ async def list_device_records(
     device_id: UUID,
     status: str | None = Query(None, description="pending|imported|rejected"),
     batch_id: UUID | None = Query(None),
+    fecha: str | None = Query(None, description="Filter by date (YYYY-MM-DD)"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     context: AuthContext = Depends(get_auth_context),
@@ -170,11 +171,18 @@ async def list_device_records(
     if not device:
         raise NotFound("Scale device not found")
 
+    # Convert YYYY-MM-DD (from frontend) to DD/MM/YYYY (stored format)
+    fecha_filter = None
+    if fecha:
+        from datetime import date as date_type
+        parsed = date_type.fromisoformat(fecha)
+        fecha_filter = parsed.strftime("%d/%m/%Y")
+
     total = await uow.scale_device_records.count_for_device(
-        context.tenant_id, device_id, status=status, batch_id=batch_id
+        context.tenant_id, device_id, status=status, batch_id=batch_id, fecha=fecha_filter
     )
     items = await uow.scale_device_records.list_for_device(
-        context.tenant_id, device_id, status=status, batch_id=batch_id, limit=limit, offset=offset
+        context.tenant_id, device_id, status=status, batch_id=batch_id, fecha=fecha_filter, limit=limit, offset=offset
     )
     return PendingRecordsResponse(
         items=[ScaleDeviceRecordResponse.model_validate(r) for r in items],

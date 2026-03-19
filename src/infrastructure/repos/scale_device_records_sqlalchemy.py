@@ -89,6 +89,7 @@ class ScaleDeviceRecordsSQLAlchemyRepository:
         *,
         status: str | None = None,
         batch_id: UUID | None = None,
+        fecha: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[ScaleDeviceRecord]:
@@ -100,6 +101,8 @@ class ScaleDeviceRecordsSQLAlchemyRepository:
             conds.append(ScaleDeviceRecordORM.status == status)
         if batch_id is not None:
             conds.append(ScaleDeviceRecordORM.batch_id == batch_id)
+        if fecha is not None:
+            conds.append(ScaleDeviceRecordORM.fecha == fecha)
         result = await self.session.execute(
             select(ScaleDeviceRecordORM)
             .where(and_(*conds))
@@ -116,6 +119,7 @@ class ScaleDeviceRecordsSQLAlchemyRepository:
         *,
         status: str | None = None,
         batch_id: UUID | None = None,
+        fecha: str | None = None,
     ) -> int:
         conds = [
             ScaleDeviceRecordORM.tenant_id == tenant_id,
@@ -125,6 +129,8 @@ class ScaleDeviceRecordsSQLAlchemyRepository:
             conds.append(ScaleDeviceRecordORM.status == status)
         if batch_id is not None:
             conds.append(ScaleDeviceRecordORM.batch_id == batch_id)
+        if fecha is not None:
+            conds.append(ScaleDeviceRecordORM.fecha == fecha)
         result = await self.session.execute(
             select(func.count()).select_from(ScaleDeviceRecordORM).where(and_(*conds))
         )
