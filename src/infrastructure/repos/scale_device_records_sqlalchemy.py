@@ -136,16 +136,33 @@ class ScaleDeviceRecordsSQLAlchemyRepository:
         )
         return int(result.scalar_one() or 0)
 
-    async def check_duplicates(self, device_id: UUID, record_ids: list[int]) -> set[int]:
+    async def find_duplicates(
+        self, device_id: UUID, record_ids: list[int]
+    ) -> dict[tuple[int, str], UUID]:
+        """Return {(device_record_id, fecha): server_record_id} for existing records."""
         if not record_ids:
-            return set()
+            return {}
         result = await self.session.execute(
-            select(ScaleDeviceRecordORM.device_record_id).where(
+            select(
+                ScaleDeviceRecordORM.device_record_id,
+                ScaleDeviceRecordORM.fecha,
+                ScaleDeviceRecordORM.id,
+            ).where(
                 ScaleDeviceRecordORM.device_id == device_id,
                 ScaleDeviceRecordORM.device_record_id.in_(record_ids),
             )
         )
-        return {row[0] for row in result.all()}
+        return {(row[0], row[1]): row[2] for row in result.all()}
+
+    async def update_from_device(
+        self, record_id: UUID, *, peso, hora: str, turno: str
+    ) -> None:
+        """Overwrite device-editable fields on an existing record."""
+        await self.session.execute(
+            update(ScaleDeviceRecordORM)
+            .where(ScaleDeviceRecordORM.id == record_id)
+            .values(peso=peso, hora=hora, turno=turno)
+        )
 
     async def update_status(
         self,

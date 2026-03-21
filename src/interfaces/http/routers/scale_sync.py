@@ -40,28 +40,34 @@ async def sync_records(
 
     batch_id = uuid4()
 
-    # Check for duplicates
+    # Find existing records by (device_record_id, fecha)
     incoming_ids = [r.id for r in payload.records]
-    existing_ids = await uow.scale_device_records.check_duplicates(device.id, incoming_ids)
+    existing = await uow.scale_device_records.find_duplicates(device.id, incoming_ids)
 
-    # Build non-duplicate records
     new_records: list[ScaleDeviceRecord] = []
+    updated_count = 0
     for r in payload.records:
-        if r.id in existing_ids:
-            continue
-        new_records.append(
-            ScaleDeviceRecord.create(
-                tenant_id=device.tenant_id,
-                device_id=device.id,
-                device_record_id=r.id,
-                codigo=r.codigo,
-                peso=Decimal(r.peso),
-                fecha=r.fecha,
-                hora=r.hora,
-                turno=r.turno,
-                batch_id=batch_id,
+        key = (r.id, r.fecha)
+        if key in existing:
+            # Overwrite device-editable fields on the existing record
+            await uow.scale_device_records.update_from_device(
+                existing[key], peso=Decimal(r.peso), hora=r.hora, turno=r.turno
             )
-        )
+            updated_count += 1
+        else:
+            new_records.append(
+                ScaleDeviceRecord.create(
+                    tenant_id=device.tenant_id,
+                    device_id=device.id,
+                    device_record_id=r.id,
+                    codigo=r.codigo,
+                    peso=Decimal(r.peso),
+                    fecha=r.fecha,
+                    hora=r.hora,
+                    turno=r.turno,
+                    batch_id=batch_id,
+                )
+            )
 
     if new_records:
         await uow.scale_device_records.add_batch(new_records)
@@ -75,7 +81,7 @@ async def sync_records(
         status="ok",
         batch_id=batch_id,
         accepted=len(new_records),
-        duplicates=len(existing_ids),
+        updated=updated_count,
     )
 
 

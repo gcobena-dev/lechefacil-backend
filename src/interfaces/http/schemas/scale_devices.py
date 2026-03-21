@@ -110,7 +110,7 @@ class ScaleSyncResponse(BaseModel):
     status: str
     batch_id: UUID
     accepted: int
-    duplicates: int
+    updated: int = 0
 
 
 class ScaleDeviceRecordResponse(BaseModel):
