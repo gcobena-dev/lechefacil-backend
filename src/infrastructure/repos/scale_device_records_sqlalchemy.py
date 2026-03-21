@@ -154,9 +154,7 @@ class ScaleDeviceRecordsSQLAlchemyRepository:
         )
         return {(row[0], row[1]): row[2] for row in result.all()}
 
-    async def update_from_device(
-        self, record_id: UUID, *, peso, hora: str, turno: str
-    ) -> None:
+    async def update_from_device(self, record_id: UUID, *, peso, hora: str, turno: str) -> None:
         """Overwrite device-editable fields on an existing record."""
         await self.session.execute(
             update(ScaleDeviceRecordORM)

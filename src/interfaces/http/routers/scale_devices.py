@@ -175,6 +175,7 @@ async def list_device_records(
     fecha_filter = None
     if fecha:
         from datetime import date as date_type
+
         parsed = date_type.fromisoformat(fecha)
         fecha_filter = parsed.strftime("%d/%m/%Y")
 
@@ -182,7 +183,13 @@ async def list_device_records(
         context.tenant_id, device_id, status=status, batch_id=batch_id, fecha=fecha_filter
     )
     items = await uow.scale_device_records.list_for_device(
-        context.tenant_id, device_id, status=status, batch_id=batch_id, fecha=fecha_filter, limit=limit, offset=offset
+        context.tenant_id,
+        device_id,
+        status=status,
+        batch_id=batch_id,
+        fecha=fecha_filter,
+        limit=limit,
+        offset=offset,
     )
     return PendingRecordsResponse(
         items=[ScaleDeviceRecordResponse.model_validate(r) for r in items],
