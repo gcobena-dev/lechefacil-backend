@@ -102,6 +102,7 @@ class AttachmentsSQLAlchemyRepository(AttachmentsRepository):
                 AttachmentORM.owner_type == owner_type,
                 AttachmentORM.owner_id == owner_id,
                 AttachmentORM.is_primary.is_(True),
+                AttachmentORM.deleted_at.is_(None),
             )
             .values(is_primary=False)
         )
@@ -137,7 +138,11 @@ class AttachmentsSQLAlchemyRepository(AttachmentsRepository):
             values["is_primary"] = is_primary
         stmt = (
             update(AttachmentORM)
-            .where(AttachmentORM.tenant_id == tenant_id, AttachmentORM.id == attachment_id)
+            .where(
+                AttachmentORM.tenant_id == tenant_id,
+                AttachmentORM.id == attachment_id,
+                AttachmentORM.deleted_at.is_(None),
+            )
             .values(**values)
             .returning(AttachmentORM)
         )
@@ -148,7 +153,11 @@ class AttachmentsSQLAlchemyRepository(AttachmentsRepository):
     async def soft_delete(self, tenant_id: UUID, attachment_id: UUID) -> bool:
         stmt = (
             update(AttachmentORM)
-            .where(AttachmentORM.tenant_id == tenant_id, AttachmentORM.id == attachment_id)
+            .where(
+                AttachmentORM.tenant_id == tenant_id,
+                AttachmentORM.id == attachment_id,
+                AttachmentORM.deleted_at.is_(None),
+            )
             .values(deleted_at=func.now())
         )
         result = await self.session.execute(stmt)

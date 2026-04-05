@@ -7,11 +7,12 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
+    Index,
     Integer,
     String,
-    UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,12 +23,14 @@ from src.infrastructure.db.base import Base
 class AttachmentORM(Base):
     __tablename__ = "attachments"
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "ux_attach_owner_pos",
             "tenant_id",
             "owner_type",
             "owner_id",
             "position",
-            name="ux_attach_owner_pos",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
         ),
     )
 
