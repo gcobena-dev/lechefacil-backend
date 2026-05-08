@@ -25,6 +25,7 @@ from src.interfaces.http.deps import (
     get_auth_context,
     get_jwt_service,
     get_password_hasher,
+    get_token_user_id,
     get_uow,
 )
 from src.interfaces.http.schemas.auth import (
@@ -692,13 +693,12 @@ async def refresh_token(
 
     user_id = _UUID(str(claims.get("sub")))
     # Load user and memberships to return same shape as login
-    async with uow:
-        user = await uow.users.get(user_id)
-        if not user or not user.is_active:
-            from src.application.errors import AuthError
+    user = await uow.users.get(user_id)
+    if not user or not user.is_active:
+        from src.application.errors import AuthError
 
-            raise AuthError("Inactive or missing user")
-        memberships = await uow.memberships.list_for_user(user_id)
+        raise AuthError("Inactive or missing user")
+    memberships = await uow.memberships.list_for_user(user_id)
     access = jwt_service.create_access_token(subject=user_id)
     # Optionally rotate refresh
     new_refresh = jwt_service.create_refresh_token(subject=user_id)
@@ -737,13 +737,13 @@ async def logout_endpoint(response: Response) -> dict[str, str]:
 @router.patch("/auth/profile", response_model=UpdateProfileResponse)
 async def update_profile_endpoint(
     payload: UpdateProfileRequest,
-    context: AuthContext = Depends(get_auth_context),
+    user_id=Depends(get_token_user_id),
     uow=Depends(get_uow),
 ) -> UpdateProfileResponse:
     result = await update_profile.execute(
         uow=uow,
         payload=update_profile.UpdateProfileInput(
-            user_id=context.user_id,
+            user_id=user_id,
             first_name=payload.first_name,
             last_name=payload.last_name,
         ),

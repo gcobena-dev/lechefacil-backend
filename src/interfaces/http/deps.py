@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from uuid import UUID
 
 from fastapi import Request
 
@@ -23,6 +24,29 @@ async def get_auth_context(request: Request) -> AuthContext:
     if context is None:
         raise AuthError("Authentication required")
     return context
+
+
+async def get_token_user_id(request: Request) -> UUID:
+    # Decode JWT from Authorization header without requiring a tenant context.
+    # Used for endpoints in PUBLIC_PATHS that still need to identify the user
+    # (e.g. profile updates), where forcing X-Tenant-ID would be wrong.
+    service = getattr(request.app.state, "jwt_service", None)
+    if service is None:
+        raise RuntimeError("JWT service not configured")
+    authorization = request.headers.get("Authorization")
+    if not authorization:
+        raise AuthError("Missing Authorization header")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise AuthError("Invalid Authorization header")
+    claims = service.decode(token)
+    subject = claims.get("sub")
+    if not subject:
+        raise AuthError("Token missing subject")
+    try:
+        return UUID(str(subject))
+    except ValueError as exc:
+        raise AuthError("Token subject is not a valid UUID") from exc
 
 
 async def get_uow(request: Request) -> AsyncIterator[SQLAlchemyUnitOfWork]:
