@@ -11,6 +11,16 @@ from src.domain.value_objects.role import Role
 class MembershipSchema(BaseModel):
     tenant_id: UUID
     role: Role
+    tenant_name: str = "Mi Finca"
+    tenant_location: str | None = None
+
+
+class UserProfileResponse(BaseModel):
+    user_id: UUID
+    email: EmailStr
+    first_name: str | None = None
+    last_name: str | None = None
+    is_super_admin: bool = False
 
 
 class MeResponse(BaseModel):
@@ -61,6 +71,8 @@ class RegisterTenantRequest(BaseModel):
     email: EmailStr
     password: str | None = None  # Optional: if not provided, generates one-time token
     tenant_id: UUID | None = None
+    name: str | None = None
+    location: str | None = None
 
 
 class RegisterTenantResponse(BaseModel):

@@ -31,6 +31,7 @@ from src.infrastructure.db.base import Base
 Base.metadata.schema = None
 
 from src.infrastructure.db.orm import (  # noqa: F401
+    access_request,
     animal,
     animal_certificate,
     animal_event,
@@ -162,3 +163,21 @@ async def seeded_memberships(
         )
         await async_session.commit()
     return {"admin": admin_id, "manager": manager_id, "worker": worker_id, "vet": vet_id}
+
+
+@pytest.fixture()
+async def super_admin_user(app, client, password_hasher: PasswordHasher) -> UUID:
+    user_id = uuid4()
+    async with app.state.session_factory() as session:
+        async_session = cast(AsyncSession, session)
+        async_session.add(
+            UserORM(
+                id=user_id,
+                email="superadmin@example.com",
+                hashed_password=password_hasher.hash("secret"),
+                is_active=True,
+                is_super_admin=True,
+            )
+        )
+        await async_session.commit()
+    return user_id

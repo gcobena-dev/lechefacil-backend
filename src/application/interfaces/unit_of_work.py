@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from src.application.interfaces.repositories.access_requests import (
+    AccessRequestsRepository,
+)
 from src.application.interfaces.repositories.animal_certificates import (
     AnimalCertificatesRepository,
 )
@@ -46,6 +49,7 @@ class UnitOfWork(Protocol):
     sire_catalog: SireCatalogSQLAlchemyRepository
     semen_inventory: SemenInventorySQLAlchemyRepository
     inseminations: InseminationsSQLAlchemyRepository
+    access_requests: AccessRequestsRepository
     # Domain events collected during the transaction
     events: list
 

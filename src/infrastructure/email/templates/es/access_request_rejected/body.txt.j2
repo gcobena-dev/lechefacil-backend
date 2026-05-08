@@ -1,0 +1,8 @@
+Hola {{ full_name }},
+
+Tu solicitud para acceder a {{ farm_name }} no fue aprobada en este momento.
+
+{% if decision_notes %}Comentario del administrador:
+{{ decision_notes }}
+{% endif %}
+Si crees que es un error, puedes volver a enviar la solicitud o contactar al administrador.

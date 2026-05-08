@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from src.config.settings import get_settings
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.orm import (
+    access_request,  # noqa: F401
     animal,  # noqa: F401
     animal_status,  # noqa: F401
     attachment,  # noqa: F401

@@ -1,0 +1,24 @@
+<h2 style="margin:0 0 12px 0;font-size:18px;">¡Bienvenido a LecheFácil!</h2>
+<p style="font-size:14px;line-height:1.6;margin:0 0 12px 0;">
+  Hola {{ full_name }},
+</p>
+<p style="font-size:14px;line-height:1.6;margin:0 0 12px 0;">
+  Tu solicitud para acceder a <strong>{{ tenant_name or farm_name }}</strong> fue aprobada.
+</p>
+{% if set_password_link %}
+<p style="font-size:14px;line-height:1.6;margin:0 0 16px 0;">
+  Para empezar, establece tu contraseña haciendo clic en el botón:
+</p>
+<div style="text-align:center;margin:20px 0;">
+  <a href="{{ set_password_link }}" style="display:inline-block;padding:12px 22px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Establecer mi contraseña</a>
+</div>
+<p style="font-size:12px;color:#6b7280;line-height:1.5;margin:0;">
+  Si el botón no funciona, copia este enlace en tu navegador:<br />
+  <span style="word-break:break-all;">{{ set_password_link }}</span>
+</p>
+{% else %}
+<p style="font-size:14px;line-height:1.6;margin:0 0 12px 0;">
+  Ya puedes ingresar con tu contraseña en
+  <a href="{{ login_link }}">{{ login_link }}</a>.
+</p>
+{% endif %}

@@ -56,11 +56,25 @@ from src.interfaces.http.schemas.auth import (
     UpdateProfileRequest,
     UpdateProfileResponse,
     UserListResponse,
+    UserProfileResponse,
     UsersListResponse,
 )
 
 router = APIRouter(prefix="", tags=["auth"])
 logger = logging.getLogger(__name__)
+
+
+async def _build_membership_schema(uow, tenant_id, role) -> MembershipSchema:
+    from uuid import UUID
+
+    tid = tenant_id if isinstance(tenant_id, UUID) else UUID(str(tenant_id))
+    cfg = await uow.tenant_config.get(tid)
+    return MembershipSchema(
+        tenant_id=tid,
+        role=role,
+        tenant_name=cfg.name if cfg else "Mi Finca",
+        tenant_location=cfg.location if cfg else None,
+    )
 
 
 @router.get("/me", response_model=MeResponse)
@@ -76,7 +90,9 @@ async def read_me(
         memberships=context.memberships,
         claims=context.claims,
     )
-    memberships = [MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in result.memberships]
+    memberships = [
+        await _build_membership_schema(uow, m.tenant_id, m.role) for m in result.memberships
+    ]
     # Fetch user from DB to get first_name/last_name (not in JWT)
     user = await uow.users.get(context.user_id)
     return MeResponse(
@@ -111,7 +127,9 @@ async def login(
         password_hasher=password_hasher,
         jwt_service=jwt_service,
     )
-    memberships = [MembershipSchema(**m) for m in result.memberships]
+    memberships = [
+        await _build_membership_schema(uow, m["tenant_id"], m["role"]) for m in result.memberships
+    ]
     # Issue refresh token cookie
     refresh = jwt_service.create_refresh_token(subject=result.user_id)
     response.set_cookie(
@@ -392,6 +410,8 @@ async def register_tenant_endpoint(
             email=payload.email,
             password=temp_password,
             tenant_id=payload.tenant_id,
+            name=payload.name,
+            location=payload.location,
         ),
         password_hasher=password_hasher,
     )
@@ -451,6 +471,38 @@ async def register_tenant_endpoint(
     )
 
 
+@router.get("/auth/profile", response_model=UserProfileResponse)
+async def auth_profile(request: Request, uow=Depends(get_uow)) -> UserProfileResponse:
+    from src.application.errors import AuthError
+
+    authorization = request.headers.get("Authorization")
+    if not authorization:
+        raise AuthError("Missing Authorization header")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise AuthError("Invalid Authorization header")
+    jwt_service: JWTService | None = getattr(request.app.state, "jwt_service", None)
+    if jwt_service is None:
+        raise RuntimeError("JWT service not configured")
+    claims = jwt_service.decode(token)
+    subject = claims.get("sub")
+    if not subject:
+        raise AuthError("Token missing subject")
+    from uuid import UUID
+
+    user_id = UUID(str(subject))
+    user = await uow.users.get(user_id)
+    if not user or not user.is_active:
+        raise AuthError("Inactive or missing user")
+    return UserProfileResponse(
+        user_id=user.id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        is_super_admin=getattr(user, "is_super_admin", False),
+    )
+
+
 @router.get("/auth/my-tenants", response_model=list[MembershipSchema])
 async def my_tenants(request: Request, uow=Depends(get_uow)) -> list[MembershipSchema]:
     from src.application.errors import AuthError
@@ -472,7 +524,7 @@ async def my_tenants(request: Request, uow=Depends(get_uow)) -> list[MembershipS
 
     user_id = UUID(str(subject))
     memberships = await uow.memberships.list_for_user(user_id)
-    return [MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in memberships]
+    return [await _build_membership_schema(uow, m.tenant_id, m.role) for m in memberships]
 
 
 @router.post("/auth/memberships", response_model=AddMembershipResponse)
@@ -671,7 +723,7 @@ async def refresh_token(
         first_name=user.first_name,
         last_name=user.last_name,
         must_change_password=user.must_change_password,
-        memberships=[MembershipSchema(tenant_id=m.tenant_id, role=m.role) for m in memberships],
+        memberships=[await _build_membership_schema(uow, m.tenant_id, m.role) for m in memberships],
         refresh_token=new_refresh if include_refresh else None,
     )
 

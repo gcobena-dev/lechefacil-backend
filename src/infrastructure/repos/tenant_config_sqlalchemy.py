@@ -17,6 +17,8 @@ class TenantConfigSQLAlchemyRepository(TenantConfigRepository):
     def _to_domain(self, orm: TenantConfigORM) -> TenantConfig:
         return TenantConfig(
             tenant_id=orm.tenant_id,
+            name=orm.name,
+            location=orm.location,
             default_buyer_id=orm.default_buyer_id,
             default_density=orm.default_density,
             default_delivery_input_unit=orm.default_delivery_input_unit,
@@ -38,6 +40,8 @@ class TenantConfigSQLAlchemyRepository(TenantConfigRepository):
         if orm is None:
             orm = TenantConfigORM(
                 tenant_id=config.tenant_id,
+                name=config.name,
+                location=config.location,
                 default_buyer_id=config.default_buyer_id,
                 default_density=config.default_density,
                 default_delivery_input_unit=config.default_delivery_input_unit,
@@ -49,6 +53,8 @@ class TenantConfigSQLAlchemyRepository(TenantConfigRepository):
             await self.session.flush()
             return self._to_domain(orm)
         # Update existing fields from domain in case of explicit upsert usage
+        orm.name = config.name
+        orm.location = config.location
         orm.default_buyer_id = config.default_buyer_id
         orm.default_density = config.default_density
         orm.default_delivery_input_unit = config.default_delivery_input_unit

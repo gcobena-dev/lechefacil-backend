@@ -9,6 +9,8 @@ from uuid import UUID
 @dataclass(slots=True)
 class TenantConfig:
     tenant_id: UUID
+    name: str = "Mi Finca"
+    location: str | None = None
     default_buyer_id: UUID | None = None
     default_density: Decimal = Decimal("1.03")
     default_delivery_input_unit: str = "l"

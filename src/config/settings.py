@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     # Email branding (for templates)
     email_primary_color: str = "#16a34a"  # Tailwind 'green-600' default
     email_reset_url_base: str | None = None
+    app_base_url: str | None = None
     # UniOne email provider settings
     unione_api_key: SecretStr | None = None
     unione_api_url: str = "https://us1.unione.io/en/transactional/api/v1/email/send.json"

@@ -27,6 +27,7 @@ PUBLIC_PATHS: Iterable[str] = (
     "/api/v1/auth/refresh",
     "/api/v1/auth/logout",
     "/api/v1/auth/my-tenants",
+    "/api/v1/auth/profile",
     "/api/v1/access-requests",
     "/api/v1/mobile",  # Mobile update endpoints (no auth required)
     "/api/v1/scale/sync",  # ESP32 scale device sync (API key auth)

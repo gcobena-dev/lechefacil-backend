@@ -17,6 +17,8 @@ class RegisterTenantInput:
     email: str
     password: str
     tenant_id: UUID | None = None
+    name: str | None = None
+    location: str | None = None
 
 
 @dataclass(slots=True)
@@ -50,10 +52,14 @@ async def execute(
     membership = Membership(user_id=user_id, tenant_id=tenant_id, role=Role.ADMIN)
     await uow.memberships.add(membership)
 
-    # Ensure tenant config exists with defaults
+    # Ensure tenant config exists with defaults (preserves identity if already set)
     cfg = await uow.tenant_config.get(tenant_id)
     if not cfg:
-        cfg = TenantConfig(tenant_id=tenant_id)
+        cfg = TenantConfig(
+            tenant_id=tenant_id,
+            name=payload.name or "Mi Finca",
+            location=payload.location,
+        )
         await uow.tenant_config.upsert(cfg)
 
     await uow.commit()

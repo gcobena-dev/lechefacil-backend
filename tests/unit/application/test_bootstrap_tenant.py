@@ -83,9 +83,7 @@ async def test_bootstrap_creates_user_tenant_membership_for_new_email():
 
     result = await bootstrap_tenant.execute(
         uow=uow,
-        payload=bootstrap_tenant.RegisterTenantInput(
-            email="new@example.com", password="pwd123"
-        ),
+        payload=bootstrap_tenant.RegisterTenantInput(email="new@example.com", password="pwd123"),
         password_hasher=StubHasher(),
     )
 
@@ -126,6 +124,45 @@ async def test_bootstrap_assigns_new_tenant_to_existing_user():
     assert memberships.added.role is Role.ADMIN
     assert uow.tenant_config.upserted is not None
     assert uow.commits == [True]
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_creates_tenant_config_with_default_name():
+    users = StubUsersRepo(existing=None)
+    memberships = StubMembershipsRepo()
+    uow = make_uow(users, memberships)
+
+    await bootstrap_tenant.execute(
+        uow=uow,
+        payload=bootstrap_tenant.RegisterTenantInput(email="new@example.com", password="pwd"),
+        password_hasher=StubHasher(),
+    )
+
+    assert uow.tenant_config.upserted is not None
+    assert uow.tenant_config.upserted.name == "Mi Finca"
+    assert uow.tenant_config.upserted.location is None
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_creates_tenant_config_with_provided_name_location():
+    users = StubUsersRepo(existing=None)
+    memberships = StubMembershipsRepo()
+    uow = make_uow(users, memberships)
+
+    await bootstrap_tenant.execute(
+        uow=uow,
+        payload=bootstrap_tenant.RegisterTenantInput(
+            email="new@example.com",
+            password="pwd",
+            name="Finca Las Palmas",
+            location="Ecuador",
+        ),
+        password_hasher=StubHasher(),
+    )
+
+    assert uow.tenant_config.upserted is not None
+    assert uow.tenant_config.upserted.name == "Finca Las Palmas"
+    assert uow.tenant_config.upserted.location == "Ecuador"
 
 
 @pytest.mark.asyncio

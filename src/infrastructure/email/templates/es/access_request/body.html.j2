@@ -33,3 +33,22 @@
 </div>
 {% endif %}
 
+{% if approve_link or reject_link or detail_link %}
+<div style="margin-top:24px;text-align:center;">
+  {% if approve_link %}
+  <a href="{{ approve_link }}" style="display:inline-block;padding:10px 18px;margin:0 6px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Aprobar</a>
+  {% endif %}
+  {% if reject_link %}
+  <a href="{{ reject_link }}" style="display:inline-block;padding:10px 18px;margin:0 6px;background:#dc2626;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Rechazar</a>
+  {% endif %}
+</div>
+{% if detail_link %}
+<div style="margin-top:14px;text-align:center;font-size:13px;">
+  <a href="{{ detail_link }}" style="color:#6b7280;">Ver en el panel</a>
+</div>
+{% endif %}
+<div style="margin-top:14px;font-size:11px;color:#9ca3af;text-align:center;">
+  Los enlaces de Aprobar/Rechazar caducan en 7 días.
+</div>
+{% endif %}
+

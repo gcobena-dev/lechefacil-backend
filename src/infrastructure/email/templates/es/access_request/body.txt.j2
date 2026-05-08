@@ -10,3 +10,6 @@ Rol solicitado: {{ requested_role }}
 Mensaje:
 {{ message or '-' }}
 
+{% if approve_link %}Aprobar: {{ approve_link }}{% endif %}
+{% if reject_link %}Rechazar: {{ reject_link }}{% endif %}
+{% if detail_link %}Ver: {{ detail_link }}{% endif %}

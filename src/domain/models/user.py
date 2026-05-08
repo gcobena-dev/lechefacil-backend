@@ -14,6 +14,7 @@ class User:
     last_name: str | None = None
     is_active: bool = True
     must_change_password: bool = False
+    is_super_admin: bool = False
     last_login: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -28,6 +29,7 @@ class User:
         last_name: str | None = None,
         is_active: bool = True,
         must_change_password: bool = False,
+        is_super_admin: bool = False,
     ) -> User:
         now = datetime.now(timezone.utc)
         return cls(
@@ -38,6 +40,7 @@ class User:
             last_name=last_name,
             is_active=is_active,
             must_change_password=must_change_password,
+            is_super_admin=is_super_admin,
             created_at=now,
             updated_at=now,
         )

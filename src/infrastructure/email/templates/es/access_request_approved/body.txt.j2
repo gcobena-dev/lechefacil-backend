@@ -1,0 +1,6 @@
+Hola {{ full_name }},
+
+Tu solicitud para acceder a {{ tenant_name or farm_name }} fue aprobada.
+
+{% if set_password_link %}Para empezar, establece tu contraseña en:
+{{ set_password_link }}{% else %}Ya puedes ingresar con tu contraseña en {{ login_link }}.{% endif %}

@@ -1,0 +1,16 @@
+<h2 style="margin:0 0 12px 0;font-size:18px;">Solicitud de acceso</h2>
+<p style="font-size:14px;line-height:1.6;margin:0 0 12px 0;">
+  Hola {{ full_name }},
+</p>
+<p style="font-size:14px;line-height:1.6;margin:0 0 12px 0;">
+  Tu solicitud para acceder a <strong>{{ farm_name }}</strong> no fue aprobada en este momento.
+</p>
+{% if decision_notes %}
+<div style="margin:16px 0;padding:12px;background:#f9fafb;border-left:3px solid #d1d5db;font-size:14px;line-height:1.5;">
+  <div style="color:#6b7280;font-size:12px;margin-bottom:4px;">Comentario del administrador</div>
+  <div style="white-space:pre-wrap;">{{ decision_notes }}</div>
+</div>
+{% endif %}
+<p style="font-size:14px;line-height:1.6;margin:12px 0 0 0;">
+  Si crees que es un error, puedes volver a enviar la solicitud o contactar al administrador.
+</p>

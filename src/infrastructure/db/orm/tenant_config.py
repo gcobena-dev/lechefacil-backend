@@ -13,6 +13,8 @@ class TenantConfigORM(Base):
     __tablename__ = "tenant_configs"
 
     tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, default="Mi Finca")
+    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     default_buyer_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     default_density: Mapped[str] = mapped_column(DECIMAL(4, 2), nullable=False, default="1.03")
     default_delivery_input_unit: Mapped[str] = mapped_column(String(8), nullable=False, default="l")

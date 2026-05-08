@@ -28,6 +28,7 @@ class UsersSQLAlchemyRepository(UserRepository):
             last_name=orm.last_name,
             is_active=orm.is_active,
             must_change_password=orm.must_change_password,
+            is_super_admin=getattr(orm, "is_super_admin", False),
             last_login=orm.last_login,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
@@ -42,6 +43,7 @@ class UsersSQLAlchemyRepository(UserRepository):
             last_name=user.last_name,
             is_active=user.is_active,
             must_change_password=user.must_change_password,
+            is_super_admin=user.is_super_admin,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

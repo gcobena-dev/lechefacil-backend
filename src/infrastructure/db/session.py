@@ -48,9 +48,13 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.inseminations = None
         self.scale_devices = None
         self.scale_device_records = None
+        self.access_requests = None
 
     async def __aenter__(self) -> UnitOfWork:
         self.session = self._session_factory()
+        from src.infrastructure.repos.access_requests_sqlalchemy import (
+            AccessRequestsSQLAlchemyRepository,
+        )
         from src.infrastructure.repos.animal_certificates_sqlalchemy import (
             AnimalCertificatesSQLAlchemyRepository,
         )
@@ -122,6 +126,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
         self.inseminations = InseminationsSQLAlchemyRepository(self.session)
         self.scale_devices = ScaleDevicesSQLAlchemyRepository(self.session)
         self.scale_device_records = ScaleDeviceRecordsSQLAlchemyRepository(self.session)
+        self.access_requests = AccessRequestsSQLAlchemyRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -157,6 +162,7 @@ class SQLAlchemyUnitOfWork(UnitOfWork):
             self.inseminations = None
             self.scale_devices = None
             self.scale_device_records = None
+            self.access_requests = None
 
     async def commit(self) -> None:
         if not self.session:
