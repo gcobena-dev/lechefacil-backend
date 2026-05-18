@@ -13,6 +13,7 @@ class MembershipSchema(BaseModel):
     role: Role
     tenant_name: str = "Mi Finca"
     tenant_location: str | None = None
+    animals_count: int = 0
 
 
 class UserProfileResponse(BaseModel):

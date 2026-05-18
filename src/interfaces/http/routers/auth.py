@@ -70,11 +70,13 @@ async def _build_membership_schema(uow, tenant_id, role) -> MembershipSchema:
 
     tid = tenant_id if isinstance(tenant_id, UUID) else UUID(str(tenant_id))
     cfg = await uow.tenant_config.get(tid)
+    animals_count = await uow.animals.count(tid, is_active=True)
     return MembershipSchema(
         tenant_id=tid,
         role=role,
         tenant_name=cfg.name if cfg else "Mi Finca",
         tenant_location=cfg.location if cfg else None,
+        animals_count=animals_count,
     )
 
 
