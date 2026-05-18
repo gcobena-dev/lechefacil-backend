@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.models.semen_inventory import SemenInventory
 from src.infrastructure.db.orm.semen_inventory import SemenInventoryORM
+from src.infrastructure.db.orm.sire_catalog import SireCatalogORM
 
 
 class SemenInventorySQLAlchemyRepository:
@@ -139,6 +140,24 @@ class SemenInventorySQLAlchemyRepository:
             .select_from(SemenInventoryORM)
             .where(SemenInventoryORM.tenant_id == tenant_id)
             .where(SemenInventoryORM.deleted_at.is_(None))
+        )
+        if in_stock_only:
+            stmt = stmt.where(SemenInventoryORM.current_quantity > 0)
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
+
+    async def count_distinct_breeds(
+        self,
+        tenant_id: UUID,
+        in_stock_only: bool = True,
+    ) -> int:
+        stmt = (
+            select(func.count(func.distinct(SireCatalogORM.breed_id)))
+            .select_from(SemenInventoryORM)
+            .join(SireCatalogORM, SireCatalogORM.id == SemenInventoryORM.sire_catalog_id)
+            .where(SemenInventoryORM.tenant_id == tenant_id)
+            .where(SemenInventoryORM.deleted_at.is_(None))
+            .where(SireCatalogORM.breed_id.is_not(None))
         )
         if in_stock_only:
             stmt = stmt.where(SemenInventoryORM.current_quantity > 0)

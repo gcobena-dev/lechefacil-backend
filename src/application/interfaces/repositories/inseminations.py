@@ -51,6 +51,8 @@ class InseminationsRepository(Protocol):
         animal_id: UUID,
     ) -> Insemination | None: ...
 
+    async def get_latest_per_animal(self, tenant_id: UUID) -> dict[UUID, dict]: ...
+
     async def count_by_sire(
         self,
         tenant_id: UUID,

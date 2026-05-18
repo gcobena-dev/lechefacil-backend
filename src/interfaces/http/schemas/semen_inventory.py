@@ -61,3 +61,4 @@ class SemenInventoryListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+    breeds_count: int = 0

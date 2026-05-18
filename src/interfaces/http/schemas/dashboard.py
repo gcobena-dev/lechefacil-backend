@@ -153,6 +153,48 @@ class PostpartumAlert(BaseModel):
     alert_level: str
 
 
+class ReproductionPreviousPeriod(BaseModel):
+    cows_inseminated: int
+    straws_used: int
+    services_per_cow: float
+    pregnant_pct: float
+    open_pct: float
+    pending_pct: float
+    conception_rate: float
+
+
+class ReproductiveAnimalRowSchema(BaseModel):
+    animal_id: UUID
+    tag: str
+    name: str | None
+    days_postpartum: int | None
+    last_calving_date: date | None
+    alert_level: str
+    bucket: str
+    situation_label: str
+    last_event_type: str | None
+    last_event_date: date | None
+    last_insemination_id: UUID | None
+    last_insemination_status: str | None
+
+
+class BucketCountsSchema(BaseModel):
+    alertas: int = 0
+    inseminadas: int = 0
+    prenadas: int = 0
+    vacias: int = 0
+    sin_inseminar: int = 0
+    todas: int = 0
+
+
+class ReproductiveAnimalsResponse(BaseModel):
+    items: list[ReproductiveAnimalRowSchema]
+    total: int
+    bucket_counts: BucketCountsSchema
+    limit: int
+    offset: int
+
+
 class ReproductionKPIsResponse(BaseModel):
     cows_inseminated: int
     straws_used: int
@@ -166,3 +208,4 @@ class ReproductionKPIsResponse(BaseModel):
     monthly_activity: list[MonthlyActivity]
     monthly_trends: list[MonthlyTrend]
     postpartum_alerts: list[PostpartumAlert]
+    previous_period: ReproductionPreviousPeriod | None = None

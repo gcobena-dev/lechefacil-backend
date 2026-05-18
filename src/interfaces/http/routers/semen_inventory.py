@@ -62,11 +62,15 @@ async def list_semen_stock_endpoint(
         limit=limit,
         offset=offset,
     )
+    breeds_count = await uow.semen_inventory.count_distinct_breeds(
+        context.tenant_id, in_stock_only=True
+    )
     return {
         "items": result.items,
         "total": result.total,
         "limit": limit,
         "offset": offset,
+        "breeds_count": breeds_count,
     }
 
 

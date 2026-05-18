@@ -227,6 +227,33 @@ class InseminationsSQLAlchemyRepository:
         orm = result.scalar_one_or_none()
         return self._to_domain(orm) if orm else None
 
+    async def get_latest_per_animal(self, tenant_id: UUID) -> dict[UUID, dict]:
+        stmt = (
+            select(
+                InseminationORM.animal_id,
+                InseminationORM.id,
+                InseminationORM.service_date,
+                InseminationORM.pregnancy_status,
+                InseminationORM.pregnancy_check_date,
+                InseminationORM.expected_calving_date,
+            )
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .distinct(InseminationORM.animal_id)
+            .order_by(InseminationORM.animal_id, InseminationORM.service_date.desc())
+        )
+        result = await self.session.execute(stmt)
+        return {
+            r.animal_id: {
+                "insemination_id": r.id,
+                "service_date": r.service_date,
+                "pregnancy_status": r.pregnancy_status,
+                "pregnancy_check_date": r.pregnancy_check_date,
+                "expected_calving_date": r.expected_calving_date,
+            }
+            for r in result.all()
+        }
+
     async def count_by_sire(
         self,
         tenant_id: UUID,
@@ -266,10 +293,11 @@ class InseminationsSQLAlchemyRepository:
     ) -> dict:
         """Aggregate: cows inseminated, straws used, and
         status counts (based on last insemination per animal)."""
-        # Cows inseminated & straws used (direct aggregation, no subquery)
+        # Cows inseminated, total inseminations & straws used (direct aggregation, no subquery)
         agg_stmt = (
             select(
                 func.count(func.distinct(InseminationORM.animal_id)).label("cows_inseminated"),
+                func.count().label("total_inseminations"),
                 func.coalesce(func.sum(InseminationORM.straw_count), 0).label("straws_used"),
             )
             .where(InseminationORM.tenant_id == tenant_id)
@@ -299,6 +327,7 @@ class InseminationsSQLAlchemyRepository:
 
         return {
             "cows_inseminated": row.cows_inseminated or 0,
+            "total_inseminations": row.total_inseminations or 0,
             "straws_used": row.straws_used or 0,
             "status_counts": status_counts,
         }

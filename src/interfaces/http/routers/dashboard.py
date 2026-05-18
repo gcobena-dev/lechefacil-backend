@@ -15,6 +15,7 @@ from src.interfaces.http.schemas.dashboard import (
     DailyKPIsResponse,
     DailyProgressResponse,
     ReproductionKPIsResponse,
+    ReproductiveAnimalsResponse,
     TopProducersResponse,
     VetAlertsResponse,
     WorkerProgressResponse,
@@ -612,6 +613,39 @@ async def get_admin_overview(
     return AdminOverviewResponse(management_overview=management_overview)
 
 
+async def _compute_repro_kpis_for_range(uow, tenant_id, dt_from, dt_to) -> dict:
+    """Compute the scalar KPI numbers for a [dt_from, dt_to] window."""
+    stats = await uow.inseminations.get_reproductive_stats(tenant_id, dt_from, dt_to)
+    cows_inseminated = stats["cows_inseminated"]
+    total_inseminations = stats["total_inseminations"]
+    straws_used = stats["straws_used"]
+    sc = stats["status_counts"]
+    pregnant = sc.get("CONFIRMED", 0)
+    open_count = sc.get("OPEN", 0)
+    pending = sc.get("PENDING", 0)
+    lost = sc.get("LOST", 0)
+    total_animals = pregnant + open_count + pending + lost
+    return {
+        "cows_inseminated": cows_inseminated,
+        "straws_used": straws_used,
+        "services_per_cow": (
+            round(total_inseminations / cows_inseminated, 2) if cows_inseminated else 0.0
+        ),
+        "pregnant_pct": round((pregnant / total_animals) * 100, 1) if total_animals else 0.0,
+        "open_pct": round((open_count / total_animals) * 100, 1) if total_animals else 0.0,
+        "pending_pct": round((pending / total_animals) * 100, 1) if total_animals else 0.0,
+        "conception_rate": (
+            round((pregnant / total_inseminations) * 100, 1) if total_inseminations else 0.0
+        ),
+        "_status_counts": {
+            "pregnant": pregnant,
+            "open": open_count,
+            "pending": pending,
+            "lost": lost,
+        },
+    }
+
+
 @router.get("/reproduction-kpis", response_model=ReproductionKPIsResponse)
 async def get_reproduction_kpis(
     date_from: date = Query(...),
@@ -626,6 +660,7 @@ async def get_reproduction_kpis(
         MonthlyActivity,
         MonthlyTrend,
         PostpartumAlert,
+        ReproductionPreviousPeriod,
         ReproductiveStatusBreakdown,
         ServicesDistribution,
     )
@@ -634,27 +669,32 @@ async def get_reproduction_kpis(
     dt_to = dt.combine(date_to, dt.max.time().replace(microsecond=0), tzinfo=tz.utc)
     tenant_id = context.tenant_id
 
-    # 1. Aggregate stats from inseminations
-    stats = await uow.inseminations.get_reproductive_stats(tenant_id, dt_from, dt_to)
+    # Current period KPIs
+    current = await _compute_repro_kpis_for_range(uow, tenant_id, dt_from, dt_to)
+
+    # Previous period (same length, ending just before dt_from)
+    period_length = dt_to - dt_from
+    prev_to = dt_from
+    prev_from = prev_to - period_length
+    previous = await _compute_repro_kpis_for_range(uow, tenant_id, prev_from, prev_to)
+
+    # Period-dependent charts and aggregates (current only)
     distribution = await uow.inseminations.get_services_distribution(tenant_id, dt_from, dt_to)
     monthly_activity = await uow.inseminations.get_monthly_activity(tenant_id, dt_from, dt_to)
     monthly_trends = await uow.inseminations.get_monthly_trends(tenant_id, dt_from, dt_to)
 
-    # 2. Compute derived KPIs
-    cows_inseminated = stats["cows_inseminated"]
-    straws_used = stats["straws_used"]
-    sc = stats["status_counts"]
-    pregnant = sc.get("CONFIRMED", 0)
-    open_count = sc.get("OPEN", 0)
-    pending = sc.get("PENDING", 0)
-    lost = sc.get("LOST", 0)
-    total_animals = pregnant + open_count + pending + lost
-
-    services_per_cow = round(straws_used / cows_inseminated, 2) if cows_inseminated else 0.0
-    pregnant_pct = round((pregnant / total_animals) * 100, 1) if total_animals else 0.0
-    open_pct = round((open_count / total_animals) * 100, 1) if total_animals else 0.0
-    pending_pct = round((pending / total_animals) * 100, 1) if total_animals else 0.0
-    conception_rate = round((pregnant / straws_used) * 100, 1) if straws_used else 0.0
+    cows_inseminated = current["cows_inseminated"]
+    straws_used = current["straws_used"]
+    counts = current["_status_counts"]
+    pregnant = counts["pregnant"]
+    open_count = counts["open"]
+    pending = counts["pending"]
+    lost = counts["lost"]
+    services_per_cow = current["services_per_cow"]
+    pregnant_pct = current["pregnant_pct"]
+    open_pct = current["open_pct"]
+    pending_pct = current["pending_pct"]
+    conception_rate = current["conception_rate"]
 
     # 3. Postpartum alerts from open lactations (no date filter)
     open_lactations = await uow.lactations.list_open_with_animal(tenant_id)
@@ -698,4 +738,72 @@ async def get_reproduction_kpis(
         monthly_activity=[MonthlyActivity(**m) for m in monthly_activity],
         monthly_trends=[MonthlyTrend(**m) for m in monthly_trends],
         postpartum_alerts=alerts,
+        previous_period=ReproductionPreviousPeriod(
+            cows_inseminated=previous["cows_inseminated"],
+            straws_used=previous["straws_used"],
+            services_per_cow=previous["services_per_cow"],
+            pregnant_pct=previous["pregnant_pct"],
+            open_pct=previous["open_pct"],
+            pending_pct=previous["pending_pct"],
+            conception_rate=previous["conception_rate"],
+        ),
+    )
+
+
+@router.get("/reproductive-animals", response_model=ReproductiveAnimalsResponse)
+async def list_reproductive_animals_endpoint(
+    filter: str = Query("todas"),
+    sort: str = Query("postpartum"),
+    sort_dir: str = Query("desc"),
+    search: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+) -> ReproductiveAnimalsResponse:
+    from src.application.use_cases.reproduction import list_reproductive_animals
+    from src.interfaces.http.schemas.dashboard import (
+        BucketCountsSchema,
+        ReproductiveAnimalRowSchema,
+    )
+
+    result = await list_reproductive_animals.execute(
+        uow,
+        context.tenant_id,
+        filter=filter,
+        sort=sort,
+        sort_dir=sort_dir,
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+    return ReproductiveAnimalsResponse(
+        items=[
+            ReproductiveAnimalRowSchema(
+                animal_id=r.animal_id,
+                tag=r.tag,
+                name=r.name,
+                days_postpartum=r.days_postpartum,
+                last_calving_date=r.last_calving_date,
+                alert_level=r.alert_level,
+                bucket=r.bucket,
+                situation_label=r.situation_label,
+                last_event_type=r.last_event_type,
+                last_event_date=r.last_event_date,
+                last_insemination_id=r.last_insemination_id,
+                last_insemination_status=r.last_insemination_status,
+            )
+            for r in result.items
+        ],
+        total=result.total,
+        bucket_counts=BucketCountsSchema(
+            alertas=result.bucket_counts.alertas,
+            inseminadas=result.bucket_counts.inseminadas,
+            prenadas=result.bucket_counts.prenadas,
+            vacias=result.bucket_counts.vacias,
+            sin_inseminar=result.bucket_counts.sin_inseminar,
+            todas=result.bucket_counts.todas,
+        ),
+        limit=limit,
+        offset=offset,
     )

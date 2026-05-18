@@ -34,4 +34,10 @@ class SemenInventoryRepository(Protocol):
         in_stock_only: bool = False,
     ) -> int: ...
 
+    async def count_distinct_breeds(
+        self,
+        tenant_id: UUID,
+        in_stock_only: bool = True,
+    ) -> int: ...
+
     async def delete(self, stock: SemenInventory) -> None: ...

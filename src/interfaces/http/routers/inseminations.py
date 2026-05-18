@@ -182,7 +182,18 @@ async def get_insemination_endpoint(
     record = await uow.inseminations.get(context.tenant_id, insemination_id)
     if not record:
         raise HTTPException(status_code=404, detail="Insemination not found")
-    return record
+
+    # Enrich with animal tag/name and sire name
+    data = InseminationResponse.model_validate(record)
+    animal = await uow.animals.get(context.tenant_id, record.animal_id)
+    if animal:
+        data.animal_tag = animal.tag
+        data.animal_name = animal.name
+    if record.sire_catalog_id:
+        sire = await uow.sire_catalog.get(context.tenant_id, record.sire_catalog_id)
+        if sire:
+            data.sire_name = sire.name
+    return data
 
 
 @router.put("/{insemination_id}", response_model=InseminationResponse)
