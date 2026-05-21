@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.domain.models.insemination import GESTATION_DAYS
 
 VALID_FILTERS = {"alertas", "inseminadas", "prenadas", "vacias", "sin_inseminar", "todas"}
 VALID_SORTS = {"postpartum", "tag", "name"}
+
+# Animal status codes that mean the cow is pregnant, independent of whether an
+# insemination was ever recorded (e.g. cows bred by natural service).
+PREGNANT_STATUS_CODES = {"PREGNANT_DRY", "PREGNANT_HEIFER"}
 
 
 @dataclass(slots=True)
@@ -17,6 +22,8 @@ class ReproductiveAnimalRow:
     name: str | None
     days_postpartum: int | None
     last_calving_date: date | None
+    days_pregnant: int | None  # days of gestation, for confirmed-pregnant cows
+    expected_calving_date: date | None  # estimated calving date, for pregnant cows
     alert_level: str  # optimal | warning | critical | none
     bucket: str  # prenadas | inseminadas | vacias | sin_inseminar
     situation_label: str  # human-friendly
@@ -55,7 +62,11 @@ def _bucket_for(status: str | None) -> str:
     return "sin_inseminar"
 
 
-def _alert_level(days_postpartum: int | None) -> str:
+def _alert_level(days_postpartum: int | None, is_pregnant: bool) -> str:
+    # A pregnant cow already conceived: she is not a postpartum alert
+    # regardless of how many days have passed since calving.
+    if is_pregnant:
+        return "optimal"
     if days_postpartum is None:
         return "none"
     if days_postpartum < 90:
@@ -105,6 +116,8 @@ async def execute(
     animals = animals_result[0] if isinstance(animals_result, tuple) else animals_result
     open_lactations = await uow.lactations.list_open_with_animal(tenant_id)
     latest_ins = await uow.inseminations.get_latest_per_animal(tenant_id)
+    statuses = await uow.animal_statuses.list_for_tenant(tenant_id)
+    pregnant_status_ids = {s.id for s in statuses if s.code in PREGNANT_STATUS_CODES}
 
     last_calving_by_animal: dict[UUID, date] = {
         lac["animal_id"]: lac["start_date"] for lac in open_lactations
@@ -122,7 +135,31 @@ async def execute(
         ins = latest_ins.get(animal.id)
         status = ins["pregnancy_status"] if ins else None
         bucket = _bucket_for(status)
-        alert = _alert_level(days_pp)
+
+        # A cow flagged pregnant via her animal status (e.g. bred by natural
+        # service, never recorded as an insemination) is pregnant regardless
+        # of the insemination records on file.
+        if animal.status_id in pregnant_status_ids:
+            bucket = "prenadas"
+
+        is_pregnant = bucket == "prenadas"
+        alert = _alert_level(days_pp, is_pregnant)
+
+        # Days of gestation for pregnant cows, counted from the service date
+        # of the insemination on file (if any). A failed (OPEN/LOST) service
+        # is ignored as it did not produce the current pregnancy.
+        days_pregnant: int | None = None
+        expected_calving: date | None = None
+        if is_pregnant and ins and ins["pregnancy_status"] not in ("OPEN", "LOST"):
+            service = ins["service_date"]
+            service_date = service.date() if isinstance(service, datetime) else service
+            if service_date:
+                days_pregnant = (today - service_date).days
+                ecd = ins["expected_calving_date"]
+                if ecd:
+                    expected_calving = ecd.date() if isinstance(ecd, datetime) else ecd
+                else:
+                    expected_calving = service_date + timedelta(days=GESTATION_DAYS)
 
         # Determine last event: pick most recent of (calving, insemination, check)
         candidates: list[tuple[date, str]] = []
@@ -149,6 +186,8 @@ async def execute(
                 name=animal.name,
                 days_postpartum=days_pp,
                 last_calving_date=calving,
+                days_pregnant=days_pregnant,
+                expected_calving_date=expected_calving,
                 alert_level=alert,
                 bucket=bucket,
                 situation_label=_situation_label(bucket, days_pp),
@@ -170,21 +209,16 @@ async def execute(
             counts.vacias += 1
         elif r.bucket == "sin_inseminar":
             counts.sin_inseminar += 1
-        # Alertas: high postpartum AND not confirmed (overlaps the others)
-        if (
-            r.days_postpartum is not None
-            and r.days_postpartum >= 90
-            and r.last_insemination_status != "CONFIRMED"
-        ):
+        # Alertas: high postpartum AND not pregnant (overlaps the others)
+        if r.days_postpartum is not None and r.days_postpartum >= 90 and r.bucket != "prenadas":
             counts.alertas += 1
 
     # Filter
     if filter == "alertas":
         filtered = [
-            r for r in rows
-            if r.days_postpartum is not None
-            and r.days_postpartum >= 90
-            and r.last_insemination_status != "CONFIRMED"
+            r
+            for r in rows
+            if r.days_postpartum is not None and r.days_postpartum >= 90 and r.bucket != "prenadas"
         ]
     elif filter == "todas":
         filtered = rows
@@ -194,8 +228,7 @@ async def execute(
     if search:
         s = search.lower()
         filtered = [
-            r for r in filtered
-            if s in (r.tag or "").lower() or s in (r.name or "").lower()
+            r for r in filtered if s in (r.tag or "").lower() or s in (r.name or "").lower()
         ]
 
     # Sort

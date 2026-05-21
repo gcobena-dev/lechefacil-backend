@@ -698,9 +698,15 @@ async def get_reproduction_kpis(
 
     # 3. Postpartum alerts from open lactations (no date filter)
     open_lactations = await uow.lactations.list_open_with_animal(tenant_id)
+    latest_ins = await uow.inseminations.get_latest_per_animal(tenant_id)
     today = dt.now(tz.utc).date()
     alerts: list[PostpartumAlert] = []
     for lac in open_lactations:
+        # Skip confirmed-pregnant cows: they already conceived and are not
+        # postpartum alerts regardless of days since calving.
+        ins = latest_ins.get(lac["animal_id"])
+        if ins and ins["pregnancy_status"] == "CONFIRMED":
+            continue
         days_pp = (today - lac["start_date"]).days
         if days_pp < 90:
             level = "optimal"
@@ -785,6 +791,8 @@ async def list_reproductive_animals_endpoint(
                 name=r.name,
                 days_postpartum=r.days_postpartum,
                 last_calving_date=r.last_calving_date,
+                days_pregnant=r.days_pregnant,
+                expected_calving_date=r.expected_calving_date,
                 alert_level=r.alert_level,
                 bucket=r.bucket,
                 situation_label=r.situation_label,

@@ -169,6 +169,8 @@ class ReproductiveAnimalRowSchema(BaseModel):
     name: str | None
     days_postpartum: int | None
     last_calving_date: date | None
+    days_pregnant: int | None = None
+    expected_calving_date: date | None = None
     alert_level: str
     bucket: str
     situation_label: str

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from src.application.errors import NotFound, PermissionDenied, ValidationError
@@ -38,6 +38,35 @@ def ensure_can_register_event(role: Role) -> None:
         raise PermissionDenied("Role not allowed to register events")
 
 
+async def _close_open_lactation(
+    uow: UnitOfWork,
+    tenant_id: UUID,
+    animal_id: UUID,
+    end_date: date,
+) -> Lactation | None:
+    """Close the currently-open lactation for an animal, if there is one.
+
+    Validates that the closing date is not earlier than the lactation's start
+    date. An earlier date means the events were registered out of chronological
+    order (e.g. a calving registered before the previous lactation's dry-off),
+    which would otherwise persist a lactation with a negative days-in-milk.
+    """
+    open_lactation = await uow.lactations.get_open(tenant_id, animal_id)
+    if not open_lactation:
+        return None
+
+    if end_date < open_lactation.start_date:
+        raise ValidationError(
+            f"No se puede cerrar la lactancia #{open_lactation.number} con fecha "
+            f"{end_date.isoformat()}: es anterior a su fecha de inicio "
+            f"({open_lactation.start_date.isoformat()}). Revisa el orden "
+            f"cronológico de los eventos: el secado debe registrarse antes del parto."
+        )
+
+    open_lactation.close(end_date=end_date)
+    return await uow.lactations.update(open_lactation)
+
+
 async def _handle_calving_event(
     uow: UnitOfWork,
     tenant_id: UUID,
@@ -54,13 +83,10 @@ async def _handle_calving_event(
     if event.occurred_at > datetime.now(timezone.utc):
         raise ValidationError("Event cannot be in the future")
 
-    lactation_closed = None
-
     # Close any open lactation
-    open_lactation = await uow.lactations.get_open(tenant_id, animal.id)
-    if open_lactation:
-        open_lactation.close(end_date=event.occurred_at.date())
-        lactation_closed = await uow.lactations.update(open_lactation)
+    lactation_closed = await _close_open_lactation(
+        uow, tenant_id, animal.id, event.occurred_at.date()
+    )
 
     # Get last lactation number
     last_number = await uow.lactations.get_last_number(tenant_id, animal.id)
@@ -121,11 +147,9 @@ async def _handle_dry_off_event(
         raise ValidationError("Male animals cannot have dry-off events")
 
     # Close open lactation if one exists (not required)
-    lactation_closed = None
-    open_lactation = await uow.lactations.get_open(tenant_id, animal.id)
-    if open_lactation:
-        open_lactation.close(end_date=event.occurred_at.date())
-        lactation_closed = await uow.lactations.update(open_lactation)
+    lactation_closed = await _close_open_lactation(
+        uow, tenant_id, animal.id, event.occurred_at.date()
+    )
 
     # Get DRY status
     dry_status = await uow.animal_statuses.get_by_code(tenant_id, "DRY")
@@ -182,11 +206,9 @@ async def _handle_disposition_event(
     )
 
     # Close any open lactation
-    lactation_closed = None
-    open_lactation = await uow.lactations.get_open(tenant_id, animal.id)
-    if open_lactation:
-        open_lactation.close(end_date=event.occurred_at.date())
-        lactation_closed = await uow.lactations.update(open_lactation)
+    lactation_closed = await _close_open_lactation(
+        uow, tenant_id, animal.id, event.occurred_at.date()
+    )
 
     return RegisterEventOutput(
         event=event,
