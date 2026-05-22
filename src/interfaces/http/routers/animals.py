@@ -109,6 +109,11 @@ async def list_animals_endpoint(
         None,
         description="Alias of q for text search",
     ),
+    breed_ids: str | None = Query(None, description="CSV of breed UUIDs"),
+    lot_ids: str | None = Query(None, description="CSV of lot UUIDs"),
+    sex: str | None = Query(None, description="CSV: FEMALE,MALE"),
+    labels: str | None = Query(None, description="CSV of animal labels"),
+    in_milk_withdrawal: bool | None = Query(None),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AnimalsListResponse:
@@ -121,6 +126,25 @@ async def list_animals_endpoint(
 
     # Resolve search term preferring q, then search
     text_search = q if q is not None else search
+
+    # Parse comma-separated filter params
+    def _csv(value: str | None) -> list[str] | None:
+        if not value:
+            return None
+        items = [v.strip() for v in value.split(",") if v.strip()]
+        return items or None
+
+    def _csv_uuid(value: str | None) -> list[UUID] | None:
+        items = _csv(value)
+        if not items:
+            return None
+        parsed: list[UUID] = []
+        for item in items:
+            try:
+                parsed.append(UUID(item))
+            except ValueError:
+                continue
+        return parsed or None
 
     # If page is provided (and no explicit offset), translate to offset-based pagination
     if page is not None and offset is None:
@@ -138,6 +162,12 @@ async def list_animals_endpoint(
         sort_by=sort_by,
         sort_dir=sort_dir,
         search=text_search,
+        breed_ids=_csv_uuid(breed_ids),
+        lot_ids=_csv_uuid(lot_ids),
+        sexes=_csv(sex),
+        labels=_csv(labels),
+        in_milk_withdrawal=in_milk_withdrawal,
+        include_summary=True,
     )
     # Enrich with primary_photo_url, photos_count, and
     # status fields (code, text, description)
@@ -146,10 +176,8 @@ async def list_animals_endpoint(
     try:
         statuses = await uow.animal_statuses.list_for_tenant(context.tenant_id)
         status_by_id = {s.id: s for s in statuses}
-        status_by_code = {s.code: s for s in statuses}
     except Exception:
         status_by_id = {}
-        status_by_code = {}
     # Preload breeds and lots to enrich IDs by name (best-effort)
     try:
         breeds = await uow.breeds.list_for_tenant(context.tenant_id)
@@ -204,33 +232,16 @@ async def list_animals_endpoint(
     items = enriched_items
     next_cursor = str(result.next_cursor) if result.next_cursor else None
 
-    # Summary counters to power the animals page header
-    async def count_by_code(code: str) -> int:
-        status = status_by_code.get(code)
-        if not status:
-            return 0
-        return await uow.animals.count(
-            context.tenant_id, status_ids=[status.id], search=text_search
-        )
-
+    # Summary counters to power the animals page header.
+    # Computed filter-aware in the use case so the cards match the filters.
     summary = None
-    try:
-        production = await count_by_code("LACTATING")
-        sold = await count_by_code("SOLD")
-        culled = await count_by_code("CULLED")
-        dead = await count_by_code("DEAD")
-        total = await uow.animals.count(context.tenant_id, search=text_search)
-        withdrawn = sold + culled + dead
-        other = total - production - withdrawn
+    if result.summary is not None:
         summary = AnimalsSummary(
-            production=production,
-            withdrawn=withdrawn,
-            other=max(other, 0),
-            total=total,
+            production=result.summary.production,
+            withdrawn=result.summary.withdrawn,
+            other=result.summary.other,
+            total=result.summary.total,
         )
-    except Exception:
-        # If summary calculation fails, continue returning the list
-        summary = None
 
     return AnimalsListResponse(
         items=items,

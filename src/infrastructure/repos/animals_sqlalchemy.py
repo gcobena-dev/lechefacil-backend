@@ -12,6 +12,57 @@ from src.domain.models.animal import Animal
 from src.infrastructure.db.orm.animal import AnimalORM
 
 
+def _dialect_name(session: AsyncSession) -> str:
+    """Best-effort SQL dialect name ('postgresql' in prod, 'sqlite' in tests)."""
+    bind = session.bind
+    return getattr(getattr(bind, "dialect", None), "name", "postgresql")
+
+
+def _apply_animal_filters(
+    stmt,
+    *,
+    breed_ids: list[UUID] | None,
+    breed_names: list[str] | None,
+    lot_ids: list[UUID] | None,
+    lot_names: list[str] | None,
+    sexes: list[str] | None,
+    labels: list[str] | None,
+    in_milk_withdrawal: bool | None,
+    dialect_name: str,
+):
+    """Apply the optional attribute filters shared by list() and count().
+
+    Breed and lot are matched against both the FK id column and the legacy
+    free-text name column, so animals predating the id columns still match.
+    """
+    if breed_ids or breed_names:
+        conds = []
+        if breed_ids:
+            conds.append(AnimalORM.breed_id.in_(breed_ids))
+        if breed_names:
+            conds.append(func.lower(AnimalORM.breed).in_([n.lower() for n in breed_names]))
+        stmt = stmt.where(or_(*conds))
+    if lot_ids or lot_names:
+        conds = []
+        if lot_ids:
+            conds.append(AnimalORM.current_lot_id.in_(lot_ids))
+        if lot_names:
+            conds.append(func.lower(AnimalORM.lot).in_([n.lower() for n in lot_names]))
+        stmt = stmt.where(or_(*conds))
+    if sexes:
+        stmt = stmt.where(func.upper(AnimalORM.sex).in_([s.upper() for s in sexes]))
+    if in_milk_withdrawal is not None:
+        stmt = stmt.where(AnimalORM.in_milk_withdrawal.is_(in_milk_withdrawal))
+    if labels:
+        if dialect_name == "postgresql":
+            # Postgres array overlap: animal has at least one of the labels.
+            stmt = stmt.where(AnimalORM.labels.op("&&")(labels))
+        else:
+            # SQLite stores the list as JSON text; match each quoted label.
+            stmt = stmt.where(or_(*[AnimalORM.labels.like(f'%"{lbl}"%') for lbl in labels]))
+    return stmt
+
+
 class AnimalsSQLAlchemyRepository(AnimalRepository):
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -101,6 +152,13 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         sort_by: str | None = None,
         sort_dir: str | None = None,
         search: str | None = None,
+        breed_ids: list[UUID] | None = None,
+        breed_names: list[str] | None = None,
+        lot_ids: list[UUID] | None = None,
+        lot_names: list[str] | None = None,
+        sexes: list[str] | None = None,
+        labels: list[str] | None = None,
+        in_milk_withdrawal: bool | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]:
         from sqlalchemy import asc, desc
 
@@ -146,6 +204,19 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
                 # Only include animals with inactive statuses
                 if inactive_status_ids:
                     stmt = stmt.where(AnimalORM.status_id.in_(inactive_status_ids))
+
+        # Attribute filters (breed / lot / sex / labels / milk withdrawal)
+        stmt = _apply_animal_filters(
+            stmt,
+            breed_ids=breed_ids,
+            breed_names=breed_names,
+            lot_ids=lot_ids,
+            lot_names=lot_names,
+            sexes=sexes,
+            labels=labels,
+            in_milk_withdrawal=in_milk_withdrawal,
+            dialect_name=_dialect_name(self.session),
+        )
 
         # Order handling
         order_direction = (sort_dir or "asc").lower()
@@ -217,6 +288,13 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         is_active: bool | None = None,
         status_ids: list[UUID] | None = None,
         search: str | None = None,
+        breed_ids: list[UUID] | None = None,
+        breed_names: list[str] | None = None,
+        lot_ids: list[UUID] | None = None,
+        lot_names: list[str] | None = None,
+        sexes: list[str] | None = None,
+        labels: list[str] | None = None,
+        in_milk_withdrawal: bool | None = None,
     ) -> int:
         stmt = select(func.count(AnimalORM.id)).where(AnimalORM.tenant_id == tenant_id)
         stmt = stmt.where(AnimalORM.deleted_at.is_(None))
@@ -257,6 +335,18 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
                 # Only include animals with inactive statuses
                 if inactive_status_ids:
                     stmt = stmt.where(AnimalORM.status_id.in_(inactive_status_ids))
+
+        stmt = _apply_animal_filters(
+            stmt,
+            breed_ids=breed_ids,
+            breed_names=breed_names,
+            lot_ids=lot_ids,
+            lot_names=lot_names,
+            sexes=sexes,
+            labels=labels,
+            in_milk_withdrawal=in_milk_withdrawal,
+            dialect_name=_dialect_name(self.session),
+        )
 
         result = await self.session.execute(stmt)
         return result.scalar() or 0

@@ -23,6 +23,13 @@ class AnimalRepository(Protocol):
         sort_by: str | None = None,
         sort_dir: str | None = None,
         search: str | None = None,
+        breed_ids: list[UUID] | None = None,
+        breed_names: list[str] | None = None,
+        lot_ids: list[UUID] | None = None,
+        lot_names: list[str] | None = None,
+        sexes: list[str] | None = None,
+        labels: list[str] | None = None,
+        in_milk_withdrawal: bool | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]: ...
 
     async def count(
@@ -32,6 +39,13 @@ class AnimalRepository(Protocol):
         is_active: bool | None = None,
         status_ids: list[UUID] | None = None,
         search: str | None = None,
+        breed_ids: list[UUID] | None = None,
+        breed_names: list[str] | None = None,
+        lot_ids: list[UUID] | None = None,
+        lot_names: list[str] | None = None,
+        sexes: list[str] | None = None,
+        labels: list[str] | None = None,
+        in_milk_withdrawal: bool | None = None,
     ) -> int: ...
 
     async def update(

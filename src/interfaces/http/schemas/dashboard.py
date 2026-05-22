@@ -181,6 +181,7 @@ class ReproductiveAnimalRowSchema(BaseModel):
     method: str | None = None
     technician: str | None = None
     heat_detected: bool | None = None
+    labels: list[str] = []
 
 
 class BucketCountsSchema(BaseModel):

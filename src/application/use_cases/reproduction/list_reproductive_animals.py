@@ -34,6 +34,7 @@ class ReproductiveAnimalRow:
     method: str | None  # AI | NATURAL | ET | IATF — of the last insemination
     technician: str | None  # technician of the last insemination
     heat_detected: bool | None  # heat detected on the last insemination
+    labels: list[str]  # free-text labels assigned to the animal
 
 
 @dataclass(slots=True)
@@ -109,6 +110,7 @@ async def execute(
     technicians: list[str] | None = None,
     heat_detected: bool | None = None,
     last_event_types: list[str] | None = None,
+    labels: list[str] | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> ListReproductiveAnimalsOutput:
@@ -207,6 +209,7 @@ async def execute(
                 method=ins["method"] if ins else None,
                 technician=ins["technician"] if ins else None,
                 heat_detected=ins["heat_detected"] if ins else None,
+                labels=list(animal.labels or []),
             )
         )
 
@@ -262,6 +265,9 @@ async def execute(
     if last_event_types:
         wanted = set(last_event_types)
         filtered = [r for r in filtered if r.last_event_type in wanted]
+    if labels:
+        wanted = set(labels)
+        filtered = [r for r in filtered if any(lbl in wanted for lbl in r.labels)]
 
     # Sort
     reverse = sort_dir == "desc"

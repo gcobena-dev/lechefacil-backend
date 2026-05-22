@@ -9,10 +9,79 @@ from src.domain.models.animal import Animal
 
 
 @dataclass(slots=True)
+class AnimalsSummaryData:
+    """Herd composition counters, computed over the active filter set."""
+
+    production: int
+    withdrawn: int
+    other: int
+    total: int
+
+
+@dataclass(slots=True)
 class ListAnimalsResult:
     items: list[Animal]
     next_cursor: UUID | None
     total: int | None = None
+    summary: AnimalsSummaryData | None = None
+
+
+async def _resolve_names(entities, ids: list[UUID]) -> list[str]:
+    """Map a list of ids to their names using the given entity list."""
+    by_id = {e.id: e.name for e in entities}
+    return [by_id[i] for i in ids if i in by_id]
+
+
+async def _compute_summary(
+    uow: UnitOfWork,
+    tenant_id: UUID,
+    *,
+    status_ids: list[UUID] | None,
+    search: str | None,
+    filter_kwargs: dict,
+    total: int | None,
+) -> AnimalsSummaryData:
+    """Counters for the summary cards, restricted to the active filter set.
+
+    The status breakdown (production = lactating, withdrawn = sold/culled/dead)
+    is intersected with any active status filter so the cards always add up.
+    """
+
+    async def code_id(code: str) -> UUID | None:
+        status = await uow.animal_statuses.get_by_code(tenant_id, code)
+        return status.id if status else None
+
+    lactating_id = await code_id("LACTATING")
+    sold_id = await code_id("SOLD")
+    culled_id = await code_id("CULLED")
+    dead_id = await code_id("DEAD")
+
+    user_set = set(status_ids) if status_ids is not None else None
+
+    def restrict(ids: list[UUID | None]) -> list[UUID]:
+        resolved = [i for i in ids if i is not None]
+        if user_set is None:
+            return resolved
+        return [i for i in resolved if i in user_set]
+
+    async def count_for(ids: list[UUID]) -> int:
+        return await uow.animals.count(tenant_id, status_ids=ids, search=search, **filter_kwargs)
+
+    if total is not None:
+        total_count = total
+    else:
+        total_count = await uow.animals.count(
+            tenant_id, status_ids=status_ids, search=search, **filter_kwargs
+        )
+    production = await count_for(restrict([lactating_id]))
+    withdrawn = await count_for(restrict([sold_id, culled_id, dead_id]))
+    other = max(total_count - production - withdrawn, 0)
+    return AnimalsSummaryData(
+        production=production,
+        withdrawn=withdrawn,
+        other=other,
+        total=total_count,
+    )
 
 
 async def execute(
@@ -26,6 +95,12 @@ async def execute(
     sort_by: str | None = None,
     sort_dir: str | None = None,
     search: str | None = None,
+    breed_ids: list[UUID] | None = None,
+    lot_ids: list[UUID] | None = None,
+    sexes: list[str] | None = None,
+    labels: list[str] | None = None,
+    in_milk_withdrawal: bool | None = None,
+    include_summary: bool = False,
 ) -> ListAnimalsResult:
     if limit <= 0 or limit > 500:
         raise ValidationError("limit must be between 1 and 500")
@@ -40,7 +115,27 @@ async def execute(
                 status_ids.append(status.id)
         # If no valid statuses found, return empty result
         if not status_ids:
-            return ListAnimalsResult(items=[], next_cursor=None, total=0)
+            empty_summary = AnimalsSummaryData(0, 0, 0, 0) if include_summary else None
+            return ListAnimalsResult(items=[], next_cursor=None, total=0, summary=empty_summary)
+
+    # Resolve breed / lot ids to their names so the repo can also match
+    # legacy animals that only have the free-text name populated.
+    breed_names = None
+    if breed_ids:
+        breed_names = await _resolve_names(await uow.breeds.list_for_tenant(tenant_id), breed_ids)
+    lot_names = None
+    if lot_ids:
+        lot_names = await _resolve_names(await uow.lots.list_for_tenant(tenant_id), lot_ids)
+
+    filter_kwargs = dict(
+        breed_ids=breed_ids,
+        breed_names=breed_names,
+        lot_ids=lot_ids,
+        lot_names=lot_names,
+        sexes=sexes,
+        labels=labels,
+        in_milk_withdrawal=in_milk_withdrawal,
+    )
 
     items, next_cursor = await uow.animals.list(
         tenant_id,
@@ -51,11 +146,25 @@ async def execute(
         sort_by=sort_by,
         sort_dir=sort_dir,
         search=search,
+        **filter_kwargs,
     )
 
     # Get total count when using offset pagination
     total = None
     if offset is not None:
-        total = await uow.animals.count(tenant_id, status_ids=status_ids, search=search)
+        total = await uow.animals.count(
+            tenant_id, status_ids=status_ids, search=search, **filter_kwargs
+        )
 
-    return ListAnimalsResult(items=items, next_cursor=next_cursor, total=total)
+    summary = None
+    if include_summary:
+        summary = await _compute_summary(
+            uow,
+            tenant_id,
+            status_ids=status_ids,
+            search=search,
+            filter_kwargs=filter_kwargs,
+            total=total,
+        )
+
+    return ListAnimalsResult(items=items, next_cursor=next_cursor, total=total, summary=summary)
