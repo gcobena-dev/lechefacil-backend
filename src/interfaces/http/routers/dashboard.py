@@ -756,12 +756,26 @@ async def get_reproduction_kpis(
     )
 
 
+def _csv_param(value: str | None) -> list[str] | None:
+    """Parse a comma-separated query param into a list, or None when empty."""
+    if not value:
+        return None
+    items = [v.strip() for v in value.split(",") if v.strip()]
+    return items or None
+
+
 @router.get("/reproductive-animals", response_model=ReproductiveAnimalsResponse)
 async def list_reproductive_animals_endpoint(
     filter: str = Query("todas"),
     sort: str = Query("postpartum"),
     sort_dir: str = Query("desc"),
     search: str | None = Query(None),
+    alert_level: str | None = Query(None, description="CSV: optimal,warning,critical,none"),
+    method: str | None = Query(None, description="CSV: AI,NATURAL,ET,IATF"),
+    pregnancy_status: str | None = Query(None, description="CSV: PENDING,CONFIRMED,OPEN,LOST"),
+    technician: str | None = Query(None, description="CSV of technician names"),
+    heat_detected: bool | None = Query(None),
+    last_event_type: str | None = Query(None, description="CSV: calving,insemination,check"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     context: AuthContext = Depends(get_auth_context),
@@ -780,6 +794,12 @@ async def list_reproductive_animals_endpoint(
         sort=sort,
         sort_dir=sort_dir,
         search=search,
+        alert_levels=_csv_param(alert_level),
+        methods=_csv_param(method),
+        pregnancy_statuses=_csv_param(pregnancy_status),
+        technicians=_csv_param(technician),
+        heat_detected=heat_detected,
+        last_event_types=_csv_param(last_event_type),
         limit=limit,
         offset=offset,
     )
@@ -800,6 +820,9 @@ async def list_reproductive_animals_endpoint(
                 last_event_date=r.last_event_date,
                 last_insemination_id=r.last_insemination_id,
                 last_insemination_status=r.last_insemination_status,
+                method=r.method,
+                technician=r.technician,
+                heat_detected=r.heat_detected,
             )
             for r in result.items
         ],

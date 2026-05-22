@@ -6,7 +6,11 @@ from uuid import UUID
 from sqlalchemy import asc, case, desc, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.models.insemination import Insemination, PregnancyStatus
+from src.domain.models.insemination import (
+    Insemination,
+    InseminationMethod,
+    PregnancyStatus,
+)
 from src.infrastructure.db.orm.animal import AnimalORM
 from src.infrastructure.db.orm.insemination import InseminationORM
 from src.infrastructure.db.orm.sire_catalog import SireCatalogORM
@@ -236,6 +240,9 @@ class InseminationsSQLAlchemyRepository:
                 InseminationORM.pregnancy_status,
                 InseminationORM.pregnancy_check_date,
                 InseminationORM.expected_calving_date,
+                InseminationORM.method,
+                InseminationORM.technician,
+                InseminationORM.heat_detected,
             )
             .where(InseminationORM.tenant_id == tenant_id)
             .where(InseminationORM.deleted_at.is_(None))
@@ -250,6 +257,9 @@ class InseminationsSQLAlchemyRepository:
                 "pregnancy_status": r.pregnancy_status,
                 "pregnancy_check_date": r.pregnancy_check_date,
                 "expected_calving_date": r.expected_calving_date,
+                "method": r.method,
+                "technician": r.technician,
+                "heat_detected": r.heat_detected,
             }
             for r in result.all()
         }
@@ -293,12 +303,25 @@ class InseminationsSQLAlchemyRepository:
     ) -> dict:
         """Aggregate: cows inseminated, straws used, and
         status counts (based on last insemination per animal)."""
-        # Cows inseminated, total inseminations & straws used (direct aggregation, no subquery)
+        # Cows inseminated, total inseminations & straws used (direct aggregation, no subquery).
+        # "Straws used" counts only services that consume a semen straw (AI / IATF / ET);
+        # natural-service mounts ("monta natural") are excluded since they use no straw.
         agg_stmt = (
             select(
                 func.count(func.distinct(InseminationORM.animal_id)).label("cows_inseminated"),
                 func.count().label("total_inseminations"),
-                func.coalesce(func.sum(InseminationORM.straw_count), 0).label("straws_used"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                InseminationORM.method != InseminationMethod.NATURAL.value,
+                                InseminationORM.straw_count,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("straws_used"),
             )
             .where(InseminationORM.tenant_id == tenant_id)
             .where(InseminationORM.deleted_at.is_(None))
@@ -372,13 +395,28 @@ class InseminationsSQLAlchemyRepository:
         date_from: datetime,
         date_to: datetime,
     ) -> list[dict]:
-        """Monthly straws used and cows inseminated."""
+        """Monthly straws used and cows inseminated.
+
+        Straws used excludes natural-service mounts, consistent with the
+        "Pajuelas Utilizadas" KPI.
+        """
         month_expr = func.to_char(InseminationORM.service_date, literal_column("'YYYY-MM'"))
 
         stmt = (
             select(
                 month_expr.label("month"),
-                func.coalesce(func.sum(InseminationORM.straw_count), 0).label("straws_used"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                InseminationORM.method != InseminationMethod.NATURAL.value,
+                                InseminationORM.straw_count,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("straws_used"),
                 func.count(func.distinct(InseminationORM.animal_id)).label("cows_inseminated"),
             )
             .where(InseminationORM.tenant_id == tenant_id)

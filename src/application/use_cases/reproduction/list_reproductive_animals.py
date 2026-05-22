@@ -31,6 +31,9 @@ class ReproductiveAnimalRow:
     last_event_date: date | None
     last_insemination_id: UUID | None
     last_insemination_status: str | None
+    method: str | None  # AI | NATURAL | ET | IATF — of the last insemination
+    technician: str | None  # technician of the last insemination
+    heat_detected: bool | None  # heat detected on the last insemination
 
 
 @dataclass(slots=True)
@@ -100,6 +103,12 @@ async def execute(
     sort: str = "postpartum",
     sort_dir: str = "desc",
     search: str | None = None,
+    alert_levels: list[str] | None = None,
+    methods: list[str] | None = None,
+    pregnancy_statuses: list[str] | None = None,
+    technicians: list[str] | None = None,
+    heat_detected: bool | None = None,
+    last_event_types: list[str] | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> ListReproductiveAnimalsOutput:
@@ -195,6 +204,9 @@ async def execute(
                 last_event_date=last_event_date,
                 last_insemination_id=ins["insemination_id"] if ins else None,
                 last_insemination_status=status,
+                method=ins["method"] if ins else None,
+                technician=ins["technician"] if ins else None,
+                heat_detected=ins["heat_detected"] if ins else None,
             )
         )
 
@@ -230,6 +242,26 @@ async def execute(
         filtered = [
             r for r in filtered if s in (r.tag or "").lower() or s in (r.name or "").lower()
         ]
+
+    # Attribute filters (refine within the active tab). Each narrows the result
+    # set; a row must match every active filter (AND across filters, OR within).
+    if alert_levels:
+        wanted = set(alert_levels)
+        filtered = [r for r in filtered if r.alert_level in wanted]
+    if methods:
+        wanted = set(methods)
+        filtered = [r for r in filtered if r.method in wanted]
+    if pregnancy_statuses:
+        wanted = set(pregnancy_statuses)
+        filtered = [r for r in filtered if r.last_insemination_status in wanted]
+    if technicians:
+        wanted = set(technicians)
+        filtered = [r for r in filtered if r.technician in wanted]
+    if heat_detected is not None:
+        filtered = [r for r in filtered if r.heat_detected == heat_detected]
+    if last_event_types:
+        wanted = set(last_event_types)
+        filtered = [r for r in filtered if r.last_event_type in wanted]
 
     # Sort
     reverse = sort_dir == "desc"

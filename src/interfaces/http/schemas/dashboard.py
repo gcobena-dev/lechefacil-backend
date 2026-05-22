@@ -178,6 +178,9 @@ class ReproductiveAnimalRowSchema(BaseModel):
     last_event_date: date | None
     last_insemination_id: UUID | None
     last_insemination_status: str | None
+    method: str | None = None
+    technician: str | None = None
+    heat_detected: bool | None = None
 
 
 class BucketCountsSchema(BaseModel):
