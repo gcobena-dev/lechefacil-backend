@@ -60,3 +60,19 @@ class SirePerformanceResponse(BaseModel):
     total_inseminations: int
     confirmed_pregnancies: int
     conception_rate: float
+
+
+class SirePerformanceSummaryItemResponse(BaseModel):
+    sire: SireCatalogResponse
+    total_inseminations: int
+    confirmed_pregnancies: int
+    conception_rate: float
+    straws_used: int
+    straws_in_stock: int
+
+
+class SirePerformanceSummaryResponse(BaseModel):
+    items: list[SirePerformanceSummaryItemResponse]
+    date_from: datetime
+    date_to: datetime
+    include_inactive: bool

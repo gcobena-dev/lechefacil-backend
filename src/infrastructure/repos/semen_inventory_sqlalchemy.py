@@ -164,6 +164,59 @@ class SemenInventorySQLAlchemyRepository:
         result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
 
+    async def _distinct_values(
+        self, tenant_id: UUID, column, limit: int
+    ) -> list[str]:
+        stmt = (
+            select(column)
+            .where(SemenInventoryORM.tenant_id == tenant_id)
+            .where(SemenInventoryORM.deleted_at.is_(None))
+            .where(column.isnot(None))
+            .where(column != "")
+            .group_by(column)
+            .order_by(func.count().desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    async def get_autocomplete_values(
+        self, tenant_id: UUID, limit: int = 50
+    ) -> dict[str, list[str]]:
+        return {
+            "suppliers": await self._distinct_values(
+                tenant_id, SemenInventoryORM.supplier, limit
+            ),
+            "batch_codes": await self._distinct_values(
+                tenant_id, SemenInventoryORM.batch_code, limit
+            ),
+            "tank_ids": await self._distinct_values(
+                tenant_id, SemenInventoryORM.tank_id, limit
+            ),
+            "canister_positions": await self._distinct_values(
+                tenant_id, SemenInventoryORM.canister_position, limit
+            ),
+        }
+
+    async def aggregate_stock_by_sire(
+        self,
+        tenant_id: UUID,
+    ) -> dict[UUID, int]:
+        """Sum of current_quantity grouped by sire_catalog_id."""
+        stmt = (
+            select(
+                SemenInventoryORM.sire_catalog_id.label("sire_id"),
+                func.coalesce(
+                    func.sum(SemenInventoryORM.current_quantity), 0
+                ).label("straws_in_stock"),
+            )
+            .where(SemenInventoryORM.tenant_id == tenant_id)
+            .where(SemenInventoryORM.deleted_at.is_(None))
+            .group_by(SemenInventoryORM.sire_catalog_id)
+        )
+        result = await self.session.execute(stmt)
+        return {r.sire_id: int(r.straws_in_stock or 0) for r in result.all()}
+
     async def delete(self, stock: SemenInventory) -> None:
         orm = await self.session.get(SemenInventoryORM, stock.id)
         if orm:

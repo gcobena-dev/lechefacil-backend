@@ -295,6 +295,66 @@ class InseminationsSQLAlchemyRepository:
         result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
 
+    async def aggregate_by_sire(
+        self,
+        tenant_id: UUID,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> dict[UUID, dict]:
+        """Per-sire aggregations within a date range.
+
+        Returns a dict keyed by sire_catalog_id with:
+          - total_inseminations
+          - confirmed_pregnancies
+          - straws_used (excludes natural-service mounts)
+        """
+        stmt = (
+            select(
+                InseminationORM.sire_catalog_id.label("sire_id"),
+                func.count().label("total_inseminations"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                InseminationORM.pregnancy_status
+                                == PregnancyStatus.CONFIRMED.value,
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("confirmed_pregnancies"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                InseminationORM.method != InseminationMethod.NATURAL.value,
+                                InseminationORM.straw_count,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("straws_used"),
+            )
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.deleted_at.is_(None))
+            .where(InseminationORM.sire_catalog_id.is_not(None))
+            .where(InseminationORM.service_date >= date_from)
+            .where(InseminationORM.service_date <= date_to)
+            .group_by(InseminationORM.sire_catalog_id)
+        )
+        result = await self.session.execute(stmt)
+        return {
+            r.sire_id: {
+                "total_inseminations": int(r.total_inseminations or 0),
+                "confirmed_pregnancies": int(r.confirmed_pregnancies or 0),
+                "straws_used": int(r.straws_used or 0),
+            }
+            for r in result.all()
+        }
+
     async def get_reproductive_stats(
         self,
         tenant_id: UUID,

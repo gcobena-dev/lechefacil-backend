@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.application.use_cases.reproduction import (
     create_sire,
     delete_sire,
     list_sires,
     sire_performance_report,
+    sire_performance_summary,
     update_sire,
 )
 from src.interfaces.http.deps import get_auth_context, get_uow
@@ -18,6 +20,7 @@ from src.interfaces.http.schemas.sire_catalog import (
     SireCatalogResponse,
     SireCatalogUpdate,
     SirePerformanceResponse,
+    SirePerformanceSummaryResponse,
 )
 from src.interfaces.middleware.auth_middleware import AuthContext
 
@@ -67,6 +70,43 @@ async def list_sires_endpoint(
         "total": result.total,
         "limit": limit,
         "offset": offset,
+    }
+
+
+@router.get("/performance-summary", response_model=SirePerformanceSummaryResponse)
+async def sire_performance_summary_endpoint(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    include_inactive: bool = Query(default=False),
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+):
+    dt_from = datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc)
+    dt_to = datetime.combine(
+        date_to, datetime.max.time().replace(microsecond=0), tzinfo=timezone.utc
+    )
+    items = await sire_performance_summary.execute(
+        uow,
+        context.tenant_id,
+        date_from=dt_from,
+        date_to=dt_to,
+        include_inactive=include_inactive,
+    )
+    return {
+        "items": [
+            {
+                "sire": item.sire,
+                "total_inseminations": item.total_inseminations,
+                "confirmed_pregnancies": item.confirmed_pregnancies,
+                "conception_rate": item.conception_rate,
+                "straws_used": item.straws_used,
+                "straws_in_stock": item.straws_in_stock,
+            }
+            for item in items
+        ],
+        "date_from": dt_from,
+        "date_to": dt_to,
+        "include_inactive": include_inactive,
     }
 
 

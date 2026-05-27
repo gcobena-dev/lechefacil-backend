@@ -65,6 +65,13 @@ class InseminationsRepository(Protocol):
         sire_catalog_id: UUID,
     ) -> int: ...
 
+    async def aggregate_by_sire(
+        self,
+        tenant_id: UUID,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> dict[UUID, dict]: ...
+
     async def get_reproductive_stats(
         self, tenant_id: UUID, date_from: datetime, date_to: datetime
     ) -> dict: ...

@@ -40,4 +40,13 @@ class SemenInventoryRepository(Protocol):
         in_stock_only: bool = True,
     ) -> int: ...
 
+    async def aggregate_stock_by_sire(
+        self,
+        tenant_id: UUID,
+    ) -> dict[UUID, int]: ...
+
+    async def get_autocomplete_values(
+        self, tenant_id: UUID, limit: int = 50
+    ) -> dict[str, list[str]]: ...
+
     async def delete(self, stock: SemenInventory) -> None: ...

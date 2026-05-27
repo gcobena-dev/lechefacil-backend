@@ -62,3 +62,10 @@ class SemenInventoryListResponse(BaseModel):
     limit: int
     offset: int
     breeds_count: int = 0
+
+
+class SemenInventoryAutocompleteResponse(BaseModel):
+    suppliers: list[str]
+    batch_codes: list[str]
+    tank_ids: list[str]
+    canister_positions: list[str]

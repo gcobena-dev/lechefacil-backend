@@ -11,6 +11,7 @@ from src.application.use_cases.reproduction import (
 )
 from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.semen_inventory import (
+    SemenInventoryAutocompleteResponse,
     SemenInventoryCreate,
     SemenInventoryListResponse,
     SemenInventoryResponse,
@@ -72,6 +73,14 @@ async def list_semen_stock_endpoint(
         "offset": offset,
         "breeds_count": breeds_count,
     }
+
+
+@router.get("/autocomplete", response_model=SemenInventoryAutocompleteResponse)
+async def autocomplete_values_endpoint(
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+):
+    return await uow.semen_inventory.get_autocomplete_values(context.tenant_id)
 
 
 @router.get("/{stock_id}", response_model=SemenInventoryResponse)
