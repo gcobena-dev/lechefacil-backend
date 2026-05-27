@@ -30,9 +30,7 @@ async def execute(
         active_only=not include_inactive,
         limit=None,
     )
-    insem_agg = await uow.inseminations.aggregate_by_sire(
-        tenant_id, date_from, date_to
-    )
+    insem_agg = await uow.inseminations.aggregate_by_sire(tenant_id, date_from, date_to)
     stock_agg = await uow.semen_inventory.aggregate_stock_by_sire(tenant_id)
 
     items: list[SirePerformanceSummaryItem] = []

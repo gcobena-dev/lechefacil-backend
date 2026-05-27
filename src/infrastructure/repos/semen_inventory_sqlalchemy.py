@@ -164,9 +164,7 @@ class SemenInventorySQLAlchemyRepository:
         result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
 
-    async def _distinct_values(
-        self, tenant_id: UUID, column, limit: int
-    ) -> list[str]:
+    async def _distinct_values(self, tenant_id: UUID, column, limit: int) -> list[str]:
         stmt = (
             select(column)
             .where(SemenInventoryORM.tenant_id == tenant_id)
@@ -184,15 +182,11 @@ class SemenInventorySQLAlchemyRepository:
         self, tenant_id: UUID, limit: int = 50
     ) -> dict[str, list[str]]:
         return {
-            "suppliers": await self._distinct_values(
-                tenant_id, SemenInventoryORM.supplier, limit
-            ),
+            "suppliers": await self._distinct_values(tenant_id, SemenInventoryORM.supplier, limit),
             "batch_codes": await self._distinct_values(
                 tenant_id, SemenInventoryORM.batch_code, limit
             ),
-            "tank_ids": await self._distinct_values(
-                tenant_id, SemenInventoryORM.tank_id, limit
-            ),
+            "tank_ids": await self._distinct_values(tenant_id, SemenInventoryORM.tank_id, limit),
             "canister_positions": await self._distinct_values(
                 tenant_id, SemenInventoryORM.canister_position, limit
             ),
@@ -206,9 +200,9 @@ class SemenInventorySQLAlchemyRepository:
         stmt = (
             select(
                 SemenInventoryORM.sire_catalog_id.label("sire_id"),
-                func.coalesce(
-                    func.sum(SemenInventoryORM.current_quantity), 0
-                ).label("straws_in_stock"),
+                func.coalesce(func.sum(SemenInventoryORM.current_quantity), 0).label(
+                    "straws_in_stock"
+                ),
             )
             .where(SemenInventoryORM.tenant_id == tenant_id)
             .where(SemenInventoryORM.deleted_at.is_(None))

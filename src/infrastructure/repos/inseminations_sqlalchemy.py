@@ -316,8 +316,7 @@ class InseminationsSQLAlchemyRepository:
                     func.sum(
                         case(
                             (
-                                InseminationORM.pregnancy_status
-                                == PregnancyStatus.CONFIRMED.value,
+                                InseminationORM.pregnancy_status == PregnancyStatus.CONFIRMED.value,
                                 1,
                             ),
                             else_=0,
