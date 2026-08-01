@@ -164,6 +164,24 @@ class LactationsSQLAlchemyRepository(LactationsRepository):
             for r in result.all()
         ]
 
+    async def get_last_calving_per_animal(self, tenant_id: UUID) -> dict[UUID, date]:
+        """Most recent calving date per animal, from open and closed lactations alike.
+
+        Unlike ``list_open_with_animal`` this keeps returning the last calving
+        after the cow has been dried off, which is what reproductive-cycle
+        bookkeeping needs.
+        """
+        stmt = (
+            select(
+                LactationORM.animal_id,
+                func.max(LactationORM.start_date).label("last_calving"),
+            )
+            .where(LactationORM.tenant_id == tenant_id)
+            .group_by(LactationORM.animal_id)
+        )
+        result = await self.session.execute(stmt)
+        return {r.animal_id: r.last_calving for r in result.all()}
+
     async def find_by_date(
         self, tenant_id: UUID, animal_id: UUID, target_date: date
     ) -> Lactation | None:

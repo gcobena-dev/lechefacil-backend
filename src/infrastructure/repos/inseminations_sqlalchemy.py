@@ -231,6 +231,29 @@ class InseminationsSQLAlchemyRepository:
         orm = result.scalar_one_or_none()
         return self._to_domain(orm) if orm else None
 
+    async def list_pending_before(
+        self,
+        tenant_id: UUID,
+        animal_id: UUID,
+        before: datetime,
+    ) -> list[Insemination]:
+        """PENDING services for an animal recorded on or before ``before``.
+
+        Newest first. Used to close out services left un-checked once the cow
+        calves.
+        """
+        stmt = (
+            select(InseminationORM)
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.animal_id == animal_id)
+            .where(InseminationORM.pregnancy_status == PregnancyStatus.PENDING.value)
+            .where(InseminationORM.service_date <= before)
+            .where(InseminationORM.deleted_at.is_(None))
+            .order_by(InseminationORM.service_date.desc())
+        )
+        result = await self.session.execute(stmt)
+        return [self._to_domain(orm) for orm in result.scalars().all()]
+
     async def get_latest_per_animal(self, tenant_id: UUID) -> dict[UUID, dict]:
         stmt = (
             select(

@@ -316,6 +316,66 @@
         }
       }
     },
+    "/api/v1/auth/profile": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Auth Profile",
+        "operationId": "auth_profile_api_v1_auth_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Update Profile Endpoint",
+        "operationId": "update_profile_endpoint_api_v1_auth_profile_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/my-tenants": {
       "get": {
         "tags": [
@@ -421,47 +481,6 @@
                   },
                   "type": "object",
                   "title": "Response Logout Endpoint Api V1 Auth Logout Post"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/profile": {
-      "patch": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Update Profile Endpoint",
-        "operationId": "update_profile_endpoint_api_v1_auth_profile_patch",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateProfileRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateProfileResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -907,6 +926,94 @@
               "title": "Search"
             },
             "description": "Alias of q for text search"
+          },
+          {
+            "name": "breed_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV of breed UUIDs",
+              "title": "Breed Ids"
+            },
+            "description": "CSV of breed UUIDs"
+          },
+          {
+            "name": "lot_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV of lot UUIDs",
+              "title": "Lot Ids"
+            },
+            "description": "CSV of lot UUIDs"
+          },
+          {
+            "name": "sex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV: FEMALE,MALE",
+              "title": "Sex"
+            },
+            "description": "CSV: FEMALE,MALE"
+          },
+          {
+            "name": "labels",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV of animal labels",
+              "title": "Labels"
+            },
+            "description": "CSV of animal labels"
+          },
+          {
+            "name": "in_milk_withdrawal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "In Milk Withdrawal"
+            }
           }
         ],
         "responses": {
@@ -3614,6 +3721,66 @@
         }
       }
     },
+    "/api/v1/settings/tenant": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Get Tenant Identity",
+        "operationId": "get_tenant_identity_api_v1_settings_tenant_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantIdentityResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Update Tenant Identity",
+        "operationId": "update_tenant_identity_api_v1_settings_tenant_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantIdentityUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantIdentityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/dashboard/daily-kpis": {
       "get": {
         "tags": [
@@ -3977,6 +4144,232 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReproductionKPIsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/reproductive-animals": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "List Reproductive Animals Endpoint",
+        "operationId": "list_reproductive_animals_endpoint_api_v1_dashboard_reproductive_animals_get",
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "todas",
+              "title": "Filter"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "postpartum",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "sort_dir",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "desc",
+              "title": "Sort Dir"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "alert_level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV: optimal,warning,critical,none",
+              "title": "Alert Level"
+            },
+            "description": "CSV: optimal,warning,critical,none"
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV: AI,NATURAL,ET,IATF",
+              "title": "Method"
+            },
+            "description": "CSV: AI,NATURAL,ET,IATF"
+          },
+          {
+            "name": "pregnancy_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV: PENDING,CONFIRMED,OPEN,LOST",
+              "title": "Pregnancy Status"
+            },
+            "description": "CSV: PENDING,CONFIRMED,OPEN,LOST"
+          },
+          {
+            "name": "technician",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV of technician names",
+              "title": "Technician"
+            },
+            "description": "CSV of technician names"
+          },
+          {
+            "name": "heat_detected",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Heat Detected"
+            }
+          },
+          {
+            "name": "last_event_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV: calving,insemination,check",
+              "title": "Last Event Type"
+            },
+            "description": "CSV: calving,insemination,check"
+          },
+          {
+            "name": "labels",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSV of animal labels",
+              "title": "Labels"
+            },
+            "description": "CSV of animal labels"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReproductiveAnimalsResponse"
                 }
               }
             }
@@ -4571,6 +4964,69 @@
         }
       }
     },
+    "/api/v1/reproduction/sires/performance-summary": {
+      "get": {
+        "tags": [
+          "reproduction"
+        ],
+        "summary": "Sire Performance Summary Endpoint",
+        "operationId": "sire_performance_summary_endpoint_api_v1_reproduction_sires_performance_summary_get",
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SirePerformanceSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reproduction/sires/{sire_id}": {
       "get": {
         "tags": [
@@ -4854,6 +5310,27 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reproduction/semen/autocomplete": {
+      "get": {
+        "tags": [
+          "reproduction"
+        ],
+        "summary": "Autocomplete Values Endpoint",
+        "operationId": "autocomplete_values_endpoint_api_v1_reproduction_semen_autocomplete_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemenInventoryAutocompleteResponse"
                 }
               }
             }
@@ -5548,14 +6025,14 @@
         "summary": "Submit Access Request",
         "operationId": "submit_access_request_api_v1_access_requests__post",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AccessRequestPayload"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -5563,7 +6040,240 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccessRequestResponse"
+                  "$ref": "#/components/schemas/AccessRequestSubmitResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "access-requests"
+        ],
+        "summary": "List Access Requests",
+        "operationId": "list_access_requests_api_v1_access_requests__get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequestList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access-requests/{request_id}": {
+      "get": {
+        "tags": [
+          "access-requests"
+        ],
+        "summary": "Get Access Request",
+        "operationId": "get_access_request_api_v1_access_requests__request_id__get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access-requests/{request_id}/approve": {
+      "post": {
+        "tags": [
+          "access-requests"
+        ],
+        "summary": "Approve Access Request Endpoint",
+        "operationId": "approve_access_request_endpoint_api_v1_access_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AccessRequestDecisionPayload"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequestDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access-requests/{request_id}/reject": {
+      "post": {
+        "tags": [
+          "access-requests"
+        ],
+        "summary": "Reject Access Request Endpoint",
+        "operationId": "reject_access_request_endpoint_api_v1_access_requests__request_id__reject_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AccessRequestDecisionPayload"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessRequestDetail"
                 }
               }
             }
@@ -6057,6 +6767,24 @@
             }
           },
           {
+            "name": "fecha",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by date (YYYY-MM-DD)",
+              "title": "Fecha"
+            },
+            "description": "Filter by date (YYYY-MM-DD)"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -6132,8 +6860,31 @@
   },
   "components": {
     "schemas": {
-      "AccessRequestPayload": {
+      "AccessRequestDecisionPayload": {
         "properties": {
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "title": "AccessRequestDecisionPayload"
+      },
+      "AccessRequestDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
           "full_name": {
             "type": "string",
             "title": "Full Name"
@@ -6159,11 +6910,194 @@
             "title": "Farm Name"
           },
           "farm_location": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Farm Location"
           },
           "requested_role": {
             "type": "string",
+            "title": "Requested Role"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "requester_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requester User Id"
+          },
+          "decided_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By User Id"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decision_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Notes"
+          },
+          "created_tenant_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created Tenant Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "full_name",
+          "email",
+          "phone_number",
+          "farm_name",
+          "farm_location",
+          "requested_role",
+          "message",
+          "status",
+          "requester_user_id",
+          "decided_by_user_id",
+          "decided_at",
+          "decision_notes",
+          "created_tenant_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AccessRequestDetail"
+      },
+      "AccessRequestList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AccessRequestDetail"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "AccessRequestList"
+      },
+      "AccessRequestPayload": {
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone Number"
+          },
+          "farm_name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Farm Name"
+          },
+          "farm_location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Farm Location"
+          },
+          "requested_role": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Requested Role"
           },
           "message": {
@@ -6183,23 +7117,28 @@
           "full_name",
           "email",
           "farm_name",
-          "farm_location",
           "requested_role"
         ],
         "title": "AccessRequestPayload"
       },
-      "AccessRequestResponse": {
+      "AccessRequestSubmitResponse": {
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
           "status": {
             "type": "string",
-            "title": "Status"
+            "title": "Status",
+            "default": "pending"
           }
         },
         "type": "object",
         "required": [
-          "status"
+          "id"
         ],
-        "title": "AccessRequestResponse"
+        "title": "AccessRequestSubmitResponse"
       },
       "AddMembershipRequest": {
         "properties": {
@@ -7537,6 +8476,50 @@
             ],
             "title": "External Sire Registry"
           },
+          "dam_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dam Tag"
+          },
+          "dam_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dam Name"
+          },
+          "sire_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Tag"
+          },
+          "sire_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Name"
+          },
           "disposition_at": {
             "anyOf": [
               {
@@ -8182,6 +9165,42 @@
         },
         "type": "object",
         "title": "BreedUpdate"
+      },
+      "BucketCountsSchema": {
+        "properties": {
+          "alertas": {
+            "type": "integer",
+            "title": "Alertas",
+            "default": 0
+          },
+          "inseminadas": {
+            "type": "integer",
+            "title": "Inseminadas",
+            "default": 0
+          },
+          "prenadas": {
+            "type": "integer",
+            "title": "Prenadas",
+            "default": 0
+          },
+          "vacias": {
+            "type": "integer",
+            "title": "Vacias",
+            "default": 0
+          },
+          "sin_inseminar": {
+            "type": "integer",
+            "title": "Sin Inseminar",
+            "default": 0
+          },
+          "todas": {
+            "type": "integer",
+            "title": "Todas",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "BucketCountsSchema"
       },
       "BuyerCreate": {
         "properties": {
@@ -9389,6 +10408,18 @@
       },
       "InseminationUpdate": {
         "properties": {
+          "service_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Date"
+          },
           "technician": {
             "anyOf": [
               {
@@ -9910,6 +10941,27 @@
           },
           "role": {
             "$ref": "#/components/schemas/Role"
+          },
+          "tenant_name": {
+            "type": "string",
+            "title": "Tenant Name",
+            "default": "Mi Finca"
+          },
+          "tenant_location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Location"
+          },
+          "animals_count": {
+            "type": "integer",
+            "title": "Animals Count",
+            "default": 0
           }
         },
         "type": "object",
@@ -11404,6 +12456,28 @@
               }
             ],
             "title": "Tenant Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
           }
         },
         "type": "object",
@@ -11860,6 +12934,16 @@
             },
             "type": "array",
             "title": "Postpartum Alerts"
+          },
+          "previous_period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReproductionPreviousPeriod"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -11878,6 +12962,269 @@
           "postpartum_alerts"
         ],
         "title": "ReproductionKPIsResponse"
+      },
+      "ReproductionPreviousPeriod": {
+        "properties": {
+          "cows_inseminated": {
+            "type": "integer",
+            "title": "Cows Inseminated"
+          },
+          "straws_used": {
+            "type": "integer",
+            "title": "Straws Used"
+          },
+          "services_per_cow": {
+            "type": "number",
+            "title": "Services Per Cow"
+          },
+          "pregnant_pct": {
+            "type": "number",
+            "title": "Pregnant Pct"
+          },
+          "open_pct": {
+            "type": "number",
+            "title": "Open Pct"
+          },
+          "pending_pct": {
+            "type": "number",
+            "title": "Pending Pct"
+          },
+          "conception_rate": {
+            "type": "number",
+            "title": "Conception Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cows_inseminated",
+          "straws_used",
+          "services_per_cow",
+          "pregnant_pct",
+          "open_pct",
+          "pending_pct",
+          "conception_rate"
+        ],
+        "title": "ReproductionPreviousPeriod"
+      },
+      "ReproductiveAnimalRowSchema": {
+        "properties": {
+          "animal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Animal Id"
+          },
+          "tag": {
+            "type": "string",
+            "title": "Tag"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "days_postpartum": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Postpartum"
+          },
+          "last_calving_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Calving Date"
+          },
+          "days_pregnant": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Pregnant"
+          },
+          "expected_calving_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Calving Date"
+          },
+          "alert_level": {
+            "type": "string",
+            "title": "Alert Level"
+          },
+          "bucket": {
+            "type": "string",
+            "title": "Bucket"
+          },
+          "situation_label": {
+            "type": "string",
+            "title": "Situation Label"
+          },
+          "last_event_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Event Type"
+          },
+          "last_event_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Event Date"
+          },
+          "last_insemination_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Insemination Id"
+          },
+          "last_insemination_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Insemination Status"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "technician": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician"
+          },
+          "heat_detected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heat Detected"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Labels",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "animal_id",
+          "tag",
+          "name",
+          "days_postpartum",
+          "last_calving_date",
+          "alert_level",
+          "bucket",
+          "situation_label",
+          "last_event_type",
+          "last_event_date",
+          "last_insemination_id",
+          "last_insemination_status"
+        ],
+        "title": "ReproductiveAnimalRowSchema"
+      },
+      "ReproductiveAnimalsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReproductiveAnimalRowSchema"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "bucket_counts": {
+            "$ref": "#/components/schemas/BucketCountsSchema"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "bucket_counts",
+          "limit",
+          "offset"
+        ],
+        "title": "ReproductiveAnimalsResponse"
       },
       "ReproductiveStatusBreakdown": {
         "properties": {
@@ -12399,17 +13746,17 @@
             "type": "integer",
             "title": "Accepted"
           },
-          "duplicates": {
+          "updated": {
             "type": "integer",
-            "title": "Duplicates"
+            "title": "Updated",
+            "default": 0
           }
         },
         "type": "object",
         "required": [
           "status",
           "batch_id",
-          "accepted",
-          "duplicates"
+          "accepted"
         ],
         "title": "ScaleSyncResponse"
       },
@@ -12473,6 +13820,46 @@
           "email"
         ],
         "title": "SelfRegisterResponse"
+      },
+      "SemenInventoryAutocompleteResponse": {
+        "properties": {
+          "suppliers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suppliers"
+          },
+          "batch_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Batch Codes"
+          },
+          "tank_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tank Ids"
+          },
+          "canister_positions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Canister Positions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suppliers",
+          "batch_codes",
+          "tank_ids",
+          "canister_positions"
+        ],
+        "title": "SemenInventoryAutocompleteResponse"
       },
       "SemenInventoryCreate": {
         "properties": {
@@ -12611,6 +13998,11 @@
           "offset": {
             "type": "integer",
             "title": "Offset"
+          },
+          "breeds_count": {
+            "type": "integer",
+            "title": "Breeds Count",
+            "default": 0
           }
         },
         "type": "object",
@@ -13420,6 +14812,76 @@
         ],
         "title": "SirePerformanceResponse"
       },
+      "SirePerformanceSummaryItemResponse": {
+        "properties": {
+          "sire": {
+            "$ref": "#/components/schemas/SireCatalogResponse"
+          },
+          "total_inseminations": {
+            "type": "integer",
+            "title": "Total Inseminations"
+          },
+          "confirmed_pregnancies": {
+            "type": "integer",
+            "title": "Confirmed Pregnancies"
+          },
+          "conception_rate": {
+            "type": "number",
+            "title": "Conception Rate"
+          },
+          "straws_used": {
+            "type": "integer",
+            "title": "Straws Used"
+          },
+          "straws_in_stock": {
+            "type": "integer",
+            "title": "Straws In Stock"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sire",
+          "total_inseminations",
+          "confirmed_pregnancies",
+          "conception_rate",
+          "straws_used",
+          "straws_in_stock"
+        ],
+        "title": "SirePerformanceSummaryItemResponse"
+      },
+      "SirePerformanceSummaryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SirePerformanceSummaryItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "date_from": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date From"
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Date To"
+          },
+          "include_inactive": {
+            "type": "boolean",
+            "title": "Include Inactive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "date_from",
+          "date_to",
+          "include_inactive"
+        ],
+        "title": "SirePerformanceSummaryResponse"
+      },
       "TenantBillingResponse": {
         "properties": {
           "default_buyer_id": {
@@ -13535,6 +14997,67 @@
         },
         "type": "object",
         "title": "TenantBillingSettings"
+      },
+      "TenantIdentityResponse": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "name"
+        ],
+        "title": "TenantIdentityResponse"
+      },
+      "TenantIdentityUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          }
+        },
+        "type": "object",
+        "title": "TenantIdentityUpdate"
       },
       "TopProducer": {
         "properties": {
@@ -13808,6 +15331,53 @@
           "created_at"
         ],
         "title": "UserListResponse"
+      },
+      "UserProfileResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "is_super_admin": {
+            "type": "boolean",
+            "title": "Is Super Admin",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email"
+        ],
+        "title": "UserProfileResponse"
       },
       "UsersListResponse": {
         "properties": {

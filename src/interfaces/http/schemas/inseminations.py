@@ -26,11 +26,20 @@ class InseminationCreate(BaseModel):
 
 
 class InseminationUpdate(BaseModel):
+    service_date: datetime | None = None
     technician: str | None = None
     notes: str | None = None
     heat_detected: bool | None = None
     protocol: str | None = None
     sire_catalog_id: UUID | None = None
+
+    @field_validator("service_date")
+    def ensure_aware_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return v
+        if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v.astimezone(timezone.utc)
 
 
 class PregnancyCheckInput(BaseModel):

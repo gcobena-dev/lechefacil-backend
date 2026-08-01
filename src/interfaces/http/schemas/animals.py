@@ -143,6 +143,11 @@ class AnimalResponse(BaseModel):
     sire_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
+    # Derived: tag/name of the parent animals, so the UI can show and link them
+    dam_tag: str | None = None
+    dam_name: str | None = None
+    sire_tag: str | None = None
+    sire_name: str | None = None
 
     # Disposition fields (read-only, set by events)
     disposition_at: datetime | None = None

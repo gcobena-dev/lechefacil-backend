@@ -376,6 +376,14 @@ async def get_animal_endpoint(
         except Exception:
             # If statuses table is missing in certain environments/tests, skip enrichment
             pass
+    # Genealogy: resolve the parents so the detail view can show and link them
+    for field, parent_id in (("dam", data.get("dam_id")), ("sire", data.get("sire_id"))):
+        if not parent_id:
+            continue
+        parent = await uow.animals.get(context.tenant_id, parent_id)
+        if parent:
+            data[f"{field}_tag"] = parent.tag
+            data[f"{field}_name"] = parent.name
     data["photo_url"] = primary.storage_key if primary else None
     data["primary_photo_signed_url"] = signed_url
     return AnimalResponse.model_validate(data)

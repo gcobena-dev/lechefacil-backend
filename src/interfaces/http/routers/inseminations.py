@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -13,6 +13,7 @@ from src.application.use_cases.reproduction import (
     record_insemination,
     record_pregnancy_check,
 )
+from src.domain.models.insemination import GESTATION_DAYS, PregnancyStatus
 from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.inseminations import (
     InseminationCreate,
@@ -196,6 +197,27 @@ async def get_insemination_endpoint(
     return data
 
 
+async def _apply_service_date(uow, tenant_id: UUID, record, service_date: datetime) -> None:
+    """Move a service to a new date, keeping everything derived from it in sync.
+
+    The expected calving date is recomputed for pregnancies still on record, and
+    the SERVICE event that mirrors this insemination on the animal timeline is
+    moved along with it — otherwise the timeline would keep showing the old date.
+    """
+    if service_date > datetime.now(timezone.utc):
+        raise HTTPException(status_code=422, detail="La fecha de servicio no puede ser futura")
+
+    record.service_date = service_date
+    if record.pregnancy_status == PregnancyStatus.CONFIRMED.value:
+        record.expected_calving_date = (service_date + timedelta(days=GESTATION_DAYS)).date()
+
+    if record.service_event_id:
+        event = await uow.animal_events.get(tenant_id, record.service_event_id)
+        if event:
+            event.occurred_at = service_date
+            await uow.animal_events.update(event)
+
+
 @router.put("/{insemination_id}", response_model=InseminationResponse)
 async def update_insemination_endpoint(
     insemination_id: UUID,
@@ -220,6 +242,8 @@ async def update_insemination_endpoint(
         record.protocol = update_data["protocol"]
     if "sire_catalog_id" in update_data:
         record.sire_catalog_id = update_data["sire_catalog_id"]
+    if update_data.get("service_date") is not None:
+        await _apply_service_date(uow, context.tenant_id, record, update_data["service_date"])
 
     record.bump_version()
     updated = await uow.inseminations.update(record)

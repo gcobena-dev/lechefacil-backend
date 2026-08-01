@@ -12,6 +12,12 @@ from src.domain.models.animal_parentage import AnimalParentage, ParentageRelatio
 from src.domain.models.lactation import Lactation
 from src.domain.value_objects.role import Role
 
+# Window (in days between service and calving) within which a service can be
+# credited with having produced that calving. Bovine gestation averages ~283
+# days; the range is deliberately wide to also cover early/late calvings.
+MIN_GESTATION_DAYS = 240
+MAX_GESTATION_DAYS = 310
+
 
 @dataclass(slots=True)
 class RegisterEventInput:
@@ -67,6 +73,44 @@ async def _close_open_lactation(
     return await uow.lactations.update(open_lactation)
 
 
+async def _resolve_inseminations_on_calving(
+    uow: UnitOfWork,
+    tenant_id: UUID,
+    animal: Animal,
+    event: AnimalEvent,
+) -> None:
+    """Settle the services that preceded a calving.
+
+    A calving ends the reproductive cycle that produced it. Without this, a
+    service whose pregnancy check was never registered stays PENDING forever and
+    the cow keeps showing up as "Inseminada" long after she has calved.
+
+    The most recent service compatible with the gestation length is credited
+    with the pregnancy (CONFIRMED and linked to the calving event); any earlier
+    service still pending is closed as OPEN, since it clearly did not take.
+    """
+    calving_at = event.occurred_at
+
+    # An already-CONFIRMED service is the pregnancy on record: just link it.
+    confirmed = await uow.inseminations.get_latest_confirmed(tenant_id, animal.id)
+    if confirmed:
+        confirmed.calving_event_id = event.id
+        confirmed.bump_version()
+        await uow.inseminations.update(confirmed)
+
+    pending = await uow.inseminations.list_pending_before(tenant_id, animal.id, calving_at)
+    credited = confirmed is not None
+    for insemination in pending:
+        gestation_days = (calving_at.date() - insemination.service_date.date()).days
+        if not credited and MIN_GESTATION_DAYS <= gestation_days <= MAX_GESTATION_DAYS:
+            insemination.confirm_pregnancy(check_date=calving_at)
+            insemination.calving_event_id = event.id
+            credited = True
+        else:
+            insemination.mark_open(check_date=calving_at)
+        await uow.inseminations.update(insemination)
+
+
 async def _handle_calving_event(
     uow: UnitOfWork,
     tenant_id: UUID,
@@ -115,13 +159,9 @@ async def _handle_calving_event(
             expected_version=animal.version,
         )
 
-    # Link the most recent CONFIRMED insemination to this calving event
+    # Close out the reproductive cycle this calving ends
     try:
-        confirmed_insemination = await uow.inseminations.get_latest_confirmed(tenant_id, animal.id)
-        if confirmed_insemination:
-            confirmed_insemination.calving_event_id = event.id
-            confirmed_insemination.bump_version()
-            await uow.inseminations.update(confirmed_insemination)
+        await _resolve_inseminations_on_calving(uow, tenant_id, animal, event)
     except Exception:
         pass  # best-effort; don't block calving on insemination linkage
 

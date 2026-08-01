@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -59,6 +60,20 @@ class AnimalEventsSQLAlchemyRepository(AnimalEventsRepository):
         result = await self.session.execute(stmt)
         orm = result.scalar_one_or_none()
         return self._to_domain(orm) if orm else None
+
+    async def update(self, event: AnimalEvent) -> AnimalEvent:
+        orm = await self.session.get(AnimalEventORM, event.id)
+        if not orm:
+            raise ValueError(f"Animal event {event.id} not found")
+        orm.type = event.type
+        orm.occurred_at = event.occurred_at
+        orm.data = event.data
+        orm.parent_event_id = event.parent_event_id
+        orm.new_status_id = event.new_status_id
+        orm.updated_at = datetime.now(timezone.utc)
+        orm.version = event.version + 1
+        await self.session.flush()
+        return self._to_domain(orm)
 
     async def list_by_animal(self, tenant_id: UUID, animal_id: UUID) -> list[AnimalEvent]:
         stmt = (

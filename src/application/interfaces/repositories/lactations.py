@@ -24,6 +24,8 @@ class LactationsRepository(Protocol):
 
     async def list_open_with_animal(self, tenant_id: UUID) -> list[dict]: ...
 
+    async def get_last_calving_per_animal(self, tenant_id: UUID) -> dict[UUID, date]: ...
+
     async def find_by_date(
         self, tenant_id: UUID, animal_id: UUID, target_date: date
     ) -> Lactation | None:

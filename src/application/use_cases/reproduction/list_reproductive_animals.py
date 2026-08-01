@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
@@ -8,7 +9,14 @@ from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.models.insemination import GESTATION_DAYS
 
 VALID_FILTERS = {"alertas", "inseminadas", "prenadas", "vacias", "sin_inseminar", "todas"}
-VALID_SORTS = {"postpartum", "tag", "name"}
+
+# Severity order for the ESTADO column: worst first, so "asc" reads as
+# "most urgent at the top".
+ALERT_ORDER = {"critical": 0, "warning": 1, "optimal": 2, "none": 3}
+
+# Reproductive-cycle order for the SITUACIÓN column, from "furthest along" to
+# "not started".
+SITUATION_ORDER = {"prenadas": 0, "inseminadas": 1, "vacias": 2, "sin_inseminar": 3}
 
 # Animal status codes that mean the cow is pregnant, independent of whether an
 # insemination was ever recorded (e.g. cows bred by natural service).
@@ -54,6 +62,41 @@ class ListReproductiveAnimalsOutput:
     bucket_counts: BucketCounts = field(default_factory=BucketCounts)
 
 
+def _displayed_days(row: ReproductiveAnimalRow) -> int | None:
+    """The number the DÍAS column shows: gestation days when pregnant, else postpartum."""
+    if row.bucket == "prenadas":
+        return row.days_pregnant
+    return row.days_postpartum
+
+
+# One entry per sortable column: the value to sort by (None when the row has
+# nothing to show) and the placeholder used while ordering the missing rows.
+_SORT_KEYS: dict[str, tuple[Callable[[ReproductiveAnimalRow], object], object]] = {
+    "postpartum": (lambda r: r.days_postpartum, 0),
+    "days": (_displayed_days, 0),
+    "tag": (lambda r: r.tag or None, ""),
+    "name": (lambda r: (r.name or "").lower() or None, ""),
+    "alert": (lambda r: ALERT_ORDER.get(r.alert_level), len(ALERT_ORDER)),
+    "situation": (lambda r: SITUATION_ORDER.get(r.bucket), len(SITUATION_ORDER)),
+    "last_event": (lambda r: r.last_event_date, date.min),
+}
+
+VALID_SORTS = set(_SORT_KEYS)
+
+
+def _sort_rows(rows: list[ReproductiveAnimalRow], sort: str, sort_dir: str) -> None:
+    """Order rows in place by the requested column.
+
+    Rows with no value for that column always sink to the bottom, in both
+    directions, so flipping the direction never buries the populated rows under
+    a wall of dashes.
+    """
+    key_fn, missing = _SORT_KEYS[sort]
+    reverse = sort_dir == "desc"
+    rows.sort(key=lambda r: key_fn(r) if key_fn(r) is not None else missing, reverse=reverse)
+    rows.sort(key=lambda r: key_fn(r) is None)  # stable: preserves the order above
+
+
 def _bucket_for(status: str | None) -> str:
     if status is None:
         return "sin_inseminar"
@@ -64,6 +107,28 @@ def _bucket_for(status: str | None) -> str:
     if status in ("OPEN", "LOST"):
         return "vacias"
     return "sin_inseminar"
+
+
+def _as_date(value: date | datetime | None) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    return value
+
+
+def _is_superseded_by_calving(ins: dict, last_calving: date | None) -> bool:
+    """True when the cow calved after this service, closing that cycle.
+
+    A calving is the natural end of a reproductive cycle: whatever the recorded
+    status of the preceding service (still PENDING because nobody registered the
+    pregnancy check, or CONFIRMED), once the cow has calved that service is
+    history and she is open again.
+    """
+    if last_calving is None:
+        return False
+    service_date = _as_date(ins.get("service_date"))
+    if service_date is None:
+        return False
+    return last_calving > service_date
 
 
 def _alert_level(days_postpartum: int | None, is_pregnant: bool) -> str:
@@ -133,6 +198,10 @@ async def execute(
     last_calving_by_animal: dict[UUID, date] = {
         lac["animal_id"]: lac["start_date"] for lac in open_lactations
     }
+    # Days postpartum only makes sense while the lactation is open, but the
+    # "has she calved since her last service?" check needs the last calving
+    # even for cows that have already been dried off again.
+    any_calving_by_animal = await uow.lactations.get_last_calving_per_animal(tenant_id)
 
     today = datetime.now(timezone.utc).date()
 
@@ -144,6 +213,14 @@ async def execute(
         calving = last_calving_by_animal.get(animal.id)
         days_pp = (today - calving).days if calving else None
         ins = latest_ins.get(animal.id)
+
+        # A calving closes the reproductive cycle that preceded it: a service
+        # recorded before the cow's last calving belongs to a finished cycle and
+        # must not keep her flagged as "Inseminada"/"Preñada" afterwards. She is
+        # open again and needs a new service.
+        if ins and _is_superseded_by_calving(ins, any_calving_by_animal.get(animal.id)):
+            ins = None
+
         status = ins["pregnancy_status"] if ins else None
         bucket = _bucket_for(status)
 
@@ -174,8 +251,9 @@ async def execute(
 
         # Determine last event: pick most recent of (calving, insemination, check)
         candidates: list[tuple[date, str]] = []
-        if calving:
-            candidates.append((calving, "calving"))
+        last_calving = any_calving_by_animal.get(animal.id) or calving
+        if last_calving:
+            candidates.append((last_calving, "calving"))
         if ins:
             sd = ins["service_date"]
             sd_date = sd.date() if isinstance(sd, datetime) else sd
@@ -269,18 +347,7 @@ async def execute(
         wanted = set(labels)
         filtered = [r for r in filtered if any(lbl in wanted for lbl in r.labels)]
 
-    # Sort
-    reverse = sort_dir == "desc"
-    if sort == "postpartum":
-        # Animals without postpartum at the end regardless of direction
-        filtered.sort(
-            key=lambda r: (r.days_postpartum is None, r.days_postpartum or 0),
-            reverse=reverse,
-        )
-    elif sort == "tag":
-        filtered.sort(key=lambda r: (r.tag or ""), reverse=reverse)
-    elif sort == "name":
-        filtered.sort(key=lambda r: (r.name or "").lower(), reverse=reverse)
+    _sort_rows(filtered, sort, sort_dir)
 
     total = len(filtered)
     page = filtered[offset : offset + limit] if limit else filtered
