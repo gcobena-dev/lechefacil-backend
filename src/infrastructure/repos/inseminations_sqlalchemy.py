@@ -255,6 +255,8 @@ class InseminationsSQLAlchemyRepository:
         return [self._to_domain(orm) for orm in result.scalars().all()]
 
     async def get_latest_per_animal(self, tenant_id: UUID) -> dict[UUID, dict]:
+        # The sire is joined in so the reproduction list can show which bull
+        # served each cow without an extra query per row.
         stmt = (
             select(
                 InseminationORM.animal_id,
@@ -266,7 +268,12 @@ class InseminationsSQLAlchemyRepository:
                 InseminationORM.method,
                 InseminationORM.technician,
                 InseminationORM.heat_detected,
+                InseminationORM.sire_catalog_id,
+                SireCatalogORM.name.label("sire_name"),
+                SireCatalogORM.short_code.label("sire_short_code"),
+                SireCatalogORM.registry_code.label("sire_registry_code"),
             )
+            .outerjoin(SireCatalogORM, SireCatalogORM.id == InseminationORM.sire_catalog_id)
             .where(InseminationORM.tenant_id == tenant_id)
             .where(InseminationORM.deleted_at.is_(None))
             .distinct(InseminationORM.animal_id)
@@ -283,6 +290,10 @@ class InseminationsSQLAlchemyRepository:
                 "method": r.method,
                 "technician": r.technician,
                 "heat_detected": r.heat_detected,
+                "sire_catalog_id": r.sire_catalog_id,
+                "sire_name": r.sire_name,
+                # Farm short code first; the registry code is the fallback
+                "sire_code": r.sire_short_code or r.sire_registry_code,
             }
             for r in result.all()
         }

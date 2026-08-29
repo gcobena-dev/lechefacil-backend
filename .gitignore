@@ -86,3 +86,7 @@ google-services.json
 *.swp
 *.tmp
 *.log
+# Database dumps (real data, never commit)
+backups/
+*.dump
+*.sql.gz

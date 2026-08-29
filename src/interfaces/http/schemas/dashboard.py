@@ -181,6 +181,9 @@ class ReproductiveAnimalRowSchema(BaseModel):
     method: str | None = None
     technician: str | None = None
     heat_detected: bool | None = None
+    # Bull of the last insemination, so the list can show who served the cow
+    sire_name: str | None = None
+    sire_code: str | None = None
     labels: list[str] = []
 
 

@@ -6,11 +6,12 @@ from uuid import UUID
 from src.application.errors import ValidationError
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.models.animal import Animal
+from src.domain.models.animal_status import INACTIVE_STATUS_CODES
 
 
 @dataclass(slots=True)
 class AnimalsSummaryData:
-    """Herd composition counters, computed over the active filter set."""
+    """Herd composition counters, computed ignoring the status filter."""
 
     production: int
     withdrawn: int
@@ -36,15 +37,14 @@ async def _compute_summary(
     uow: UnitOfWork,
     tenant_id: UUID,
     *,
-    status_ids: list[UUID] | None,
     search: str | None,
     filter_kwargs: dict,
-    total: int | None,
 ) -> AnimalsSummaryData:
-    """Counters for the summary cards, restricted to the active filter set.
+    """Counters for the summary cards: the herd composition.
 
-    The status breakdown (production = lactating, withdrawn = sold/culled/dead)
-    is intersected with any active status filter so the cards always add up.
+    Deliberately ignores the status filter (every other filter still applies),
+    so the cards keep showing the whole breakdown and can be used to jump into
+    a status: filtering by LACTATING must not zero out the "dados de baja" card.
     """
 
     async def code_id(code: str) -> UUID | None:
@@ -52,29 +52,14 @@ async def _compute_summary(
         return status.id if status else None
 
     lactating_id = await code_id("LACTATING")
-    sold_id = await code_id("SOLD")
-    culled_id = await code_id("CULLED")
-    dead_id = await code_id("DEAD")
+    inactive_ids = [i for i in [await code_id(c) for c in sorted(INACTIVE_STATUS_CODES)] if i]
 
-    user_set = set(status_ids) if status_ids is not None else None
-
-    def restrict(ids: list[UUID | None]) -> list[UUID]:
-        resolved = [i for i in ids if i is not None]
-        if user_set is None:
-            return resolved
-        return [i for i in resolved if i in user_set]
-
-    async def count_for(ids: list[UUID]) -> int:
+    async def count_for(ids: list[UUID] | None) -> int:
         return await uow.animals.count(tenant_id, status_ids=ids, search=search, **filter_kwargs)
 
-    if total is not None:
-        total_count = total
-    else:
-        total_count = await uow.animals.count(
-            tenant_id, status_ids=status_ids, search=search, **filter_kwargs
-        )
-    production = await count_for(restrict([lactating_id]))
-    withdrawn = await count_for(restrict([sold_id, culled_id, dead_id]))
+    total_count = await count_for(None)
+    production = await count_for([lactating_id]) if lactating_id else 0
+    withdrawn = await count_for(inactive_ids) if inactive_ids else 0
     other = max(total_count - production - withdrawn, 0)
     return AnimalsSummaryData(
         production=production,
@@ -161,10 +146,8 @@ async def execute(
         summary = await _compute_summary(
             uow,
             tenant_id,
-            status_ids=status_ids,
             search=search,
             filter_kwargs=filter_kwargs,
-            total=total,
         )
 
     return ListAnimalsResult(items=items, next_cursor=next_cursor, total=total, summary=summary)

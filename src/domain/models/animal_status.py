@@ -4,6 +4,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
+# Statuses that take an animal out of the herd ("dado de baja"). Kept here so
+# the API, the repositories and the reports all agree on what "active" means.
+INACTIVE_STATUS_CODES: frozenset[str] = frozenset({"SOLD", "DEAD", "CULLED"})
+
 
 @dataclass(slots=True)
 class AnimalStatus:
@@ -30,6 +34,11 @@ class AnimalStatus:
             is_system_default=is_system_default,
             created_at=datetime.now(timezone.utc),
         )
+
+    @property
+    def is_active(self) -> bool:
+        """False for statuses that take the animal out of the herd."""
+        return self.code not in INACTIVE_STATUS_CODES
 
     def get_translation(self, language_code: str = "es") -> dict:
         """Get translation for specific language, fallback to 'es' if not found"""

@@ -185,10 +185,12 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         elif is_active is not None:
             # Legacy is_active filter - implemented using status codes
             # Get inactive status IDs (SOLD, DEAD, CULLED)
+            from src.domain.models.animal_status import INACTIVE_STATUS_CODES
+
             from .animal_statuses_sqlalchemy import AnimalStatusORM
 
             inactive_statuses_stmt = select(AnimalStatusORM.id).where(
-                AnimalStatusORM.code.in_(["SOLD", "DEAD", "CULLED"])
+                AnimalStatusORM.code.in_(sorted(INACTIVE_STATUS_CODES))
             )
             inactive_status_result = await self.session.execute(inactive_statuses_stmt)
             inactive_status_ids = [row[0] for row in inactive_status_result.fetchall()]
@@ -316,10 +318,12 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         elif is_active is not None:
             # Legacy is_active filter - implemented using status codes
             # Get inactive status IDs (SOLD, DEAD, CULLED)
+            from src.domain.models.animal_status import INACTIVE_STATUS_CODES
+
             from .animal_statuses_sqlalchemy import AnimalStatusORM
 
             inactive_statuses_stmt = select(AnimalStatusORM.id).where(
-                AnimalStatusORM.code.in_(["SOLD", "DEAD", "CULLED"])
+                AnimalStatusORM.code.in_(sorted(INACTIVE_STATUS_CODES))
             )
             inactive_status_result = await self.session.execute(inactive_statuses_stmt)
             inactive_status_ids = [row[0] for row in inactive_status_result.fetchall()]

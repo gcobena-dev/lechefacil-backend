@@ -825,6 +825,8 @@ async def list_reproductive_animals_endpoint(
                 method=r.method,
                 technician=r.technician,
                 heat_detected=r.heat_detected,
+                sire_name=r.sire_name,
+                sire_code=r.sire_code,
                 labels=r.labels,
             )
             for r in result.items

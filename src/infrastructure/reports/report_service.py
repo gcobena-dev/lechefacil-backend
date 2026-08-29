@@ -6,6 +6,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.domain.models.animal_status import INACTIVE_STATUS_CODES
 from src.domain.value_objects.owner_type import OwnerType
 from src.infrastructure.reports.pdf_generator import PDFGenerator
 from src.interfaces.http.schemas.reports import ReportRequest, ReportResponse
@@ -862,7 +863,7 @@ class ReportService:
 
         for animal in animals:
             status_code = status_lookup.get(animal.status_id) if animal.status_id else None
-            if status_code in ["SOLD", "DEAD", "CULLED"]:
+            if status_code in INACTIVE_STATUS_CODES:
                 inactive_animals.append(animal)
             else:
                 active_animals.append(animal)

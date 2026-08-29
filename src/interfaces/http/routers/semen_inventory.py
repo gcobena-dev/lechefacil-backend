@@ -67,7 +67,7 @@ async def list_semen_stock_endpoint(
         context.tenant_id, in_stock_only=True
     )
     return {
-        "items": result.items,
+        "items": await _with_sire(uow, context.tenant_id, result.items),
         "total": result.total,
         "limit": limit,
         "offset": offset,
@@ -92,7 +92,8 @@ async def get_semen_stock_endpoint(
     stock = await uow.semen_inventory.get(context.tenant_id, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="Semen stock not found")
-    return stock
+    items = await _with_sire(uow, context.tenant_id, [stock])
+    return items[0]
 
 
 @router.put("/{stock_id}", response_model=SemenInventoryResponse)
@@ -119,3 +120,23 @@ async def delete_semen_stock_endpoint(
 ):
     await update_semen_stock.delete(uow, context.tenant_id, stock_id)
     await uow.commit()
+
+
+async def _with_sire(uow, tenant_id: UUID, stocks: list) -> list[SemenInventoryResponse]:
+    """Attach the bull's name and code to each stock row.
+
+    The whole catalog is fetched once (a tenant has a handful of bulls) instead
+    of one lookup per row.
+    """
+    if not stocks:
+        return []
+    sires = {s.id: s for s in await uow.sire_catalog.list(tenant_id, active_only=False, limit=None)}
+    items: list[SemenInventoryResponse] = []
+    for stock in stocks:
+        item = SemenInventoryResponse.model_validate(stock)
+        sire = sires.get(stock.sire_catalog_id)
+        if sire:
+            item.sire_name = sire.name
+            item.sire_code = sire.short_code or sire.registry_code
+        items.append(item)
+    return items

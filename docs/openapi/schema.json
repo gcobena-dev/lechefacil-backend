@@ -8638,6 +8638,11 @@
           "is_system_default": {
             "type": "boolean",
             "title": "Is System Default"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
           }
         },
         "type": "object",
@@ -13165,6 +13170,28 @@
             ],
             "title": "Heat Detected"
           },
+          "sire_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Name"
+          },
+          "sire_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Code"
+          },
           "labels": {
             "items": {
               "type": "string"
@@ -14146,6 +14173,28 @@
           "version": {
             "type": "integer",
             "title": "Version"
+          },
+          "sire_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Name"
+          },
+          "sire_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Code"
           }
         },
         "type": "object",

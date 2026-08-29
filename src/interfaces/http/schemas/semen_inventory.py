@@ -54,6 +54,10 @@ class SemenInventoryResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     version: int
+    # Resolved from the sire catalog so lists can show the bull without a
+    # second request per row.
+    sire_name: str | None = None
+    sire_code: str | None = None
 
 
 class SemenInventoryListResponse(BaseModel):

@@ -121,7 +121,10 @@ class BirthEventData(BaseModel):
 class ServiceEventData(BaseModel):
     """Structured data for SERVICE/EMBRYO_TRANSFER events."""
 
-    sire_id: UUID | None = None  # Local sire
+    sire_id: UUID | None = None  # Local sire (an animal of the herd)
+    sire_catalog_id: UUID | None = None  # Bull from the sire catalog
+    sire_name: str | None = None  # Denormalized sire name for display
+    sire_code: str | None = None  # Its short code (registry code as fallback)
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
     method: str | None = None  # 'AI' | 'NATURAL' | 'ET'

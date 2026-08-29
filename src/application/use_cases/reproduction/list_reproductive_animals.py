@@ -43,6 +43,8 @@ class ReproductiveAnimalRow:
     technician: str | None  # technician of the last insemination
     heat_detected: bool | None  # heat detected on the last insemination
     labels: list[str]  # free-text labels assigned to the animal
+    sire_name: str | None = None  # bull used on the last insemination
+    sire_code: str | None = None  # its short code (or registry code as fallback)
 
 
 @dataclass(slots=True)
@@ -288,6 +290,8 @@ async def execute(
                 technician=ins["technician"] if ins else None,
                 heat_detected=ins["heat_detected"] if ins else None,
                 labels=list(animal.labels or []),
+                sire_name=ins.get("sire_name") if ins else None,
+                sire_code=ins.get("sire_code") if ins else None,
             )
         )
 

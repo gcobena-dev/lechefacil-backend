@@ -11,3 +11,5 @@ class AnimalStatusResponse(BaseModel):
     name: str
     description: str | None
     is_system_default: bool
+    # False for SOLD / DEAD / CULLED: animals out of the herd
+    is_active: bool = True

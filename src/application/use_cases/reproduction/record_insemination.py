@@ -94,6 +94,9 @@ async def execute(
     # Create the SERVICE event for the animal timeline (dual-write)
     event_data = {"method": payload.method}
     if sire:
+        # sire_catalog_id (not sire_id, which the BIRTH handler reads as an
+        # animal id) lets the timeline link straight to the bull's page.
+        event_data["sire_catalog_id"] = str(sire.id)
         event_data["sire_name"] = sire.name
         if sire.registry_code:
             event_data["external_sire_code"] = sire.registry_code

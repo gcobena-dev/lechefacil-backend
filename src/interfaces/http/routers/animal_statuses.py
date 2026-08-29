@@ -24,6 +24,7 @@ async def list_animal_statuses(
             name=status.get_name(lang),
             description=status.get_description(lang),
             is_system_default=status.is_system_default,
+            is_active=status.is_active,
         )
         for status in statuses
     ]
