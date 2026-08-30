@@ -22,6 +22,9 @@ class MilkProductionCreate(BaseModel):
     density: Decimal | None = None
     buyer_id: UUID | None = None
     notes: str | None = None
+    # Device-generated id. Re-sending it returns the record created the first
+    # time instead of a duplicate, which is what makes offline replay safe.
+    client_request_id: UUID | None = None
 
 
 class MilkProductionUpdate(BaseModel):
@@ -53,6 +56,7 @@ class MilkProductionResponse(BaseModel):
     currency: str
     amount: Decimal | None
     notes: str | None
+    client_request_id: UUID | None = None
     version: int
     created_at: datetime
     updated_at: datetime
@@ -61,6 +65,7 @@ class MilkProductionResponse(BaseModel):
 class MilkProductionBulkItem(BaseModel):
     animal_id: UUID
     input_quantity: Decimal
+    client_request_id: UUID | None = None
 
 
 class MilkProductionsBulkCreate(BaseModel):
@@ -74,6 +79,29 @@ class MilkProductionsBulkCreate(BaseModel):
     notes: str | None = None
     # Items with only animal and quantity
     items: list[MilkProductionBulkItem]
+    # "fail" keeps the interactive behaviour: any clash aborts the batch so the
+    # user sees the conflicts dialog. The offline outbox sends "skip", where rows
+    # the server already has are reported back instead of blocking the rest.
+    on_conflict: Literal["fail", "skip"] = "fail"
+
+
+class MilkProductionSkipped(BaseModel):
+    """A row the batch did not create, and why."""
+
+    animal_id: UUID
+    date: DtDate
+    shift: str
+    input_quantity: Decimal
+    # already_applied: same client_request_id, i.e. our own earlier attempt landed.
+    # duplicate: a different record already covers this animal/day/shift.
+    reason: Literal["already_applied", "duplicate"]
+    existing_date_time: datetime | None = None
+    existing_volume_l: Decimal | None = None
+
+
+class MilkProductionsBulkResponse(BaseModel):
+    items: list[MilkProductionResponse]
+    skipped: list[MilkProductionSkipped] = Field(default_factory=list)
 
 
 class MilkProductionListResponse(BaseModel):

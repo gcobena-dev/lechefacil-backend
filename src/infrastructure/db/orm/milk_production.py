@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import DECIMAL, Date, DateTime, Index, String, Uuid, func
+from sqlalchemy import DECIMAL, Date, DateTime, Index, String, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.db.base import Base
@@ -14,6 +14,27 @@ class MilkProductionORM(Base):
     __table_args__ = (
         Index("ix_milk_productions_tenant_animal_date", "tenant_id", "animal_id", "date"),
         Index("ix_milk_productions_lactation", "lactation_id"),
+        # Idempotency for offline replay: the device generates the id, so re-sending
+        # a queued record returns the original instead of creating a twin.
+        Index(
+            "uq_milk_productions_client_request",
+            "tenant_id",
+            "client_request_id",
+            unique=True,
+            postgresql_where=text("client_request_id IS NOT NULL"),
+        ),
+        # One production per animal, day and shift. The router still checks this
+        # to return a friendly conflict list, but the index is what actually
+        # holds under concurrency — two devices syncing the same milking.
+        Index(
+            "uq_milk_productions_animal_date_shift",
+            "tenant_id",
+            "animal_id",
+            "date",
+            "shift",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL AND animal_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -32,6 +53,7 @@ class MilkProductionORM(Base):
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     amount: Mapped[str | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    client_request_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

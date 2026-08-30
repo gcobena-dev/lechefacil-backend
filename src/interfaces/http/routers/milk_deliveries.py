@@ -56,6 +56,7 @@ async def create_delivery(
     payload: MilkDeliveryCreate,
     background_tasks: BackgroundTasks,
     request: Request,
+    response: Response,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
@@ -64,6 +65,16 @@ async def create_delivery(
 
     if context.role not in {Role.ADMIN, Role.MANAGER, Role.WORKER}:
         raise PermissionDenied("Role not allowed to create deliveries")
+
+    # Idempotent replay: a delivery queued offline may already have landed and
+    # only the acknowledgement got lost. Return the original rather than a twin.
+    if payload.client_request_id is not None:
+        prior = await uow.milk_deliveries.get_by_client_request_id(
+            context.tenant_id, payload.client_request_id
+        )
+        if prior is not None:
+            response.status_code = status.HTTP_200_OK
+            return MilkDeliveryResponse.model_validate(prior)
     cfg = await uow.tenant_config.get(context.tenant_id)
     if not cfg:
         # Get most recent price to populate default config
@@ -124,6 +135,7 @@ async def create_delivery(
         currency=currency,
         amount=amount,
         notes=payload.notes,
+        client_request_id=payload.client_request_id,
     )
     created = await uow.milk_deliveries.add(delivery)
 

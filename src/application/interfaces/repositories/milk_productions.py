@@ -10,6 +10,9 @@ from src.domain.models.milk_production import MilkProduction
 class MilkProductionsRepository(Protocol):
     async def add(self, mp: MilkProduction) -> MilkProduction: ...
     async def get(self, tenant_id: UUID, production_id: UUID) -> MilkProduction | None: ...
+    async def get_by_client_request_id(
+        self, tenant_id: UUID, client_request_id: UUID
+    ) -> MilkProduction | None: ...
     async def list(
         self,
         tenant_id: UUID,

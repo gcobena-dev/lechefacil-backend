@@ -24,6 +24,7 @@ class MilkProduction:
     currency: str = "USD"
     amount: Decimal | None = None
     notes: str | None = None
+    client_request_id: UUID | None = None
     deleted_at: datetime | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -47,6 +48,7 @@ class MilkProduction:
         currency: str = "USD",
         amount: Decimal | None = None,
         notes: str | None = None,
+        client_request_id: UUID | None = None,
     ) -> MilkProduction:
         if date_time.tzinfo is None:
             date_time = date_time.replace(tzinfo=timezone.utc)
@@ -68,6 +70,7 @@ class MilkProduction:
             currency=currency,
             amount=amount,
             notes=notes,
+            client_request_id=client_request_id,
             created_at=now,
             updated_at=now,
             version=1,

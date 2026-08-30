@@ -13,6 +13,10 @@ class MilkDeliveryCreate(BaseModel):
     volume_l: Decimal
     buyer_id: UUID | None = None
     notes: str | None = None
+    # Deliveries have no natural key (same buyer, same day, several loads), so
+    # this device-generated id is the only thing that keeps an offline retry
+    # from silently creating a second delivery.
+    client_request_id: UUID | None = None
 
 
 class MilkDeliveryUpdate(BaseModel):
@@ -34,6 +38,7 @@ class MilkDeliveryResponse(BaseModel):
     currency: str
     amount: Decimal
     notes: str | None
+    client_request_id: UUID | None = None
     version: int
     created_at: datetime
     updated_at: datetime

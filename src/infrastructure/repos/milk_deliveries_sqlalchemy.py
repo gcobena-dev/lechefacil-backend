@@ -27,6 +27,7 @@ class MilkDeliveriesSQLAlchemyRepository(MilkDeliveriesRepository):
             currency=orm.currency,
             amount=orm.amount,
             notes=orm.notes,
+            client_request_id=orm.client_request_id,
             deleted_at=orm.deleted_at,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
@@ -45,6 +46,7 @@ class MilkDeliveriesSQLAlchemyRepository(MilkDeliveriesRepository):
             currency=md.currency,
             amount=md.amount,
             notes=md.notes,
+            client_request_id=md.client_request_id,
             deleted_at=md.deleted_at,
             created_at=md.created_at,
             updated_at=md.updated_at,
@@ -59,6 +61,20 @@ class MilkDeliveriesSQLAlchemyRepository(MilkDeliveriesRepository):
             select(MilkDeliveryORM).where(
                 MilkDeliveryORM.tenant_id == tenant_id,
                 MilkDeliveryORM.id == delivery_id,
+                MilkDeliveryORM.deleted_at.is_(None),
+            )
+        )
+        orm = result.scalar_one_or_none()
+        return self._to_domain(orm) if orm else None
+
+    async def get_by_client_request_id(
+        self, tenant_id: UUID, client_request_id: UUID
+    ) -> MilkDelivery | None:
+        """Look up a record by the id the device generated, for idempotent replay."""
+        result = await self.session.execute(
+            select(MilkDeliveryORM).where(
+                MilkDeliveryORM.tenant_id == tenant_id,
+                MilkDeliveryORM.client_request_id == client_request_id,
                 MilkDeliveryORM.deleted_at.is_(None),
             )
         )

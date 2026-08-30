@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import DECIMAL, Date, DateTime, String, Uuid, func
+from sqlalchemy import DECIMAL, Date, DateTime, Index, String, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.infrastructure.db.base import Base
@@ -11,6 +11,17 @@ from src.infrastructure.db.base import Base
 
 class MilkDeliveryORM(Base):
     __tablename__ = "milk_deliveries"
+    __table_args__ = (
+        # Deliveries have no natural key (same buyer, same day, several loads), so
+        # this is the only thing standing between an offline retry and a duplicate.
+        Index(
+            "uq_milk_deliveries_client_request",
+            "tenant_id",
+            "client_request_id",
+            unique=True,
+            postgresql_where=text("client_request_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), index=True, nullable=False)
@@ -22,6 +33,7 @@ class MilkDeliveryORM(Base):
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     amount: Mapped[str] = mapped_column(DECIMAL(12, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    client_request_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

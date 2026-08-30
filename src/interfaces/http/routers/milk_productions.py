@@ -28,6 +28,8 @@ from src.interfaces.http.schemas.milk_productions import (
     MilkProductionListResponse,
     MilkProductionResponse,
     MilkProductionsBulkCreate,
+    MilkProductionsBulkResponse,
+    MilkProductionSkipped,
     MilkProductionUpdate,
     ProcessOcrRequest,
     ProcessOcrResponse,
@@ -110,11 +112,22 @@ async def create_production(
     payload: MilkProductionCreate,
     background_tasks: BackgroundTasks,
     request: Request,
+    response: Response,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
     if not context.role.can_create():
         raise PermissionDenied("Role not allowed to create productions")
+
+    # Idempotent replay: a record queued offline may already have landed and
+    # only the acknowledgement got lost. Return the original rather than a twin.
+    if payload.client_request_id is not None:
+        prior = await uow.milk_productions.get_by_client_request_id(
+            context.tenant_id, payload.client_request_id
+        )
+        if prior is not None:
+            response.status_code = status.HTTP_200_OK
+            return MilkProductionResponse.model_validate(prior)
     from src.domain.models.tenant_config import TenantConfig
 
     cfg = await uow.tenant_config.get(context.tenant_id)
@@ -230,6 +243,7 @@ async def create_production(
         currency=currency,
         amount=amount,
         notes=payload.notes,
+        client_request_id=payload.client_request_id,
     )
     created = await uow.milk_productions.add(mp)
 
@@ -290,7 +304,7 @@ async def create_production(
 
 
 @router.post(
-    "/bulk", response_model=list[MilkProductionResponse], status_code=status.HTTP_201_CREATED
+    "/bulk", response_model=MilkProductionsBulkResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_productions_bulk(
     payload: MilkProductionsBulkCreate,
@@ -298,7 +312,7 @@ async def create_productions_bulk(
     request: Request,
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
-) -> list[MilkProductionResponse]:
+) -> MilkProductionsBulkResponse:
     if not context.role.can_create():
         raise PermissionDenied("Role not allowed to create productions")
     from src.domain.models.tenant_config import TenantConfig
@@ -362,7 +376,28 @@ async def create_productions_bulk(
 
     results: list[MilkProductionResponse] = []
     conflicts: list[dict] = []
+    skipped: list[MilkProductionSkipped] = []
+    skip_conflicts = payload.on_conflict == "skip"
     for item in payload.items:
+        # Idempotent replay: this exact row already landed on a previous attempt.
+        if item.client_request_id is not None:
+            prior = await uow.milk_productions.get_by_client_request_id(
+                context.tenant_id, item.client_request_id
+            )
+            if prior is not None:
+                skipped.append(
+                    MilkProductionSkipped(
+                        animal_id=item.animal_id,
+                        date=prior.date,
+                        shift=prior.shift,
+                        input_quantity=item.input_quantity,
+                        reason="already_applied",
+                        existing_date_time=prior.date_time,
+                        existing_volume_l=prior.volume_l,
+                    )
+                )
+                continue
+
         vol_l, _ = _to_liters(unit_shared, item.input_quantity, density_shared)
         amount = (
             (vol_l * price_shared).quantize(Decimal("0.01")) if price_shared is not None else None
@@ -385,6 +420,21 @@ async def create_productions_bulk(
             None,
         )
         if dup is not None:
+            # "skip" lets a partially-synced batch finish: reporting the rows the
+            # server already has beats blocking the other animals forever.
+            if skip_conflicts:
+                skipped.append(
+                    MilkProductionSkipped(
+                        animal_id=item.animal_id,
+                        date=dt_shared.date(),
+                        shift=shift_val,
+                        input_quantity=item.input_quantity,
+                        reason="duplicate",
+                        existing_date_time=dup.date_time,
+                        existing_volume_l=dup.volume_l,
+                    )
+                )
+                continue
             conflicts.append(
                 {
                     "animal_id": str(item.animal_id),
@@ -416,6 +466,7 @@ async def create_productions_bulk(
             currency=currency_shared,
             amount=amount,
             notes=payload.notes,
+            client_request_id=item.client_request_id,
         )
         created = await uow.milk_productions.add(mp)
         results.append(MilkProductionResponse.model_validate(created))
@@ -428,18 +479,20 @@ async def create_productions_bulk(
             details={"conflicts": conflicts},
         )
 
-    # Emitir evento de registro masivo
-    total_volume = sum(Decimal(r.volume_l) for r in results)
-    uow.add_event(
-        ProductionBulkRecordedEvent(
-            tenant_id=context.tenant_id,
-            actor_user_id=context.user_id,
-            count=len(results),
-            total_volume_l=str(total_volume),
-            shift=shift_val,
-            date_time=dt_shared,
+    # Emitir evento de registro masivo (solo si algo se creó: un lote enteramente
+    # ya aplicado es un reintento, no un registro nuevo que notificar)
+    if results:
+        total_volume = sum(Decimal(r.volume_l) for r in results)
+        uow.add_event(
+            ProductionBulkRecordedEvent(
+                tenant_id=context.tenant_id,
+                actor_user_id=context.user_id,
+                count=len(results),
+                total_volume_l=str(total_volume),
+                shift=shift_val,
+                date_time=dt_shared,
+            )
         )
-    )
 
     events = uow.drain_events()
     await uow.commit()
@@ -449,7 +502,7 @@ async def create_productions_bulk(
         session_factory = getattr(request.app.state, "session_factory", None)
         if session_factory is not None:
             background_tasks.add_task(dispatch_events, session_factory, events)
-    return results
+    return MilkProductionsBulkResponse(items=results, skipped=skipped)
 
 
 @router.put("/{production_id}", response_model=MilkProductionResponse)
