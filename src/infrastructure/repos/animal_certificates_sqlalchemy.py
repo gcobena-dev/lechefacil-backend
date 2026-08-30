@@ -29,6 +29,9 @@ class AnimalCertificatesSQLAlchemyRepository(AnimalCertificatesRepository):
             breeder=orm.breeder,
             owner=orm.owner,
             farm=orm.farm,
+            certificate_name=orm.certificate_name,
+            association_code=orm.association_code,
+            notes=orm.notes,
             data=orm.data,
             created_at=orm.created_at,
             updated_at=orm.updated_at,
@@ -48,6 +51,9 @@ class AnimalCertificatesSQLAlchemyRepository(AnimalCertificatesRepository):
             breeder=certificate.breeder,
             owner=certificate.owner,
             farm=certificate.farm,
+            certificate_name=certificate.certificate_name,
+            association_code=certificate.association_code,
+            notes=certificate.notes,
             data=certificate.data,
             created_at=certificate.created_at,
             updated_at=certificate.updated_at,
@@ -98,6 +104,9 @@ class AnimalCertificatesSQLAlchemyRepository(AnimalCertificatesRepository):
             orm.breeder = certificate.breeder
             orm.owner = certificate.owner
             orm.farm = certificate.farm
+            orm.certificate_name = certificate.certificate_name
+            orm.association_code = certificate.association_code
+            orm.notes = certificate.notes
             orm.data = certificate.data
             orm.updated_at = certificate.updated_at
             orm.version = certificate.version

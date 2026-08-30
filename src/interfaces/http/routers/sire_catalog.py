@@ -132,6 +132,7 @@ async def update_sire_endpoint(
     input_data = update_sire.UpdateSireInput(
         sire_id=sire_id,
         **payload.model_dump(exclude_unset=True),
+        fields_set=frozenset(payload.model_fields_set),
     )
     result = await update_sire.execute(uow, context.tenant_id, input_data)
     await uow.commit()

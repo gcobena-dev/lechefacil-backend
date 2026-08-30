@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from src.application.patching import resolve_patch
 from src.domain.models.lot import Lot
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.db.session import SQLAlchemyUnitOfWork
@@ -66,13 +67,16 @@ async def update_lot(
         from src.application.errors import PermissionDenied
 
         raise PermissionDenied("Role not allowed to update lots")
-    updates: dict = {}
-    if payload.name is not None:
-        updates["name"] = payload.name.strip()
-    if payload.active is not None:
-        updates["active"] = payload.active
-    if payload.notes is not None:
-        updates["notes"] = payload.notes
+    # `notes` is nullable, so sending it as null is how it gets erased; `name`
+    # and `active` are NOT NULL and a null there is ignored rather than fatal.
+    updates = resolve_patch(
+        payload,
+        ("name", "active", "notes"),
+        sent=payload.model_fields_set,
+        nullable={"notes"},
+    )
+    if isinstance(updates.get("name"), str):
+        updates["name"] = updates["name"].strip()
     updated = await uow.lots.update(context.tenant_id, lot_id, updates)
     if not updated:
         raise HTTPException(status_code=404, detail="Lot not found")

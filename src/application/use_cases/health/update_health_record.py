@@ -6,7 +6,24 @@ from decimal import Decimal
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.patching import resolve_patch
 from src.domain.models.health_record import HealthRecord
+
+#: Columns that may be blanked out. `occurred_at` is NOT NULL, so it is absent.
+CLEARABLE_FIELDS = frozenset(
+    {
+        "veterinarian",
+        "cost",
+        "notes",
+        "vaccine_name",
+        "next_dose_date",
+        "medication",
+        "duration_days",
+        "withdrawal_days",
+    }
+)
+
+PATCHABLE_FIELDS = ("occurred_at", *sorted(CLEARABLE_FIELDS))
 
 
 @dataclass
@@ -21,6 +38,9 @@ class UpdateHealthRecordInput:
     medication: str | None = None
     duration_days: int | None = None
     withdrawal_days: int | None = None
+    #: Field names the client actually sent. Without it a `null` meaning "clear
+    #: this" is indistinguishable from a field that was simply left out.
+    fields_set: frozenset[str] = frozenset()
 
 
 async def execute(
@@ -34,26 +54,20 @@ async def execute(
     if not record:
         raise ValueError(f"Health record {payload.record_id} not found")
 
-    # Update fields (only if provided)
-    if payload.occurred_at is not None:
-        record.occurred_at = payload.occurred_at
-    if payload.veterinarian is not None:
-        record.veterinarian = payload.veterinarian
-    if payload.cost is not None:
-        record.cost = payload.cost
-    if payload.notes is not None:
-        record.notes = payload.notes
-    if payload.vaccine_name is not None:
-        record.vaccine_name = payload.vaccine_name
-    if payload.next_dose_date is not None:
-        record.next_dose_date = payload.next_dose_date
-    if payload.medication is not None:
-        record.medication = payload.medication
-    if payload.duration_days is not None:
-        record.duration_days = payload.duration_days
-    if payload.withdrawal_days is not None:
-        record.withdrawal_days = payload.withdrawal_days
+    # Only what the client sent, nulls included so a field can be cleared.
+    patch = resolve_patch(
+        payload,
+        PATCHABLE_FIELDS,
+        sent=payload.fields_set,
+        nullable=CLEARABLE_FIELDS,
+    )
+    for name, value in patch.items():
+        setattr(record, name, value)
 
+    if "withdrawal_days" in patch and record.withdrawal_days is None:
+        # The withdrawal was removed, so the date derived from it goes with it.
+        record.withdrawal_until = None
+    elif "withdrawal_days" in patch:
         # Recalculate withdrawal_until if treatment
         if record.event_type == "TREATMENT" and record.duration_days:
             end_treatment = record.occurred_at.date() + timedelta(days=record.duration_days)

@@ -449,13 +449,42 @@ async def update_animal_endpoint(
     except Exception:
         pass
 
+    # A field the client sent as null means "blank this out"; a field it did not
+    # send at all must stay untouched. `model_fields_set` is the only thing that
+    # tells the two apart.
+    sent = payload.model_fields_set
+    clear_fields = {
+        use_case_field
+        for payload_field, use_case_field in (
+            ("name", "name"),
+            ("breed", "breed"),
+            ("breed_variant", "breed_variant"),
+            ("breed_id", "breed_id"),
+            ("birth_date", "birth_date"),
+            ("lot", "lot"),
+            ("lot_id", "current_lot_id"),
+            ("photo_url", "photo_url"),
+            ("sex", "sex"),
+            ("dam_id", "dam_id"),
+            ("sire_id", "sire_id"),
+            ("external_sire_code", "external_sire_code"),
+            ("external_sire_registry", "external_sire_registry"),
+        )
+        if payload_field in sent and getattr(payload, payload_field, None) is None
+    }
+    # Clearing an id has to drop the denormalised name stored beside it.
+    if "current_lot_id" in clear_fields:
+        clear_fields.add("lot")
+    if "breed_id" in clear_fields:
+        clear_fields.add("breed")
+
     result = await update_animal.execute(
         uow,
         context.tenant_id,
         context.role,
         context.user_id,
         animal_id,
-        update_animal.UpdateAnimalInput(**updates),
+        update_animal.UpdateAnimalInput(**updates, clear_fields=frozenset(clear_fields)),
     )
     data = AnimalResponse.model_validate(result).model_dump()
     if data.get("status") is None and getattr(payload, "status", None):
@@ -515,6 +544,11 @@ async def set_animal_lot(
             version=req.version,
             lot=lot_name,
             current_lot_id=req.lot_id,
+            # `lot_id: null` on this endpoint means "take the animal out of its
+            # lot", which only works if the null actually reaches the update.
+            clear_fields=(
+                frozenset({"current_lot_id", "lot"}) if req.lot_id is None else frozenset()
+            ),
         ),
     )
     data = AnimalResponse.model_validate(result).model_dump()

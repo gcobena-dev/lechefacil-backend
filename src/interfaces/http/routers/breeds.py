@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from src.application.patching import resolve_patch
 from src.domain.models.breed import Breed
 from src.infrastructure.auth.context import AuthContext
 from src.infrastructure.db.session import SQLAlchemyUnitOfWork
@@ -83,13 +84,14 @@ async def update_breed(
     if existing.tenant_id is None:
         raise HTTPException(status_code=403, detail="Cannot edit system breed")
 
-    updates: dict = {}
-    if payload.name is not None:
-        updates["name"] = payload.name.strip()
-    if payload.active is not None:
-        updates["active"] = payload.active
-    if payload.metadata is not None:
-        updates["metadata"] = payload.metadata
+    updates = resolve_patch(
+        payload,
+        ("name", "active", ("metadata", "metadata")),
+        sent=payload.model_fields_set,
+        nullable={"metadata"},
+    )
+    if isinstance(updates.get("name"), str):
+        updates["name"] = updates["name"].strip()
 
     updated = await uow.breeds.update(context.tenant_id, breed_id, updates)
     if not updated:

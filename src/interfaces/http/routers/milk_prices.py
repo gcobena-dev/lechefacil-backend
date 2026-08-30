@@ -5,6 +5,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from src.application.errors import PermissionDenied
+from src.application.patching import resolve_patch
 from src.domain.models.milk_price import MilkPrice
 from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import get_auth_context, get_uow
@@ -105,15 +106,14 @@ async def update_price(
         raise PermissionDenied("Role not allowed to update prices")
     from uuid import UUID
 
-    updates: dict = {}
-    if payload.date is not None:
-        updates["date"] = payload.date
-    if payload.price_per_l is not None:
-        updates["price_per_l"] = payload.price_per_l
-    if payload.currency is not None:
-        updates["currency"] = payload.currency
-    if payload.buyer_id is not None:
-        updates["buyer_id"] = payload.buyer_id
+    # Only `buyer_id` is nullable: clearing it turns the row into the tenant-wide
+    # fallback price. The rest are NOT NULL, so a null there is ignored.
+    updates = resolve_patch(
+        payload,
+        ("date", "price_per_l", "currency", "buyer_id"),
+        sent=payload.model_fields_set,
+        nullable={"buyer_id"},
+    )
     updated = await uow.milk_prices.update(context.tenant_id, UUID(price_id), updates)
     if not updated:
         from src.application.errors import NotFound

@@ -106,6 +106,7 @@ async def update_semen_stock_endpoint(
     input_data = update_semen_stock.UpdateSemenStockInput(
         stock_id=stock_id,
         **payload.model_dump(exclude_unset=True),
+        fields_set=frozenset(payload.model_fields_set),
     )
     result = await update_semen_stock.execute(uow, context.tenant_id, input_data)
     await uow.commit()

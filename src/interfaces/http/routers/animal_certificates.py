@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from src.application.errors import PermissionDenied
+from src.application.patching import resolve_patch
 from src.domain.models.animal_certificate import AnimalCertificate
 from src.domain.value_objects.role import Role
 from src.infrastructure.auth.context import AuthContext
@@ -14,6 +15,26 @@ from src.interfaces.http.schemas.animal_certificates import (
     AnimalCertificateResponse,
     AnimalCertificateUpdate,
 )
+
+#: Every certificate column is nullable, so each one can be both written and
+#: erased. `certificate_name`, `association_code` and `notes` used to be missing
+#: from the create and update paths, which silently dropped whatever the client
+#: typed into them.
+CERTIFICATE_FIELDS = (
+    "registry_number",
+    "bolus_id",
+    "tattoo_left",
+    "tattoo_right",
+    "issue_date",
+    "breeder",
+    "owner",
+    "farm",
+    "certificate_name",
+    "association_code",
+    "notes",
+    "data",
+)
+
 
 router = APIRouter(tags=["animal-certificates"])
 
@@ -66,6 +87,9 @@ async def create_certificate(
             breeder=payload.breeder,
             owner=payload.owner,
             farm=payload.farm,
+            certificate_name=payload.certificate_name,
+            association_code=payload.association_code,
+            notes=payload.notes,
             data=payload.data,
         )
 
@@ -126,25 +150,15 @@ async def update_certificate(
                 detail="Certificate was modified by another user. Please refresh and try again.",
             )
 
-        # Update fields
-        if payload.registry_number is not None:
-            certificate.registry_number = payload.registry_number
-        if payload.bolus_id is not None:
-            certificate.bolus_id = payload.bolus_id
-        if payload.tattoo_left is not None:
-            certificate.tattoo_left = payload.tattoo_left
-        if payload.tattoo_right is not None:
-            certificate.tattoo_right = payload.tattoo_right
-        if payload.issue_date is not None:
-            certificate.issue_date = payload.issue_date
-        if payload.breeder is not None:
-            certificate.breeder = payload.breeder
-        if payload.owner is not None:
-            certificate.owner = payload.owner
-        if payload.farm is not None:
-            certificate.farm = payload.farm
-        if payload.data is not None:
-            certificate.data = payload.data
+        # Only the fields the client sent, nulls included: every column here is
+        # nullable, so sending one as null is how a certificate field is erased.
+        for name, value in resolve_patch(
+            payload,
+            CERTIFICATE_FIELDS,
+            sent=payload.model_fields_set,
+            nullable=CERTIFICATE_FIELDS,
+        ).items():
+            setattr(certificate, name, value)
 
         certificate.bump_version()
 

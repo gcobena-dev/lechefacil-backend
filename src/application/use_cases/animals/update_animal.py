@@ -9,6 +9,26 @@ from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.models.animal import Animal
 from src.domain.value_objects.role import Role
 
+#: Fields a caller may blank out. Everything here is nullable in `animals`;
+#: `labels` is absent on purpose — an empty list already clears it.
+CLEARABLE_FIELDS = frozenset(
+    {
+        "name",
+        "breed",
+        "breed_variant",
+        "breed_id",
+        "birth_date",
+        "lot",
+        "current_lot_id",
+        "photo_url",
+        "sex",
+        "dam_id",
+        "sire_id",
+        "external_sire_code",
+        "external_sire_registry",
+    }
+)
+
 
 @dataclass(slots=True)
 class UpdateAnimalInput:
@@ -29,6 +49,11 @@ class UpdateAnimalInput:
     sire_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
+    #: Fields the caller explicitly sent as null, meaning "blank this out".
+    #: Without it `None` is indistinguishable from "not sent", so the update
+    #: silently keeps the old value: switching a sire from internal to external
+    #: left `sire_id` in place, and removing an animal from its lot did nothing.
+    clear_fields: frozenset[str] = frozenset()
 
 
 def ensure_can_update(role: Role) -> None:
@@ -72,6 +97,8 @@ async def execute(
         value = getattr(payload, field_name)
         if value is not None:
             data[field_name] = value
+        elif field_name in payload.clear_fields and field_name in CLEARABLE_FIELDS:
+            data[field_name] = None
     if not data:
         return existing
     updated = await uow.animals.update(

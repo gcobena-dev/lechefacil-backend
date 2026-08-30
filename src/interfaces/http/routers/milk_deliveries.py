@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Respons
 from src.application.errors import PermissionDenied
 from src.application.events.dispatcher import dispatch_events
 from src.application.events.models import DeliveryRecordedEvent
+from src.application.patching import resolve_patch
 from src.domain.models.milk_delivery import MilkDelivery
 from src.infrastructure.auth.context import AuthContext
 from src.interfaces.http.deps import (
@@ -186,10 +187,16 @@ async def update_delivery(
             dt = dt.replace(tzinfo=timezone.utc)
         updates["date_time"] = dt
         updates["date"] = dt.date()
-    if payload.volume_l is not None:
-        updates["volume_l"] = payload.volume_l
-    if payload.buyer_id is not None:
-        updates["buyer_id"] = payload.buyer_id
+    # `notes` reached the schema but never the update, so the note typed in the
+    # edit dialog was silently dropped. `buyer_id` is NOT NULL here.
+    updates.update(
+        resolve_patch(
+            payload,
+            ("volume_l", "buyer_id", "notes"),
+            sent=payload.model_fields_set,
+            nullable={"notes"},
+        )
+    )
     # If buyer/date/volume changed, recompute snapshot/amount
     if {"date_time", "buyer_id", "volume_l"} & updates.keys():
         existing = await uow.milk_deliveries.get(context.tenant_id, _UUID(delivery_id))

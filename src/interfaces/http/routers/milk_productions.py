@@ -14,6 +14,7 @@ from src.application.events.models import (
     ProductionLowEvent,
     ProductionRecordedEvent,
 )
+from src.application.patching import resolve_patch
 from src.application.use_cases.animals import auto_link_production_to_lactation
 from src.domain.models.milk_production import MilkProduction
 from src.domain.value_objects.owner_type import OwnerType
@@ -539,18 +540,17 @@ async def update_production(
         updates["date"] = dt_override.date()
         # If shift not explicitly provided, recompute from new date_time
         updates["shift"] = "AM" if dt_override.hour < 12 else "PM"
-    if payload.shift is not None:
-        updates["shift"] = payload.shift
-    if payload.animal_id is not None:
-        updates["animal_id"] = payload.animal_id
-    if payload.buyer_id is not None:
-        updates["buyer_id"] = payload.buyer_id
-    if payload.input_unit is not None:
-        updates["input_unit"] = payload.input_unit
-    if payload.input_quantity is not None:
-        updates["input_quantity"] = payload.input_quantity
-    if payload.density is not None:
-        updates["density"] = payload.density
+    # An explicit `shift` wins over the one derived from `date_time` above.
+    # `notes` was accepted by the schema and then never written, so editing the
+    # note on a production looked like it saved and changed nothing.
+    updates.update(
+        resolve_patch(
+            payload,
+            ("shift", "animal_id", "buyer_id", "input_unit", "input_quantity", "density", "notes"),
+            sent=payload.model_fields_set,
+            nullable={"animal_id", "buyer_id", "notes"},
+        )
+    )
     # If any of unit/quantity/density changed, recompute volume
     if {"input_unit", "input_quantity", "density"} & updates.keys():
         existing = await uow.milk_productions.get(context.tenant_id, _UUID(production_id))

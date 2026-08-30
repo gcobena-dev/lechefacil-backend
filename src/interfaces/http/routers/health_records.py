@@ -100,6 +100,7 @@ async def update_health_record_endpoint(
     input_data = update_health_record.UpdateHealthRecordInput(
         record_id=record_id,
         **payload.model_dump(exclude_unset=True),
+        fields_set=frozenset(payload.model_fields_set),
     )
 
     record = await update_health_record.execute(uow, context.tenant_id, input_data)

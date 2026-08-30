@@ -7,7 +7,25 @@ from uuid import UUID
 
 from src.application.errors import NotFound
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.patching import resolve_patch
 from src.domain.models.semen_inventory import SemenInventory
+
+#: Columns that may be blanked out; `current_quantity` and `currency` are
+#: NOT NULL.
+CLEARABLE_FIELDS = frozenset(
+    {
+        "batch_code",
+        "tank_id",
+        "canister_position",
+        "supplier",
+        "cost_per_straw",
+        "purchase_date",
+        "expiry_date",
+        "notes",
+    }
+)
+
+PATCHABLE_FIELDS = ("current_quantity", "currency", *sorted(CLEARABLE_FIELDS))
 
 
 @dataclass(slots=True)
@@ -23,6 +41,9 @@ class UpdateSemenStockInput:
     purchase_date: date | None = None
     expiry_date: date | None = None
     notes: str | None = None
+    #: Field names the client actually sent, so a `null` can clear a field
+    #: instead of being read as "not provided".
+    fields_set: frozenset[str] = frozenset()
 
 
 async def execute(
@@ -34,26 +55,13 @@ async def execute(
     if not stock:
         raise NotFound(f"Semen stock {payload.stock_id} not found")
 
-    if payload.batch_code is not None:
-        stock.batch_code = payload.batch_code
-    if payload.tank_id is not None:
-        stock.tank_id = payload.tank_id
-    if payload.canister_position is not None:
-        stock.canister_position = payload.canister_position
-    if payload.current_quantity is not None:
-        stock.current_quantity = payload.current_quantity
-    if payload.supplier is not None:
-        stock.supplier = payload.supplier
-    if payload.cost_per_straw is not None:
-        stock.cost_per_straw = payload.cost_per_straw
-    if payload.currency is not None:
-        stock.currency = payload.currency
-    if payload.purchase_date is not None:
-        stock.purchase_date = payload.purchase_date
-    if payload.expiry_date is not None:
-        stock.expiry_date = payload.expiry_date
-    if payload.notes is not None:
-        stock.notes = payload.notes
+    for name, value in resolve_patch(
+        payload,
+        PATCHABLE_FIELDS,
+        sent=payload.fields_set,
+        nullable=CLEARABLE_FIELDS,
+    ).items():
+        setattr(stock, name, value)
 
     stock.bump_version()
     return await uow.semen_inventory.update(stock)
