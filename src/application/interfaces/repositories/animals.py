@@ -58,6 +58,15 @@ class AnimalRepository(Protocol):
 
     async def delete(self, tenant_id: UUID, animal_id: UUID) -> bool: ...
 
+    async def rename_catalog_reference(
+        self,
+        tenant_id: UUID,
+        *,
+        breed_id: UUID | None = None,
+        lot_id: UUID | None = None,
+        new_name: str | None = None,
+    ) -> int: ...
+
     async def count_by_breed_id_or_name(
         self, tenant_id: UUID, *, breed_id: UUID | None = None, breed_name: str | None = None
     ) -> int: ...

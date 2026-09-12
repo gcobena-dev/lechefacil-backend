@@ -109,6 +109,26 @@ class InseminationsSQLAlchemyRepository:
         orm = result.scalar_one_or_none()
         return self._to_domain(orm) if orm else None
 
+    async def get_by_service_event_ids(
+        self, tenant_id: UUID, event_ids: list[UUID]
+    ) -> dict[UUID, Insemination]:
+        """The live insemination behind each SERVICE event, keyed by event id.
+
+        The animal timeline renders SERVICE events but the service itself lives
+        in `inseminations`; this is the join that lets it read the current
+        values instead of a copy frozen when the event was written.
+        """
+        if not event_ids:
+            return {}
+        stmt = (
+            select(InseminationORM)
+            .where(InseminationORM.tenant_id == tenant_id)
+            .where(InseminationORM.service_event_id.in_(event_ids))
+            .where(InseminationORM.deleted_at.is_(None))
+        )
+        result = await self.session.execute(stmt)
+        return {orm.service_event_id: self._to_domain(orm) for orm in result.scalars().all()}
+
     def _apply_filters(
         self, stmt, tenant_id, animal_id, sire_catalog_id, pregnancy_status, date_from, date_to
     ):
@@ -277,7 +297,15 @@ class InseminationsSQLAlchemyRepository:
             .where(InseminationORM.tenant_id == tenant_id)
             .where(InseminationORM.deleted_at.is_(None))
             .distinct(InseminationORM.animal_id)
-            .order_by(InseminationORM.animal_id, InseminationORM.service_date.desc())
+            # Two services recorded on the same day would otherwise make the
+            # winner of DISTINCT ON arbitrary, and the reproduction list would
+            # show a different one from query to query.
+            .order_by(
+                InseminationORM.animal_id,
+                InseminationORM.service_date.desc(),
+                InseminationORM.created_at.desc(),
+                InseminationORM.id.desc(),
+            )
         )
         result = await self.session.execute(stmt)
         return {
@@ -596,3 +624,7 @@ class InseminationsSQLAlchemyRepository:
         orm = await self.session.get(InseminationORM, insemination.id)
         if orm:
             orm.deleted_at = insemination.deleted_at
+            # Cleared by the caller when the mirrored SERVICE event is removed
+            # with it; the FK would block the delete otherwise.
+            orm.service_event_id = insemination.service_event_id
+            await self.session.flush()

@@ -91,18 +91,26 @@ async def execute(
     if service_date.tzinfo is None:
         service_date = service_date.replace(tzinfo=timezone.utc)
 
-    # Create the SERVICE event for the animal timeline (dual-write)
-    event_data = {"method": payload.method}
+    # The SERVICE event marks the service on the animal timeline; the service
+    # itself lives in `inseminations` and stays there. Nothing about the bull,
+    # the method or the technician is copied into the event: a copy made here
+    # cannot follow later edits of the insemination, and the timeline ended up
+    # showing the technician the service was created with while /reproduction
+    # showed the current one. `list_events` joins the two and reads the live
+    # record instead. The only snapshots this app keeps are the ones the device
+    # has to take while it is offline.
+    event_data: dict[str, str] = {}
+
+    # The push notification is a message written once, from the values in hand
+    # right now — it is not a view of the record, so it is built from its own
+    # dict and never from what the event stores.
+    notification_data: dict[str, str] = {"method": payload.method}
     if sire:
-        # sire_catalog_id (not sire_id, which the BIRTH handler reads as an
-        # animal id) lets the timeline link straight to the bull's page.
-        event_data["sire_catalog_id"] = str(sire.id)
-        event_data["sire_name"] = sire.name
+        notification_data["sire_name"] = sire.name
         if sire.registry_code:
-            event_data["external_sire_code"] = sire.registry_code
-            event_data["external_sire_registry"] = sire.registry_name
+            notification_data["external_sire_code"] = sire.registry_code
     if payload.technician:
-        event_data["technician"] = payload.technician
+        notification_data["technician"] = payload.technician
 
     service_event = AnimalEvent.create(
         tenant_id=tenant_id,
@@ -145,7 +153,7 @@ async def execute(
                     occurred_at=created_event.occurred_at,
                     tag=animal.tag,
                     name=animal.name,
-                    event_data=created_event.data,
+                    event_data=notification_data,
                 )
             )
         except Exception:

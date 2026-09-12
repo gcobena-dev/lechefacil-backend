@@ -119,11 +119,19 @@ class BirthEventData(BaseModel):
 
 
 class ServiceEventData(BaseModel):
-    """Structured data for SERVICE/EMBRYO_TRANSFER events."""
+    """Structured data for SERVICE/EMBRYO_TRANSFER events.
 
+    Services recorded through /reproduction store nothing here: the record
+    lives in `inseminations` and the fields below are resolved from it on every
+    read, so an edit there shows up on the timeline immediately. They are only
+    stored for events that have no insemination behind them (imported herds,
+    events predating the reproduction module), where this *is* the record.
+    """
+
+    insemination_id: UUID | None = None  # The record these values were read from
     sire_id: UUID | None = None  # Local sire (an animal of the herd)
     sire_catalog_id: UUID | None = None  # Bull from the sire catalog
-    sire_name: str | None = None  # Denormalized sire name for display
+    sire_name: str | None = None  # Sire name, for display
     sire_code: str | None = None  # Its short code (registry code as fallback)
     external_sire_code: str | None = None
     external_sire_registry: str | None = None

@@ -201,8 +201,12 @@ async def _apply_service_date(uow, tenant_id: UUID, record, service_date: dateti
     """Move a service to a new date, keeping everything derived from it in sync.
 
     The expected calving date is recomputed for pregnancies still on record, and
-    the SERVICE event that mirrors this insemination on the animal timeline is
-    moved along with it — otherwise the timeline would keep showing the old date.
+    the SERVICE event that marks this service on the animal timeline is moved
+    along with it — otherwise the timeline would keep showing the old date.
+
+    `occurred_at` is the only thing the event holds about the service. The bull,
+    the method and the technician are not copied there: the timeline reads them
+    from this record, so editing them needs no sync at all.
     """
     if service_date > datetime.now(timezone.utc):
         raise HTTPException(status_code=422, detail="La fecha de servicio no puede ser futura")
@@ -262,8 +266,17 @@ async def delete_insemination_endpoint(
     record = await uow.inseminations.get(context.tenant_id, insemination_id)
     if not record:
         raise HTTPException(status_code=404, detail="Insemination not found")
+
+    # The service is gone from reproduction, so it has to be gone from the
+    # animal timeline too: a SERVICE event left behind would keep showing a
+    # service that no longer exists. The link is dropped first because
+    # `inseminations.service_event_id` is a FK to the row being removed.
+    service_event_id = record.service_event_id
+    record.service_event_id = None
     record.deleted_at = datetime.now(timezone.utc)
     await uow.inseminations.delete(record)
+    if service_event_id:
+        await uow.animal_events.delete(context.tenant_id, service_event_id)
     await uow.commit()
     return None
 

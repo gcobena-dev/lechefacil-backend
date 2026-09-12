@@ -80,6 +80,15 @@ async def update_lot(
     updated = await uow.lots.update(context.tenant_id, lot_id, updates)
     if not updated:
         raise HTTPException(status_code=404, detail="Lot not found")
+
+    # Same as breeds: `animals.lot` holds the name as text next to
+    # `current_lot_id` for the herd list's search and sort, so a rename has to
+    # reach the animals or they keep showing the lot's old name.
+    if "name" in updates:
+        await uow.animals.rename_catalog_reference(
+            context.tenant_id, lot_id=lot_id, new_name=updated.name
+        )
+
     await uow.commit()
     return LotResponse(
         id=str(updated.id), name=updated.name, active=updated.active, notes=updated.notes

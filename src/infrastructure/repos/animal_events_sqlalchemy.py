@@ -75,6 +75,17 @@ class AnimalEventsSQLAlchemyRepository(AnimalEventsRepository):
         await self.session.flush()
         return self._to_domain(orm)
 
+    async def delete(self, tenant_id: UUID, event_id: UUID) -> None:
+        """Hard delete. `animal_events` has no `deleted_at`, and the only caller
+        is the removal of a service whose insemination was deleted: leaving the
+        event behind would keep a service on the timeline that no longer exists.
+        """
+        orm = await self.session.get(AnimalEventORM, event_id)
+        if not orm or orm.tenant_id != tenant_id:
+            return
+        await self.session.delete(orm)
+        await self.session.flush()
+
     async def list_by_animal(self, tenant_id: UUID, animal_id: UUID) -> list[AnimalEvent]:
         stmt = (
             select(AnimalEventORM)

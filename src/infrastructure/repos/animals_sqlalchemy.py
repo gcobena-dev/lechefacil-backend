@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import func, or_, select, update
@@ -394,6 +395,40 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
         except IntegrityError as exc:
             raise InfrastructureError("Failed to delete animal") from exc
         return result.scalar_one_or_none() is not None
+
+    async def rename_catalog_reference(
+        self,
+        tenant_id: UUID,
+        *,
+        breed_id: UUID | None = None,
+        lot_id: UUID | None = None,
+        new_name: str | None = None,
+    ) -> int:
+        """Carry a breed/lot rename over to the animals pointing at it.
+
+        `animals.breed` and `animals.lot` hold the catalog name as text next to
+        the id, because the list filters, searches and sorts on it in SQL. That
+        text is the one place in the herd where a name is stored twice, so a
+        rename has to reach it or the list keeps showing the old name and the
+        filter for the new one matches nothing.
+
+        Returns how many animals were touched.
+        """
+        column = AnimalORM.breed if breed_id is not None else AnimalORM.lot
+        reference = AnimalORM.breed_id if breed_id is not None else AnimalORM.current_lot_id
+        reference_id = breed_id if breed_id is not None else lot_id
+        if reference_id is None:
+            return 0
+        stmt = (
+            update(AnimalORM)
+            .where(AnimalORM.tenant_id == tenant_id)
+            .where(reference == reference_id)
+            .where(column.is_distinct_from(new_name))
+            .values({column: new_name, AnimalORM.updated_at: datetime.now(timezone.utc)})
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return int(result.rowcount or 0)
 
     async def count_by_breed_id_or_name(
         self, tenant_id: UUID, *, breed_id: UUID | None = None, breed_name: str | None = None

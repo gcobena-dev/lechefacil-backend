@@ -96,6 +96,17 @@ async def update_breed(
     updated = await uow.breeds.update(context.tenant_id, breed_id, updates)
     if not updated:
         raise HTTPException(status_code=404, detail="Breed not found")
+
+    # `animals.breed` keeps the name as text alongside `breed_id` so the herd
+    # list can search and sort on it in SQL. It is the only copy of this name
+    # in the herd, so the rename has to reach it in the same transaction:
+    # otherwise the list keeps showing the old breed and filtering by the new
+    # one returns nothing.
+    if "name" in updates:
+        await uow.animals.rename_catalog_reference(
+            context.tenant_id, breed_id=breed_id, new_name=updated.name
+        )
+
     await uow.commit()
     return BreedResponse(
         id=str(updated.id),
