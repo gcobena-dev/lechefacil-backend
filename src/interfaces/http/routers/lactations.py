@@ -46,6 +46,8 @@ async def get_animal_lactations(
         lactation_response.days_in_milk = lm.days_in_milk
         lactation_response.average_daily_l = lm.average_daily_l
         lactation_response.production_count = lm.production_count
+        lactation_response.total_amount = lm.total_amount
+        lactation_response.currency = lm.currency
         items.append(lactation_response)
 
     return LactationsListResponse(items=items)
@@ -68,23 +70,21 @@ async def get_lactation(
 
             raise HTTPException(status_code=404, detail="Lactation not found")
 
-        # Calculate metrics
-        total_volume = await uow.lactations.sum_volume(lactation_id)
-
-        from datetime import date
-        from decimal import Decimal
-
-        end_date = lactation.end_date if lactation.end_date else date.today()
-        days_in_milk = (end_date - lactation.start_date).days
-
-        average_daily = Decimal("0.0")
-        if days_in_milk > 0:
-            average_daily = Decimal(str(total_volume)) / Decimal(days_in_milk)
+        # Same numbers as the list, from the same place, so the detail of a
+        # lactation can never disagree with its card.
+        totals = await uow.lactations.metrics_for_lactations(context.tenant_id, [lactation_id])
+        metrics = list_lactations.compute_metrics(
+            lactation,
+            totals.get(lactation_id),
+            await list_lactations.default_currency(uow, context.tenant_id),
+        )
 
         response = LactationResponse.model_validate(lactation)
-        response.total_volume_l = Decimal(str(total_volume))
-        response.days_in_milk = days_in_milk
-        response.average_daily_l = average_daily
-        response.production_count = 0  # TODO: implement count
+        response.total_volume_l = metrics.total_volume_l
+        response.days_in_milk = metrics.days_in_milk
+        response.average_daily_l = metrics.average_daily_l
+        response.production_count = metrics.production_count
+        response.total_amount = metrics.total_amount
+        response.currency = metrics.currency
 
         return response

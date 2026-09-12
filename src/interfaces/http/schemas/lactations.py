@@ -47,6 +47,13 @@ class LactationResponse(BaseModel):
     days_in_milk: int | None = None
     average_daily_l: Decimal | None = None
     production_count: int | None = None
+    #: What this lactation's milk was worth, summed from the value each
+    #: production was given on the day it was recorded — not recomputed from
+    #: today's price, so a price change does not rewrite a closed lactation.
+    total_amount: Decimal | None = None
+    #: Currency of `total_amount`; the farm's default when the lactation has no
+    #: productions of its own to read one from.
+    currency: str | None = None
 
 
 class LactationsListResponse(BaseModel):

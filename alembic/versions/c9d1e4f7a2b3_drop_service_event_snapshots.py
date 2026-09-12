@@ -47,17 +47,23 @@ def upgrade() -> None:
     if conn.dialect.name != "postgresql":
         return
 
+    # Tables are schema-qualified on purpose: the search_path of the role that
+    # runs the migrations does not always include `lechefacil`, and an
+    # unqualified name fails with "relation animal_events does not exist".
+    # `scripts/start.sh` runs `alembic upgrade head` under `set -e`, so that
+    # failure stops the container from starting at all.
+    #
     # `data` is a plain JSON column, so it is cast to jsonb to subtract the keys
     # and cast back. Keys the event does not have are a no-op.
     conn.execute(
         sa.text(
             """
-            UPDATE animal_events ae
+            UPDATE lechefacil.animal_events ae
                SET data = ((ae.data::jsonb) - CAST(:keys AS text[]))::json
              WHERE ae.type IN ('SERVICE', 'EMBRYO_TRANSFER')
                AND ae.data IS NOT NULL
                AND EXISTS (
-                     SELECT 1 FROM inseminations i
+                     SELECT 1 FROM lechefacil.inseminations i
                       WHERE i.service_event_id = ae.id
                         AND i.deleted_at IS NULL
                    )
@@ -76,7 +82,7 @@ def downgrade() -> None:
     conn.execute(
         sa.text(
             """
-            UPDATE animal_events ae
+            UPDATE lechefacil.animal_events ae
                SET data = (
                      COALESCE(ae.data::jsonb, '{}'::jsonb)
                      || jsonb_strip_nulls(
@@ -89,8 +95,8 @@ def downgrade() -> None:
                           )
                         )
                    )::json
-              FROM inseminations i
-              LEFT JOIN sire_catalog sc ON sc.id = i.sire_catalog_id
+              FROM lechefacil.inseminations i
+              LEFT JOIN lechefacil.sire_catalog sc ON sc.id = i.sire_catalog_id
              WHERE i.service_event_id = ae.id
                AND i.deleted_at IS NULL
                AND ae.type IN ('SERVICE', 'EMBRYO_TRANSFER')

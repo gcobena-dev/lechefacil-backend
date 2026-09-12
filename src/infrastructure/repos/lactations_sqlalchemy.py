@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -113,32 +114,64 @@ class LactationsSQLAlchemyRepository(LactationsRepository):
 
         raise ValueError(f"Lactation {lactation.id} not found")
 
-    async def sum_volume(self, lactation_id: UUID) -> float:
-        """Sum volume for a lactation including legacy records without lactation_id.
+    async def metrics_for_lactations(
+        self, tenant_id: UUID, lactation_ids: list[UUID]
+    ) -> dict[UUID, dict]:
+        """Volume, money and record count for each lactation, in one query.
 
-        Includes productions that either:
-        - are explicitly linked via lactation_id, or
-        - match the lactation animal_id and have date within [start_date, end_date or today]
+        A production belongs to a lactation either explicitly (`lactation_id`)
+        or, for records predating that column, by falling inside the lactation's
+        date range for the same animal. It runs as one join for every lactation
+        of the animal, where the per-lactation query it replaced also reloaded
+        the lactation each time.
+
+        `amount` is what the milk was worth at the price of the day it was
+        recorded, which is why the money is summed from the productions rather
+        than recomputed from today's price.
         """
-        # Load lactation details
-        lact_stmt = select(LactationORM).where(LactationORM.id == lactation_id)
-        lact_res = await self.session.execute(lact_stmt)
-        lact = lact_res.scalar_one_or_none()
-        if lact is None:
-            return 0.0
+        if not lactation_ids:
+            return {}
 
-        # Build range predicate
-        range_pred = MilkProductionORM.date >= lact.start_date
-        if lact.end_date is not None:
-            range_pred = range_pred & (MilkProductionORM.date <= lact.end_date)
+        belongs = (MilkProductionORM.lactation_id == LactationORM.id) | (
+            (MilkProductionORM.animal_id == LactationORM.animal_id)
+            & (MilkProductionORM.date >= LactationORM.start_date)
+            & (
+                (LactationORM.end_date.is_(None))
+                | (MilkProductionORM.date <= LactationORM.end_date)
+            )
+        )
 
-        stmt = select(func.sum(MilkProductionORM.volume_l)).where(
-            (MilkProductionORM.lactation_id == lactation_id)
-            | ((MilkProductionORM.animal_id == lact.animal_id) & range_pred)
+        stmt = (
+            select(
+                LactationORM.id,
+                func.coalesce(func.sum(MilkProductionORM.volume_l), 0).label("total_volume_l"),
+                func.coalesce(func.sum(MilkProductionORM.amount), 0).label("total_amount"),
+                func.count(MilkProductionORM.id).label("production_count"),
+                func.max(MilkProductionORM.currency).label("currency"),
+            )
+            .select_from(LactationORM)
+            .outerjoin(
+                MilkProductionORM,
+                belongs
+                # A deleted record is not milk the cow gave: leaving it in was
+                # inflating both the litres and the money on this card.
+                & (MilkProductionORM.deleted_at.is_(None))
+                & (MilkProductionORM.tenant_id == LactationORM.tenant_id),
+            )
+            .where(LactationORM.tenant_id == tenant_id)
+            .where(LactationORM.id.in_(lactation_ids))
+            .group_by(LactationORM.id)
         )
         result = await self.session.execute(stmt)
-        total = result.scalar_one_or_none()
-        return float(total) if total else 0.0
+        return {
+            row.id: {
+                "total_volume_l": Decimal(str(row.total_volume_l or 0)),
+                "total_amount": Decimal(str(row.total_amount or 0)),
+                "production_count": int(row.production_count or 0),
+                "currency": row.currency,
+            }
+            for row in result.all()
+        }
 
     async def list_open_with_animal(self, tenant_id: UUID) -> list[dict]:
         """List open lactations with animal tag and name via JOIN."""
