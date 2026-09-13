@@ -284,6 +284,34 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
                 rows = result.scalars().all()
                 return [self._to_domain(item) for item in rows]
 
+    async def list_labels(self, tenant_id: UUID) -> list[str]:
+        """Every distinct label in use by the tenant's animals, sorted A→Z.
+
+        Resolved in a single query on purpose: collecting the labels by walking
+        the paginated listing dropped animals, because the cursor advances by
+        `id` while the rows come back ordered by `tag`.
+        """
+        if _dialect_name(self.session) == "postgresql":
+            stmt = (
+                select(func.unnest(AnimalORM.labels))
+                .where(AnimalORM.tenant_id == tenant_id)
+                .where(AnimalORM.deleted_at.is_(None))
+                .distinct()
+            )
+            result = await self.session.execute(stmt)
+            labels = {row[0] for row in result.fetchall() if row[0]}
+        else:
+            # SQLite keeps the labels as a JSON blob, so unnest them in Python.
+            stmt = (
+                select(AnimalORM.labels)
+                .where(AnimalORM.tenant_id == tenant_id)
+                .where(AnimalORM.deleted_at.is_(None))
+            )
+            result = await self.session.execute(stmt)
+            labels = {lbl for (row,) in result.fetchall() for lbl in (row or []) if lbl}
+
+        return sorted(labels, key=lambda label: (label.lower(), label))
+
     async def count(
         self,
         tenant_id: UUID,

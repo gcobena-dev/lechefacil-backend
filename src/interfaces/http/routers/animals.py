@@ -34,6 +34,10 @@ from src.interfaces.http.schemas.attachments import (
 
 router = APIRouter(prefix="/animals", tags=["animals"])
 
+# Safety net for the labels endpoint: herds have a handful of labels, so this is
+# only there to keep the payload bounded if someone goes wild with the tagging.
+MAX_LABEL_SUGGESTIONS = 200
+
 
 @router.get("/next-tag")
 async def get_next_tag(
@@ -822,33 +826,16 @@ async def get_label_suggestions(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> list[str]:
-    """Get label suggestions based on existing labels across all animals."""
-    # Get all animals and collect unique labels
-    all_labels: set[str] = set()
-    cursor = None
+    """Every label in use across the tenant's animals, optionally matching `q`.
 
-    while True:
-        result = await list_animals.execute(
-            uow,
-            context.tenant_id,
-            limit=10,
-            cursor=cursor,
-            status_codes=None,
-        )
-        for animal in result.items:
-            if hasattr(animal, "labels") and animal.labels:
-                all_labels.update(animal.labels)
-
-        if result.next_cursor is None:
-            break
-        cursor = result.next_cursor
+    The filter dropdowns expect the complete list, so this resolves the labels
+    with one query instead of walking the paginated animal listing.
+    """
+    labels = await uow.animals.list_labels(context.tenant_id)
 
     # Filter labels based on query (case-insensitive)
     if q:
         query_lower = q.lower()
-        filtered = [label for label in all_labels if query_lower in label.lower()]
-    else:
-        filtered = list(all_labels)
+        labels = [label for label in labels if query_lower in label.lower()]
 
-    # Sort by popularity (you can enhance this later with actual counts)
-    return sorted(filtered)[:20]  # Return top 20 matches
+    return labels[:MAX_LABEL_SUGGESTIONS]

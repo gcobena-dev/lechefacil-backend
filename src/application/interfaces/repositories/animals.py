@@ -32,6 +32,8 @@ class AnimalRepository(Protocol):
         in_milk_withdrawal: bool | None = None,
     ) -> list[Animal] | tuple[list[Animal], UUID | None]: ...
 
+    async def list_labels(self, tenant_id: UUID) -> list[str]: ...
+
     async def count(
         self,
         tenant_id: UUID,
