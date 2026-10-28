@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -29,8 +29,8 @@ class AnimalEvent:
     data: dict | None = None
     parent_event_id: UUID | None = None
     new_status_id: UUID | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: int = 1
 
     @classmethod
@@ -44,12 +44,12 @@ class AnimalEvent:
         parent_event_id: UUID | None = None,
         new_status_id: UUID | None = None,
     ) -> AnimalEvent:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Ensure occurred_at is timezone-aware and in UTC
         if occurred_at.tzinfo is None or occurred_at.tzinfo.utcoffset(occurred_at) is None:
-            occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+            occurred_at = occurred_at.replace(tzinfo=UTC)
         else:
-            occurred_at = occurred_at.astimezone(timezone.utc)
+            occurred_at = occurred_at.astimezone(UTC)
 
         return cls(
             id=uuid4(),
@@ -67,4 +67,4 @@ class AnimalEvent:
 
     def bump_version(self) -> None:
         self.version += 1
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)

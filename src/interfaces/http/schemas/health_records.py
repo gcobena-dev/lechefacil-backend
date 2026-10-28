@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -48,8 +48,8 @@ class HealthRecordCreate(BaseModel):
     def ensure_aware_utc(cls, v: datetime) -> datetime:
         """Ensure `occurred_at` is timezone-aware and in UTC."""
         if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
-            return v.replace(tzinfo=timezone.utc)
-        return v.astimezone(timezone.utc)
+            return v.replace(tzinfo=UTC)
+        return v.astimezone(UTC)
 
 
 class HealthRecordUpdate(BaseModel):
@@ -71,8 +71,8 @@ class HealthRecordUpdate(BaseModel):
         if v is None:
             return None
         if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
-            return v.replace(tzinfo=timezone.utc)
-        return v.astimezone(timezone.utc)
+            return v.replace(tzinfo=UTC)
+        return v.astimezone(UTC)
 
 
 class HealthRecordResponse(BaseModel):

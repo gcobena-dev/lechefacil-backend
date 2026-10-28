@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,8 +52,8 @@ async def _scheduler_loop(app: FastAPI, run_at_hour: int = 6) -> None:
     logger = logging.getLogger("scheduler")
     while True:
         try:
-            now = datetime.now(timezone.utc)
-            target = datetime.combine(now.date(), time(run_at_hour, 0), tzinfo=timezone.utc)
+            now = datetime.now(UTC)
+            target = datetime.combine(now.date(), time(run_at_hour, 0), tzinfo=UTC)
             if now >= target:
                 # Already past today's run time, schedule for tomorrow
                 from datetime import timedelta

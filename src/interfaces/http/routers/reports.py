@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
@@ -249,7 +249,7 @@ async def generate_health_report(
     return ReportResponse(
         report_id="health-placeholder",
         title="Reporte de Salud",
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         format=request.format,
         content="Reporte de salud aún no implementado",
         file_name=f"salud_{request.date_from}_{request.date_to}.{request.format}",

@@ -9,7 +9,7 @@ joins the live record on every read.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -20,7 +20,7 @@ from src.domain.models.animal_event import AnimalEventType
 
 TENANT_ID = uuid4()
 ANIMAL_ID = uuid4()
-SERVICE_AT = datetime(2026, 7, 8, 9, 0, tzinfo=timezone.utc)
+SERVICE_AT = datetime(2026, 7, 8, 9, 0, tzinfo=UTC)
 
 
 def make_event(data: dict | None = None, occurred_at: datetime = SERVICE_AT):
@@ -140,7 +140,7 @@ async def test_an_event_with_no_insemination_keeps_its_own_data():
     # Imported herds and events registered before the reproduction module have
     # no record behind them: there, `data` is the service, not a copy of one.
     event = make_event(
-        {"technician": "Miguel Moreira"}, occurred_at=datetime(2020, 1, 1, tzinfo=timezone.utc)
+        {"technician": "Miguel Moreira"}, occurred_at=datetime(2020, 1, 1, tzinfo=UTC)
     )
 
     await _attach_service_details(make_uow([]), TENANT_ID, ANIMAL_ID, [event])

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -59,9 +59,9 @@ class AnimalEventCreate(BaseModel):
         datetimes downstream.
         """
         if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
-            return v.replace(tzinfo=timezone.utc)
+            return v.replace(tzinfo=UTC)
         # Normalize to UTC in case an offset was provided
-        return v.astimezone(timezone.utc)
+        return v.astimezone(UTC)
 
 
 class AnimalEventResponse(BaseModel):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.application.errors import ConflictError, NotFound, PermissionDenied
@@ -56,5 +56,5 @@ async def execute(
             message="User membership removed successfully",
             user_id=payload.user_id,
             tenant_id=payload.tenant_id,
-            removed_at=datetime.now(timezone.utc).isoformat(),
+            removed_at=datetime.now(UTC).isoformat(),
         )

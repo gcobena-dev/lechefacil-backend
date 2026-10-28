@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
 from datetime import date as DtDate
-from datetime import timezone
 from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response, status
@@ -99,7 +99,7 @@ async def create_delivery(
     # price resolution: buyer/date, else default(date), else tenant default
     dt = payload.date_time
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     # Prevent duplicate delivery for same buyer and local day
     existing_same_day = await uow.milk_deliveries.list(
         context.tenant_id, date_from=dt.date(), date_to=dt.date(), buyer_id=buyer_id
@@ -184,7 +184,7 @@ async def update_delivery(
     if payload.date_time is not None:
         dt = payload.date_time
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         updates["date_time"] = dt
         updates["date"] = dt.date()
     # `notes` reached the schema but never the update, so the note typed in the

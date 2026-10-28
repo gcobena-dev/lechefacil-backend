@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -20,8 +20,8 @@ class MilkDelivery:
     notes: str | None = None
     client_request_id: UUID | None = None
     deleted_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: int = 1
 
     @classmethod
@@ -39,8 +39,8 @@ class MilkDelivery:
         client_request_id: UUID | None = None,
     ) -> MilkDelivery:
         if date_time.tzinfo is None:
-            date_time = date_time.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
+            date_time = date_time.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
         return cls(
             id=uuid4(),
             tenant_id=tenant_id,

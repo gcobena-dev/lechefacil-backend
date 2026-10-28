@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -69,12 +70,12 @@ class OneTimeTokenRepository:
 
     async def mark_as_used(self, token_id: UUID) -> None:
         """Marca un token como usado"""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         stmt = (
             update(OneTimeTokenORM)
             .where(OneTimeTokenORM.id == token_id)
-            .values(is_used=True, used_at=datetime.now(timezone.utc))
+            .values(is_used=True, used_at=datetime.now(UTC))
         )
         result = await self.session.execute(stmt)
         if result.rowcount == 0:
@@ -82,7 +83,7 @@ class OneTimeTokenRepository:
 
     async def invalidate_all_for_purpose(self, user_id: UUID, purpose: str) -> None:
         """Invalida todos los tokens no usados de un usuario para un propósito específico"""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         stmt = (
             update(OneTimeTokenORM)
@@ -91,6 +92,6 @@ class OneTimeTokenRepository:
                 OneTimeTokenORM.purpose == purpose,
                 OneTimeTokenORM.is_used == False,  # noqa: E712
             )
-            .values(is_used=True, used_at=datetime.now(timezone.utc))
+            .values(is_used=True, used_at=datetime.now(UTC))
         )
         await self.session.execute(stmt)

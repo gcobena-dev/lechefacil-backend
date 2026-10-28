@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -46,8 +46,8 @@ class Insemination:
     notes: str | None = None
 
     deleted_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: int = 1
 
     @classmethod
@@ -66,9 +66,9 @@ class Insemination:
         protocol: str | None = None,
         notes: str | None = None,
     ) -> Insemination:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if service_date.tzinfo is None:
-            service_date = service_date.replace(tzinfo=timezone.utc)
+            service_date = service_date.replace(tzinfo=UTC)
         return cls(
             id=uuid4(),
             tenant_id=tenant_id,
@@ -123,4 +123,4 @@ class Insemination:
 
     def bump_version(self) -> None:
         self.version += 1
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)

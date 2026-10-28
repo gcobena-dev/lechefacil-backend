@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 
@@ -12,7 +12,7 @@ class Lot:
     name: str
     active: bool = True
     notes: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @classmethod
     def create(
@@ -29,5 +29,5 @@ class Lot:
             name=name,
             active=active,
             notes=notes,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )

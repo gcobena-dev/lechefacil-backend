@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 @router.get("/daily-kpis", response_model=DailyKPIsResponse)
 async def get_daily_kpis(
     date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(timezone.utc).date()
+        alias="date", default_factory=lambda: datetime.now(UTC).date()
     ),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
@@ -115,7 +115,7 @@ async def get_daily_kpis(
 async def get_top_producers(
     request: Request,
     date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(timezone.utc).date()
+        alias="date", default_factory=lambda: datetime.now(UTC).date()
     ),
     limit: int = Query(default=5, le=20),
     context: AuthContext = Depends(get_auth_context),
@@ -242,7 +242,7 @@ async def get_top_producers(
 @router.get("/daily-progress", response_model=DailyProgressResponse)
 async def get_daily_progress(
     date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(timezone.utc).date()
+        alias="date", default_factory=lambda: datetime.now(UTC).date()
     ),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
@@ -285,7 +285,7 @@ async def get_daily_progress(
     from src.interfaces.http.schemas.dashboard import ShiftProgress
 
     # Determine shift status
-    current_time = datetime.now(timezone.utc)
+    current_time = datetime.now(UTC)
     morning_status = (
         "completed"
         if morning_liters > 0
@@ -302,7 +302,7 @@ async def get_daily_progress(
             status=morning_status,
             completed_at=morning_completed_at,
             scheduled_at=datetime.combine(date_param, datetime.min.time().replace(hour=6)).replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             ),
             liters=morning_liters,
         ),
@@ -310,7 +310,7 @@ async def get_daily_progress(
             status=evening_status,
             completed_at=evening_completed_at,
             scheduled_at=datetime.combine(date_param, datetime.min.time().replace(hour=18)).replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             ),
             liters=evening_liters,
         ),
@@ -397,7 +397,7 @@ async def get_alerts(
             message="Bonita - Retiro de leche hasta 15/09",
             priority="high",
             animal_id=None,  # Would need to lookup animal by name
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
     ]
 
@@ -411,7 +411,7 @@ async def get_alerts(
 async def get_worker_progress(
     user_id: str,
     date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(timezone.utc).date()
+        alias="date", default_factory=lambda: datetime.now(UTC).date()
     ),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
@@ -430,11 +430,11 @@ async def get_worker_progress(
     total_animals_assigned = await uow.animals.count(context.tenant_id, is_active=True)
     liters_recorded = sum(p.volume_l for p in productions)
 
-    current_time = datetime.now(timezone.utc)
+    current_time = datetime.now(UTC)
     current_shift = "AM" if current_time.hour < 12 else "PM"
     shift_start = datetime.combine(
         date_param, datetime.min.time().replace(hour=6 if current_shift == "AM" else 18)
-    ).replace(tzinfo=timezone.utc)
+    ).replace(tzinfo=UTC)
 
     from src.interfaces.http.schemas.dashboard import WorkerProgress
 
@@ -452,7 +452,7 @@ async def get_worker_progress(
 @router.get("/vet-alerts", response_model=VetAlertsResponse)
 async def get_vet_alerts(
     date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(timezone.utc).date()
+        alias="date", default_factory=lambda: datetime.now(UTC).date()
     ),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
@@ -488,7 +488,7 @@ async def get_vet_alerts(
 @router.get("/admin-overview", response_model=AdminOverviewResponse)
 async def get_admin_overview(
     date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(timezone.utc).date()
+        alias="date", default_factory=lambda: datetime.now(UTC).date()
     ),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
@@ -654,7 +654,6 @@ async def get_reproduction_kpis(
     uow=Depends(get_uow),
 ) -> ReproductionKPIsResponse:
     from datetime import datetime as dt
-    from datetime import timezone as tz
 
     from src.interfaces.http.schemas.dashboard import (
         MonthlyActivity,
@@ -665,8 +664,8 @@ async def get_reproduction_kpis(
         ServicesDistribution,
     )
 
-    dt_from = dt.combine(date_from, dt.min.time(), tzinfo=tz.utc)
-    dt_to = dt.combine(date_to, dt.max.time().replace(microsecond=0), tzinfo=tz.utc)
+    dt_from = dt.combine(date_from, dt.min.time(), tzinfo=UTC)
+    dt_to = dt.combine(date_to, dt.max.time().replace(microsecond=0), tzinfo=UTC)
     tenant_id = context.tenant_id
 
     # Current period KPIs
@@ -699,7 +698,7 @@ async def get_reproduction_kpis(
     # 3. Postpartum alerts from open lactations (no date filter)
     open_lactations = await uow.lactations.list_open_with_animal(tenant_id)
     latest_ins = await uow.inseminations.get_latest_per_animal(tenant_id)
-    today = dt.now(tz.utc).date()
+    today = dt.now(UTC).date()
     alerts: list[PostpartumAlert] = []
     for lac in open_lactations:
         # Skip confirmed-pregnant cows: they already conceived and are not

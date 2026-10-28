@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -208,7 +208,7 @@ async def _apply_service_date(uow, tenant_id: UUID, record, service_date: dateti
     the method and the technician are not copied there: the timeline reads them
     from this record, so editing them needs no sync at all.
     """
-    if service_date > datetime.now(timezone.utc):
+    if service_date > datetime.now(UTC):
         raise HTTPException(status_code=422, detail="La fecha de servicio no puede ser futura")
 
     record.service_date = service_date
@@ -273,7 +273,7 @@ async def delete_insemination_endpoint(
     # `inseminations.service_event_id` is a FK to the row being removed.
     service_event_id = record.service_event_id
     record.service_event_id = None
-    record.deleted_at = datetime.now(timezone.utc)
+    record.deleted_at = datetime.now(UTC)
     await uow.inseminations.delete(record)
     if service_event_id:
         await uow.animal_events.delete(context.tenant_id, service_event_id)

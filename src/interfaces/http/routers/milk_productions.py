@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from datetime import date as DtDate
-from datetime import datetime, timezone
 from datetime import time as DtTime
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -154,17 +154,17 @@ async def create_production(
     if payload.date is not None:
         # Simple convention: AM -> 06:00, PM -> 18:00 UTC
         base_time = DtTime(hour=6, minute=0) if shift == "AM" else DtTime(hour=18, minute=0)
-        dt = datetime.combine(payload.date, base_time).replace(tzinfo=timezone.utc)
+        dt = datetime.combine(payload.date, base_time).replace(tzinfo=UTC)
     elif payload.date_time is not None:
         dt = (
             payload.date_time
             if payload.date_time.tzinfo
-            else payload.date_time.replace(tzinfo=timezone.utc)
+            else payload.date_time.replace(tzinfo=UTC)
         )
     else:
         d = DtDate.today()
         base_time = DtTime(hour=6, minute=0) if shift == "AM" else DtTime(hour=18, minute=0)
-        dt = datetime.combine(d, base_time).replace(tzinfo=timezone.utc)
+        dt = datetime.combine(d, base_time).replace(tzinfo=UTC)
     # Resolve buyer & price snapshot for approximate value
     buyer_id = payload.buyer_id or (cfg.default_buyer_id if cfg else None)
     price = None
@@ -339,17 +339,17 @@ async def create_productions_bulk(
     sh = (payload.shift or "AM").upper()
     if payload.date is not None:
         base_time = DtTime(hour=6, minute=0) if sh == "AM" else DtTime(hour=18, minute=0)
-        dt_shared = datetime.combine(payload.date, base_time).replace(tzinfo=timezone.utc)
+        dt_shared = datetime.combine(payload.date, base_time).replace(tzinfo=UTC)
     elif payload.date_time is not None:
         dt_shared = (
             payload.date_time
             if payload.date_time.tzinfo
-            else payload.date_time.replace(tzinfo=timezone.utc)
+            else payload.date_time.replace(tzinfo=UTC)
         )
     else:
         d = DtDate.today()
         base_time = DtTime(hour=6, minute=0) if sh == "AM" else DtTime(hour=18, minute=0)
-        dt_shared = datetime.combine(d, base_time).replace(tzinfo=timezone.utc)
+        dt_shared = datetime.combine(d, base_time).replace(tzinfo=UTC)
     # Resolve price snapshot and currency based on buyer/date
     buyer_shared = payload.buyer_id or (cfg.default_buyer_id if cfg else None)
     price_shared = None
@@ -532,10 +532,10 @@ async def update_production(
         d = payload.date or existing.date
         sh = (payload.shift or ("AM" if existing.date_time.hour < 12 else "PM")).upper()
         base_time = DtTime(hour=6, minute=0) if sh == "AM" else DtTime(hour=18, minute=0)
-        dt_override = datetime.combine(d, base_time).replace(tzinfo=timezone.utc)
+        dt_override = datetime.combine(d, base_time).replace(tzinfo=UTC)
     if dt_override is not None:
         if dt_override.tzinfo is None:
-            dt_override = dt_override.replace(tzinfo=timezone.utc)
+            dt_override = dt_override.replace(tzinfo=UTC)
         updates["date_time"] = dt_override
         updates["date"] = dt_override.date()
         # If shift not explicitly provided, recompute from new date_time

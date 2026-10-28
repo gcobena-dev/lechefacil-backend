@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import asc, case, desc, func, literal_column, select
@@ -217,7 +217,7 @@ class InseminationsSQLAlchemyRepository:
         min_days: int = 35,
         max_days: int = 50,
     ) -> list[Insemination]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         min_date = now - timedelta(days=max_days)
         max_date = now - timedelta(days=min_days)
         stmt = (

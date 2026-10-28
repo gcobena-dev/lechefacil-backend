@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -21,8 +21,8 @@ class InseminationCreate(BaseModel):
     @field_validator("service_date")
     def ensure_aware_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
-            return v.replace(tzinfo=timezone.utc)
-        return v.astimezone(timezone.utc)
+            return v.replace(tzinfo=UTC)
+        return v.astimezone(UTC)
 
 
 class InseminationUpdate(BaseModel):
@@ -38,8 +38,8 @@ class InseminationUpdate(BaseModel):
         if v is None:
             return v
         if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
-            return v.replace(tzinfo=timezone.utc)
-        return v.astimezone(timezone.utc)
+            return v.replace(tzinfo=UTC)
+        return v.astimezone(UTC)
 
 
 class PregnancyCheckInput(BaseModel):
@@ -50,8 +50,8 @@ class PregnancyCheckInput(BaseModel):
     @field_validator("check_date")
     def ensure_aware_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
-            return v.replace(tzinfo=timezone.utc)
-        return v.astimezone(timezone.utc)
+            return v.replace(tzinfo=UTC)
+        return v.astimezone(UTC)
 
 
 class InseminationResponse(BaseModel):

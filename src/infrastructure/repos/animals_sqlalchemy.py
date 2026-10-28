@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select, update
@@ -452,7 +452,7 @@ class AnimalsSQLAlchemyRepository(AnimalRepository):
             .where(AnimalORM.tenant_id == tenant_id)
             .where(reference == reference_id)
             .where(column.is_distinct_from(new_name))
-            .values({column: new_name, AnimalORM.updated_at: datetime.now(timezone.utc)})
+            .values({column: new_name, AnimalORM.updated_at: datetime.now(UTC)})
         )
         result = await self.session.execute(stmt)
         await self.session.flush()

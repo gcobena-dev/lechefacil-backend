@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -81,9 +81,9 @@ async def sire_performance_summary_endpoint(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
-    dt_from = datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc)
+    dt_from = datetime.combine(date_from, datetime.min.time(), tzinfo=UTC)
     dt_to = datetime.combine(
-        date_to, datetime.max.time().replace(microsecond=0), tzinfo=timezone.utc
+        date_to, datetime.max.time().replace(microsecond=0), tzinfo=UTC
     )
     items = await sire_performance_summary.execute(
         uow,

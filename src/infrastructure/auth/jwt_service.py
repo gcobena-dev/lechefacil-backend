@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
-from jose import jwt
-from jose.exceptions import ExpiredSignatureError, JWTError
+import jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 from src.application.errors import AuthError
 
@@ -32,7 +33,7 @@ class JWTService:
         subject: UUID,
         extra_claims: Mapping[str, Any] | None = None,
     ) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         to_encode: dict[str, Any] = {
             "sub": str(subject),
             "iat": int(now.timestamp()),
@@ -58,11 +59,11 @@ class JWTService:
             )
         except ExpiredSignatureError as exc:
             raise AuthError("Token expired") from exc
-        except JWTError as exc:
+        except InvalidTokenError as exc:
             raise AuthError("Token validation failed") from exc
 
     def create_refresh_token(self, *, subject: UUID, expires_days: int = 30) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         to_encode: dict[str, Any] = {
             "sub": str(subject),
             "iat": int(now.timestamp()),
@@ -89,7 +90,7 @@ class JWTService:
         expires_minutes: int,
         extra_claims: Mapping[str, Any] | None = None,
     ) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         to_encode: dict[str, Any] = {
             "sub": str(subject),
             "iat": int(now.timestamp()),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import Enum
 from uuid import UUID, uuid4
@@ -40,8 +40,8 @@ class HealthRecord:
     # Audit fields
     # Note: Attachments are stored in the 'attachments' table with owner_type='HEALTH_EVENT'
     deleted_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: int = 1
 
     @classmethod
@@ -61,13 +61,13 @@ class HealthRecord:
         withdrawal_days: int | None = None,
         withdrawal_until: date | None = None,
     ) -> HealthRecord:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Ensure occurred_at is timezone-aware and in UTC
         if occurred_at.tzinfo is None or occurred_at.tzinfo.utcoffset(occurred_at) is None:
-            occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+            occurred_at = occurred_at.replace(tzinfo=UTC)
         else:
-            occurred_at = occurred_at.astimezone(timezone.utc)
+            occurred_at = occurred_at.astimezone(UTC)
 
         return cls(
             id=uuid4(),
@@ -91,4 +91,4 @@ class HealthRecord:
 
     def bump_version(self) -> None:
         self.version += 1
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)

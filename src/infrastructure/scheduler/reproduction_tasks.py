@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,7 +42,7 @@ def _build_notification_service(session: AsyncSession) -> NotificationService:
 
 async def check_pending_pregnancy_checks(session_factory) -> None:
     """Find inseminations PENDING between 35-50 days and notify each tenant once."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     min_date = now - timedelta(days=50)
     max_date = now - timedelta(days=35)
 

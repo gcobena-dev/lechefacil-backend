@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 # Statuses that take an animal out of the herd ("dado de baja"). Kept here so
@@ -16,7 +16,7 @@ class AnimalStatus:
     code: str
     translations: dict
     is_system_default: bool
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @classmethod
     def create(
@@ -32,7 +32,7 @@ class AnimalStatus:
             code=code,
             translations=translations,
             is_system_default=is_system_default,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
     @property

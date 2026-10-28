@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.application.errors import ConflictError, NotFound, PermissionDenied
@@ -58,5 +58,5 @@ async def execute(
             user_id=payload.user_id,
             tenant_id=payload.tenant_id,
             new_role=payload.new_role,
-            updated_at=datetime.now(timezone.utc).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )

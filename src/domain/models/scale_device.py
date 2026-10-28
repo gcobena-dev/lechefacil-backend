@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 
@@ -19,8 +19,8 @@ class ScaleDevice:
     firmware_version: str | None = None
     pairing_pin: str | None = None
     pairing_pin_expires_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @classmethod
     def create(
@@ -31,7 +31,7 @@ class ScaleDevice:
         wifi_ssid: str | None = None,
         wifi_password: str | None = None,
     ) -> ScaleDevice:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return cls(
             id=uuid4(),
             tenant_id=tenant_id,

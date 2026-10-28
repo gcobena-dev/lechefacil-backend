@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -41,7 +41,7 @@ async def register_device(
         wifi_password=payload.wifi_password,
     )
     pin = ScaleDevice.generate_pairing_pin()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    expires_at = datetime.now(UTC) + timedelta(minutes=10)
     device.pairing_pin = pin
     device.pairing_pin_expires_at = expires_at
     created = await uow.scale_devices.add(device)
@@ -147,7 +147,7 @@ async def generate_pairing_pin(
         raise NotFound("Scale device not found")
 
     pin = ScaleDevice.generate_pairing_pin()
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    expires_at = datetime.now(UTC) + timedelta(minutes=10)
     await uow.scale_devices.update(
         context.tenant_id, device_id, {"pairing_pin": pin, "pairing_pin_expires_at": expires_at}
     )

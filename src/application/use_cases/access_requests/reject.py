@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.application.errors import NotFound
@@ -35,7 +35,7 @@ async def execute(
 
     request.status = AccessRequestStatus.REJECTED
     request.decided_by_user_id = payload.decided_by_user_id
-    request.decided_at = datetime.now(timezone.utc)
+    request.decided_at = datetime.now(UTC)
     request.decision_notes = payload.decision_notes
     saved = await uow.access_requests.update(request)
     await uow.commit()

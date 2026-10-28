@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
-
+from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
 # Default application timezone aligned with frontend
@@ -24,7 +23,7 @@ def to_utc(dt: datetime) -> datetime:
     """Convert a datetime to UTC, assuming DEFAULT_TZ for naive values."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=DEFAULT_TZ)
-    return dt.astimezone(timezone.utc)
+    return dt.astimezone(UTC)
 
 
 _DOW_ES = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
@@ -64,7 +63,7 @@ def format_day_date(
 
     if tz is not None:
         if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         dt = dt.astimezone(tz)
 
     dow = _DOW_ES[dt.weekday()]

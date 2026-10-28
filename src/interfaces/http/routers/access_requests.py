@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
@@ -216,7 +216,7 @@ def _is_token_valid_for(record, request_id: UUID, purpose: str) -> bool:
         return False
     if (record.extra_data or {}).get("request_id") != str(request_id):
         return False
-    if record.expires_at is not None and record.expires_at < datetime.now(timezone.utc):
+    if record.expires_at is not None and record.expires_at < datetime.now(UTC):
         return False
     return True
 

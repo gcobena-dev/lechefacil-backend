@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
 
@@ -15,8 +15,8 @@ class Lactation:
     end_date: date | None = None
     status: str = "open"  # 'open' | 'closed'
     calving_event_id: UUID | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: int = 1
 
     @classmethod
@@ -28,7 +28,7 @@ class Lactation:
         start_date: date,
         calving_event_id: UUID | None = None,
     ) -> Lactation:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return cls(
             id=uuid4(),
             tenant_id=tenant_id,
@@ -49,4 +49,4 @@ class Lactation:
 
     def bump_version(self) -> None:
         self.version += 1
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)

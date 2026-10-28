@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -75,5 +75,5 @@ async def delete(
     stock = await uow.semen_inventory.get(tenant_id, stock_id)
     if not stock:
         raise NotFound(f"Semen stock {stock_id} not found")
-    stock.deleted_at = datetime.now(timezone.utc)
+    stock.deleted_at = datetime.now(UTC)
     await uow.semen_inventory.delete(stock)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import io
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -90,7 +90,7 @@ class PDFGenerator:
             elements.append(Paragraph(subtitle, self.styles["CustomSubheading"]))
 
         # Generation date
-        gen_date = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+        gen_date = datetime.now(UTC).strftime("%d/%m/%Y %H:%M UTC")
         elements.append(Paragraph(f"Generado el: {gen_date}", self.styles["Normal"]))
         elements.append(Spacer(1, 20))
 

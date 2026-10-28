@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Container, Iterable
+from collections.abc import Container, Iterable
+from typing import Any
 
 
 def resolve_patch(

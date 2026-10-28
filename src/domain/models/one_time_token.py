@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 
@@ -19,7 +19,7 @@ class OneTimeToken:
     purpose: str  # 'set_password', 'reset_password', 'verify_email', etc.
     is_used: bool = False
     used_at: datetime | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None  # None = no expiration
     extra_data: dict | None = None  # Additional data (tenant_id, role, etc.)
 
@@ -35,7 +35,7 @@ class OneTimeToken:
     ) -> OneTimeToken:
         from datetime import timedelta
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = None
         if expires_in_minutes is not None:
             expires_at = now + timedelta(minutes=expires_in_minutes)
@@ -55,7 +55,7 @@ class OneTimeToken:
     def mark_as_used(self) -> None:
         """Mark the token as used"""
         self.is_used = True
-        self.used_at = datetime.now(timezone.utc)
+        self.used_at = datetime.now(UTC)
 
     def is_valid(self) -> bool:
         """Check if the token is valid for use (not used and not expired)"""
@@ -64,7 +64,7 @@ class OneTimeToken:
 
         # Check expiration if it has one
         if self.expires_at is not None:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if now > self.expires_at:
                 return False
 
@@ -74,4 +74,4 @@ class OneTimeToken:
         """Check if the token has expired"""
         if self.expires_at is None:
             return False
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at

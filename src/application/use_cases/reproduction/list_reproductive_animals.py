@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
@@ -205,7 +205,7 @@ async def execute(
     # even for cows that have already been dried off again.
     any_calving_by_animal = await uow.lactations.get_last_calving_per_animal(tenant_id)
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
 
     # Only female reproductively-eligible animals are considered.
     eligible = [a for a in animals if (a.sex or "").upper() == "FEMALE"]

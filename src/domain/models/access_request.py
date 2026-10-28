@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from src.domain.value_objects.access_request_status import AccessRequestStatus
@@ -23,8 +23,8 @@ class AccessRequest:
     decided_at: datetime | None = None
     decision_notes: str | None = None
     created_tenant_id: UUID | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @classmethod
     def create(
@@ -39,7 +39,7 @@ class AccessRequest:
         farm_location: str | None = None,
         message: str | None = None,
     ) -> AccessRequest:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return cls(
             id=uuid4(),
             full_name=full_name.strip(),

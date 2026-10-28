@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -359,7 +359,7 @@ class ReportService:
             return ReportResponse(
                 report_id=report_id,
                 title="Reporte de Producción",
-                generated_at=datetime.now(timezone.utc).isoformat(),
+                generated_at=datetime.now(UTC).isoformat(),
                 format="json",
                 data=data,
                 file_name=f"produccion_{request.date_from}_{request.date_to}.json",
@@ -638,7 +638,7 @@ class ReportService:
         pdf_content = self.pdf_generator.generate_pdf(elements)
 
         # File name: prd_dd-mm_dd-mm_HH'H'mm
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         file_name = (
             f"prd_{request.date_from.strftime('%d-%m')}_{request.date_to.strftime('%d-%m')}_"
             f"{now.strftime('%H')}H{now.strftime('%M')}\.pdf"
@@ -647,7 +647,7 @@ class ReportService:
         return ReportResponse(
             report_id=report_id,
             title="Reporte de Producción",
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
             format="pdf",
             content=pdf_content,
             file_name=file_name,
@@ -750,7 +750,7 @@ class ReportService:
             return ReportResponse(
                 report_id=report_id,
                 title="Reporte Financiero",
-                generated_at=datetime.now(timezone.utc).isoformat(),
+                generated_at=datetime.now(UTC).isoformat(),
                 format="json",
                 data=data,
                 file_name=f"financiero_{request.date_from}_{request.date_to}.json",
@@ -811,7 +811,7 @@ class ReportService:
         return ReportResponse(
             report_id=report_id,
             title="Reporte Financiero",
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
             format="pdf",
             content=pdf_content,
             file_name=f"financiero_{request.date_from}_{request.date_to}.pdf",
@@ -965,7 +965,7 @@ class ReportService:
             return ReportResponse(
                 report_id=report_id,
                 title="Reporte de Animales",
-                generated_at=datetime.now(timezone.utc).isoformat(),
+                generated_at=datetime.now(UTC).isoformat(),
                 format="json",
                 data=data,
                 file_name=f"animales_{request.date_from}_{request.date_to}.json",
@@ -1017,7 +1017,7 @@ class ReportService:
         return ReportResponse(
             report_id=report_id,
             title="Reporte de Animales",
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
             format="pdf",
             content=pdf_content,
             file_name=f"animales_{request.date_from}_{request.date_to}.pdf",

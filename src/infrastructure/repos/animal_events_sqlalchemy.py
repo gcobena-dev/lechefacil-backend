@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -70,7 +70,7 @@ class AnimalEventsSQLAlchemyRepository(AnimalEventsRepository):
         orm.data = event.data
         orm.parent_event_id = event.parent_event_id
         orm.new_status_id = event.new_status_id
-        orm.updated_at = datetime.now(timezone.utc)
+        orm.updated_at = datetime.now(UTC)
         orm.version = event.version + 1
         await self.session.flush()
         return self._to_domain(orm)

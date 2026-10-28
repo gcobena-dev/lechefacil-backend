@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.application.errors import NotFound
@@ -15,5 +15,5 @@ async def execute(
     sire = await uow.sire_catalog.get(tenant_id, sire_id)
     if not sire:
         raise NotFound(f"Sire {sire_id} not found")
-    sire.deleted_at = datetime.now(timezone.utc)
+    sire.deleted_at = datetime.now(UTC)
     await uow.sire_catalog.delete(sire)

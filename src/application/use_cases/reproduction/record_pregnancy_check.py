@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.application.errors import NotFound, ValidationError
@@ -37,7 +37,7 @@ async def execute(
 
     check_date = payload.check_date
     if check_date.tzinfo is None:
-        check_date = check_date.replace(tzinfo=timezone.utc)
+        check_date = check_date.replace(tzinfo=UTC)
 
     if payload.result == PregnancyStatus.CONFIRMED.value:
         insemination.confirm_pregnancy(check_date, payload.checked_by)

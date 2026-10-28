@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
@@ -17,5 +17,5 @@ async def execute(
     if not record:
         raise ValueError(f"Health record {record_id} not found")
 
-    record.deleted_at = datetime.now(timezone.utc)
+    record.deleted_at = datetime.now(UTC)
     await uow.health_records.delete(record)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -16,7 +16,7 @@ from src.domain.models.insemination import GESTATION_DAYS, Insemination, Pregnan
 
 TENANT_ID = uuid4()
 ANIMAL_ID = uuid4()
-CALVING_AT = datetime(2026, 6, 18, tzinfo=timezone.utc)
+CALVING_AT = datetime(2026, 6, 18, tzinfo=UTC)
 
 
 def make_insemination(days_before_calving: int) -> Insemination:
@@ -112,15 +112,15 @@ async def test_pending_service_is_closed_when_a_confirmed_one_already_claims_the
 
 
 def test_service_before_the_last_calving_is_superseded():
-    ins = {"service_date": datetime(2026, 2, 21, tzinfo=timezone.utc)}
+    ins = {"service_date": datetime(2026, 2, 21, tzinfo=UTC)}
     assert _is_superseded_by_calving(ins, CALVING_AT.date()) is True
 
 
 def test_service_after_the_last_calving_is_still_the_active_cycle():
-    ins = {"service_date": datetime(2026, 7, 20, tzinfo=timezone.utc)}
+    ins = {"service_date": datetime(2026, 7, 20, tzinfo=UTC)}
     assert _is_superseded_by_calving(ins, CALVING_AT.date()) is False
 
 
 def test_service_is_not_superseded_when_the_cow_never_calved():
-    ins = {"service_date": datetime(2026, 2, 21, tzinfo=timezone.utc)}
+    ins = {"service_date": datetime(2026, 2, 21, tzinfo=UTC)}
     assert _is_superseded_by_calving(ins, None) is False

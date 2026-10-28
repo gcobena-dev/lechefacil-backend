@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 
@@ -15,7 +15,7 @@ class Notification:
     message: str
     data: dict | None = None
     read: bool = False
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     read_at: datetime | None = None
 
     @classmethod
@@ -37,11 +37,11 @@ class Notification:
             message=message,
             data=data,
             read=False,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             read_at=None,
         )
 
     def mark_as_read(self) -> None:
         if not self.read:
             self.read = True
-            self.read_at = datetime.now(timezone.utc)
+            self.read_at = datetime.now(UTC)

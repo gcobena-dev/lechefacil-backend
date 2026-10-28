@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir poetry==2.0.1
+RUN pip install --no-cache-dir poetry==2.1.3
 
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root --only main

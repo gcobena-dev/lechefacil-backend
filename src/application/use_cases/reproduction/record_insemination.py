@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from src.application.errors import NotFound, ValidationError
@@ -89,7 +89,7 @@ async def execute(
     # Ensure service_date is tz-aware
     service_date = payload.service_date
     if service_date.tzinfo is None:
-        service_date = service_date.replace(tzinfo=timezone.utc)
+        service_date = service_date.replace(tzinfo=UTC)
 
     # The SERVICE event marks the service on the animal timeline; the service
     # itself lives in `inseminations` and stays there. Nothing about the bull,

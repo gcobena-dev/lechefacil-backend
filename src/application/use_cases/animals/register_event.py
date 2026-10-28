@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from src.application.errors import NotFound, PermissionDenied, ValidationError
@@ -124,7 +124,7 @@ async def _handle_calving_event(
         raise ValidationError("Male animals cannot have calving events")
 
     # Validate: event cannot be in the future
-    if event.occurred_at > datetime.now(timezone.utc):
+    if event.occurred_at > datetime.now(UTC):
         raise ValidationError("Event cannot be in the future")
 
     # Close any open lactation
@@ -155,7 +155,7 @@ async def _handle_calving_event(
         await uow.animals.update(
             tenant_id=tenant_id,
             animal_id=animal.id,
-            data={"status_id": new_status_id, "updated_at": datetime.now(timezone.utc)},
+            data={"status_id": new_status_id, "updated_at": datetime.now(UTC)},
             expected_version=animal.version,
         )
 
@@ -200,7 +200,7 @@ async def _handle_dry_off_event(
         await uow.animals.update(
             tenant_id=tenant_id,
             animal_id=animal.id,
-            data={"status_id": new_status_id, "updated_at": datetime.now(timezone.utc)},
+            data={"status_id": new_status_id, "updated_at": datetime.now(UTC)},
             expected_version=animal.version,
         )
 
@@ -235,7 +235,7 @@ async def _handle_disposition_event(
         "status_id": new_status_id,
         "disposition_at": event.occurred_at,
         "disposition_reason": reason,
-        "updated_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(UTC),
     }
 
     await uow.animals.update(
@@ -389,7 +389,7 @@ async def _handle_birth_event(
                 "sire_id": sire_id,
                 "external_sire_code": external_sire_code,
                 "external_sire_registry": external_sire_registry,
-                "updated_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(UTC),
             },
             expected_version=calf.version,
         )

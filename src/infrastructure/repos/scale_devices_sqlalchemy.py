@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -88,7 +88,7 @@ class ScaleDevicesSQLAlchemyRepository:
         return self._to_domain(orm) if orm else None
 
     async def get_by_pairing_pin(self, pin: str) -> ScaleDevice | None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         result = await self.session.execute(
             select(ScaleDeviceORM).where(
                 ScaleDeviceORM.pairing_pin == pin,
@@ -108,7 +108,7 @@ class ScaleDevicesSQLAlchemyRepository:
         await self.session.execute(stmt)
 
     async def update_last_seen(self, device_id: UUID, firmware_version: str | None = None) -> None:
-        data: dict = {"last_seen_at": datetime.now(timezone.utc)}
+        data: dict = {"last_seen_at": datetime.now(UTC)}
         if firmware_version is not None:
             data["firmware_version"] = firmware_version
         stmt = update(ScaleDeviceORM).where(ScaleDeviceORM.id == device_id).values(**data)
