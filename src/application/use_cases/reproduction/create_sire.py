@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.use_cases.reproduction.herd_sires import ensure_herd_bull
 from src.domain.models.sire_catalog import SireCatalog
 
 
@@ -24,6 +25,8 @@ async def execute(
     tenant_id: UUID,
     payload: CreateSireInput,
 ) -> SireCatalog:
+    if payload.animal_id:
+        await ensure_herd_bull(uow, tenant_id, payload.animal_id)
     sire = SireCatalog.create(
         tenant_id=tenant_id,
         name=payload.name,

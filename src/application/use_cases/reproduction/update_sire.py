@@ -6,6 +6,7 @@ from uuid import UUID
 from src.application.errors import NotFound
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.application.patching import resolve_patch
+from src.application.use_cases.reproduction.herd_sires import ensure_herd_bull
 from src.domain.models.sire_catalog import SireCatalog
 
 #: Columns that may be blanked out; `name` and `is_active` are NOT NULL.
@@ -50,12 +51,15 @@ async def execute(
     if not sire:
         raise NotFound(f"Sire {payload.sire_id} not found")
 
-    for name, value in resolve_patch(
+    changes = resolve_patch(
         payload,
         PATCHABLE_FIELDS,
         sent=payload.fields_set,
         nullable=CLEARABLE_FIELDS,
-    ).items():
+    )
+    if changes.get("animal_id"):
+        await ensure_herd_bull(uow, tenant_id, changes["animal_id"], sire_id=sire.id)
+    for name, value in changes.items():
         setattr(sire, name, value)
 
     sire.bump_version()

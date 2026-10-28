@@ -1580,7 +1580,7 @@
           "animals"
         ],
         "summary": "Get Label Suggestions",
-        "description": "Get label suggestions based on existing labels across all animals.",
+        "description": "Every label in use across the tenant's animals, optionally matching `q`.\n\nThe filter dropdowns expect the complete list, so this resolves the labels\nwith one query instead of walking the paginated animal listing.",
         "operationId": "get_label_suggestions_api_v1_animals_labels_suggestions_get",
         "parameters": [
           {
@@ -2324,6 +2324,205 @@
               "type": "string",
               "format": "uuid",
               "title": "Animal Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/animals/{animal_id}/certificate/files/uploads": {
+      "post": {
+        "tags": [
+          "animal-certificates"
+        ],
+        "summary": "Presign Certificate File",
+        "description": "Hand the client a one-shot URL to post the file straight to the bucket.",
+        "operationId": "presign_certificate_file_api_v1_animals__animal_id__certificate_files_uploads_post",
+        "parameters": [
+          {
+            "name": "animal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Animal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresignUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresignUploadResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/animals/{animal_id}/certificate/files": {
+      "post": {
+        "tags": [
+          "animal-certificates"
+        ],
+        "summary": "Confirm Certificate File",
+        "description": "Record a file the client has already uploaded to the bucket.",
+        "operationId": "confirm_certificate_file_api_v1_animals__animal_id__certificate_files_post",
+        "parameters": [
+          {
+            "name": "animal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Animal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "animal-certificates"
+        ],
+        "summary": "List Certificate Files",
+        "operationId": "list_certificate_files_api_v1_animals__animal_id__certificate_files_get",
+        "parameters": [
+          {
+            "name": "animal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Animal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttachmentResponse"
+                  },
+                  "title": "Response List Certificate Files Api V1 Animals  Animal Id  Certificate Files Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/animals/{animal_id}/certificate/files/{file_id}": {
+      "delete": {
+        "tags": [
+          "animal-certificates"
+        ],
+        "summary": "Delete Certificate File",
+        "operationId": "delete_certificate_file_api_v1_animals__animal_id__certificate_files__file_id__delete",
+        "parameters": [
+          {
+            "name": "animal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Animal Id"
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "File Id"
             }
           }
         ],
@@ -3179,11 +3378,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MilkProductionResponse"
-                  },
-                  "type": "array",
-                  "title": "Response Create Productions Bulk Api V1 Milk Productions Bulk Post"
+                  "$ref": "#/components/schemas/MilkProductionsBulkResponse"
                 }
               }
             }
@@ -4679,7 +4874,7 @@
           "mobile"
         ],
         "summary": "Check Update",
-        "description": "Check if update is available for given version",
+        "description": "Check if update is available for given version.\n\n`native_build` is the installed APK's `versionCode`. Pass it so a bundle\nthat needs native code is not handed to a shell that cannot run it; omit it\nand the device is assumed to be too old to say, which it is.",
         "operationId": "check_update_api_v1_mobile_check_update_get",
         "parameters": [
           {
@@ -4689,6 +4884,22 @@
             "schema": {
               "type": "string",
               "title": "Current Version"
+            }
+          },
+          {
+            "name": "native_build",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Native Build"
             }
           }
         ],
@@ -5010,6 +5221,78 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SirePerformanceSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reproduction/sires/herd-candidates": {
+      "get": {
+        "tags": [
+          "reproduction"
+        ],
+        "summary": "List Herd Candidates Endpoint",
+        "description": "Males of the herd that can be imported into the catalog.",
+        "operationId": "list_herd_candidates_endpoint_api_v1_reproduction_sires_herd_candidates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HerdBullCandidate"
+                  },
+                  "type": "array",
+                  "title": "Response List Herd Candidates Endpoint Api V1 Reproduction Sires Herd Candidates Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reproduction/sires/import-from-herd": {
+      "post": {
+        "tags": [
+          "reproduction"
+        ],
+        "summary": "Import From Herd Endpoint",
+        "description": "Add herd bulls to the catalog, named after the animal and linked to it.",
+        "operationId": "import_from_herd_endpoint_api_v1_reproduction_sires_import_from_herd_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportFromHerdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SireCatalogResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Import From Herd Endpoint Api V1 Reproduction Sires Import From Herd Post"
                 }
               }
             }
@@ -7960,6 +8243,18 @@
             ],
             "title": "Sire Id"
           },
+          "sire_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Catalog Id"
+          },
           "external_sire_code": {
             "anyOf": [
               {
@@ -8031,7 +8326,7 @@
           "occurred_at"
         ],
         "title": "AnimalEventCreate",
-        "description": "Schema for creating animal events.\n\nEvent types and their required data fields:\n- CALVING: No extra data required (automatically manages lactations)\n- DRY_OFF: No extra data required\n- SALE: { buyer?: string, price?: number, notes?: string }\n- DEATH: { cause?: string, notes?: string }\n- CULL: { reason: string, notes?: string }\n- SERVICE: { sire_id?: UUID, external_sire_code?: string,\nexternal_sire_registry?: string, method?: string }\n- EMBRYO_TRANSFER: { donor_id?: UUID, recipient_id?: UUID, embryo_code?: string }\n- BIRTH: { calf_tag: string, calf_sex: string, calf_name?: string, birth_weight?: number,\nbreed?: string, breed_variant?: string, breed_id?: UUID, current_lot_id?: UUID }\n- ABORTION: { cause?: string, gestation_days?: number }\n- TRANSFER: { from_lot?: string, to_lot?: string, reason?: string }"
+        "description": "Schema for creating animal events.\n\nEvent types and their required data fields:\n- CALVING: { mother_lot_id?: UUID, calf?: { tag, sex, name?, birth_weight?,\nbreed?, breed_id?, breed_variant?, lot_id?, sire_id?, sire_catalog_id?,\nexternal_sire_code?, external_sire_registry? } }. Manages lactations, status\nand services; the calf's sire defaults to the bull of the credited service.\n- DRY_OFF: No extra data required (DRY, or PREGNANT_DRY if pregnant)\n- SALE: { buyer?: string, price?: number, notes?: string }\n- DEATH: { cause?: string, notes?: string }\n- CULL: { reason: string, notes?: string }\n- SERVICE: { sire_id?: UUID, external_sire_code?: string,\nexternal_sire_registry?: string, method?: string }\n- EMBRYO_TRANSFER: { donor_id?: UUID, recipient_id?: UUID, embryo_code?: string }\n- BIRTH: { calf_tag: string, calf_sex: string, calf_name?: string, birth_weight?: number,\nbreed?: string, breed_variant?: string, breed_id?: UUID, current_lot_id?: UUID }\n- ABORTION: { cause?: string, gestation_days?: number }\n- TRANSFER: { from_lot?: string, to_lot?: string, reason?: string }"
       },
       "AnimalEventEffects": {
         "properties": {
@@ -8454,6 +8749,18 @@
             ],
             "title": "Sire Id"
           },
+          "sire_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Catalog Id"
+          },
           "external_sire_code": {
             "anyOf": [
               {
@@ -8519,6 +8826,17 @@
               }
             ],
             "title": "Sire Name"
+          },
+          "sire_catalog_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Catalog Name"
           },
           "disposition_at": {
             "anyOf": [
@@ -8823,6 +9141,18 @@
               }
             ],
             "title": "Sire Id"
+          },
+          "sire_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sire Catalog Id"
           },
           "external_sire_code": {
             "anyOf": [
@@ -10060,6 +10390,80 @@
         "title": "HealthRecordUpdate",
         "description": "Schema for updating health records."
       },
+      "HerdBullCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "tag": {
+            "type": "string",
+            "title": "Tag"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "breed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breed"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tag",
+          "name",
+          "breed",
+          "birth_date"
+        ],
+        "title": "HerdBullCandidate",
+        "description": "A male of the herd that is not in the sire catalog yet."
+      },
+      "ImportFromHerdRequest": {
+        "properties": {
+          "animal_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Animal Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "animal_ids"
+        ],
+        "title": "ImportFromHerdRequest"
+      },
       "InseminationCreate": {
         "properties": {
           "animal_id": {
@@ -10596,6 +11000,28 @@
               }
             ],
             "title": "Production Count"
+          },
+          "total_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
           }
         },
         "type": "object",
@@ -11016,6 +11442,18 @@
               }
             ],
             "title": "Notes"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
           }
         },
         "type": "object",
@@ -11073,6 +11511,18 @@
               }
             ],
             "title": "Notes"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
           },
           "version": {
             "type": "integer",
@@ -11332,6 +11782,18 @@
               }
             ],
             "title": "Input Quantity"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
           }
         },
         "type": "object",
@@ -11440,6 +11902,18 @@
               }
             ],
             "title": "Notes"
+          },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
           }
         },
         "type": "object",
@@ -11574,6 +12048,18 @@
             ],
             "title": "Notes"
           },
+          "client_request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Request Id"
+          },
           "version": {
             "type": "integer",
             "title": "Version"
@@ -11609,6 +12095,69 @@
           "updated_at"
         ],
         "title": "MilkProductionResponse"
+      },
+      "MilkProductionSkipped": {
+        "properties": {
+          "animal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Animal Id"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "shift": {
+            "type": "string",
+            "title": "Shift"
+          },
+          "input_quantity": {
+            "type": "string",
+            "title": "Input Quantity"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "already_applied",
+              "duplicate"
+            ],
+            "title": "Reason"
+          },
+          "existing_date_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Date Time"
+          },
+          "existing_volume_l": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Volume L"
+          }
+        },
+        "type": "object",
+        "required": [
+          "animal_id",
+          "date",
+          "shift",
+          "input_quantity",
+          "reason"
+        ],
+        "title": "MilkProductionSkipped",
+        "description": "A row the batch did not create, and why."
       },
       "MilkProductionUpdate": {
         "properties": {
@@ -11833,6 +12382,15 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "on_conflict": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "skip"
+            ],
+            "title": "On Conflict",
+            "default": "fail"
           }
         },
         "type": "object",
@@ -11840,6 +12398,29 @@
           "items"
         ],
         "title": "MilkProductionsBulkCreate"
+      },
+      "MilkProductionsBulkResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MilkProductionResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/MilkProductionSkipped"
+            },
+            "type": "array",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "MilkProductionsBulkResponse"
       },
       "MonthlyActivity": {
         "properties": {
@@ -15471,6 +16052,13 @@
           "type": {
             "type": "string",
             "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
           }
         },
         "type": "object",

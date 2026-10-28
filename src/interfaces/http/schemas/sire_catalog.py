@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -46,6 +46,22 @@ class SireCatalogResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     version: int
+
+
+class HerdBullCandidate(BaseModel):
+    """A male of the herd that is not in the sire catalog yet."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tag: str
+    name: str | None
+    breed: str | None
+    birth_date: date | None
+
+
+class ImportFromHerdRequest(BaseModel):
+    animal_ids: list[UUID]
 
 
 class SireCatalogListResponse(BaseModel):

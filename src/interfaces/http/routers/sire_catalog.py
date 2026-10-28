@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from src.application.use_cases.reproduction import (
     create_sire,
     delete_sire,
+    herd_sires,
     list_sires,
     sire_performance_report,
     sire_performance_summary,
@@ -15,6 +16,8 @@ from src.application.use_cases.reproduction import (
 )
 from src.interfaces.http.deps import get_auth_context, get_uow
 from src.interfaces.http.schemas.sire_catalog import (
+    HerdBullCandidate,
+    ImportFromHerdRequest,
     SireCatalogCreate,
     SireCatalogListResponse,
     SireCatalogResponse,
@@ -106,6 +109,31 @@ async def sire_performance_summary_endpoint(
         "date_to": dt_to,
         "include_inactive": include_inactive,
     }
+
+
+@router.get("/herd-candidates", response_model=list[HerdBullCandidate])
+async def list_herd_candidates_endpoint(
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+):
+    """Males of the herd that can be imported into the catalog."""
+    return await herd_sires.list_herd_candidates(uow, context.tenant_id)
+
+
+@router.post(
+    "/import-from-herd",
+    response_model=list[SireCatalogResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_from_herd_endpoint(
+    payload: ImportFromHerdRequest,
+    context: AuthContext = Depends(get_auth_context),
+    uow=Depends(get_uow),
+):
+    """Add herd bulls to the catalog, named after the animal and linked to it."""
+    created = await herd_sires.import_from_herd(uow, context.tenant_id, payload.animal_ids)
+    await uow.commit()
+    return created
 
 
 @router.get("/{sire_id}", response_model=SireCatalogResponse)
