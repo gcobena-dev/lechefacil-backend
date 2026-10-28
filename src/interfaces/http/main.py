@@ -146,7 +146,7 @@ def create_app(
             app.state.email_service = SESEmailService()
         except Exception as exc:  # fallback to logging provider
             logging.getLogger(__name__).warning(
-                "Failed to init SES provider, " "fallback to logging: %s", exc
+                "Failed to init SES provider, fallback to logging: %s", exc
             )
             app.state.email_service = LoggingEmailService()
     elif provider == "unione":
@@ -163,7 +163,7 @@ def create_app(
             logging.getLogger(__name__).info("UniOne email service initialized successfully")
         except Exception as exc:  # fallback to logging provider
             logging.getLogger(__name__).warning(
-                "Failed to init UniOne provider, " "fallback to logging: %s", exc
+                "Failed to init UniOne provider, fallback to logging: %s", exc
             )
             app.state.email_service = LoggingEmailService()
     else:

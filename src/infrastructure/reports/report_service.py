@@ -442,7 +442,7 @@ class ReportService:
 
         # Full animal production list ordered by tag
         full_list = []
-        for animal in sorted(animals, key=lambda a: (a.tag or "")):
+        for animal in sorted(animals, key=lambda a: a.tag or ""):
             total_liters = animal_totals.get(animal.id, Decimal("0"))
             avg_per_day = (
                 total_liters / ((request.date_to - request.date_from).days + 1)
@@ -492,7 +492,7 @@ class ReportService:
                     daily_by_animal[date_key][aid]["total_liters"] += float(prod.volume_l)
 
             # Build animal headers ordered by tag
-            animals_sorted = sorted(animals, key=lambda a: (a.tag or ""))
+            animals_sorted = sorted(animals, key=lambda a: a.tag or "")
             headers_animals = [
                 {"tag": a.tag or "-", "name": a.name or "-", "id": str(a.id)}
                 for a in animals_sorted

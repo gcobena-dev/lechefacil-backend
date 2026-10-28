@@ -241,7 +241,7 @@ class PDFGenerator:
         header = [Paragraph("<b>Fecha</b>", self.styles["TableHeaderWhite"])]
         for a in headers_animals:
             hdr = Paragraph(
-                f"<b>{a.get('tag','')}</b><br/>{a.get('name','')}",
+                f"<b>{a.get('tag', '')}</b><br/>{a.get('name', '')}",
                 self.styles["TableHeaderWhite"],
             )
             header.append(hdr)

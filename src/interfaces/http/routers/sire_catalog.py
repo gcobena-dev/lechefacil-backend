@@ -82,9 +82,7 @@ async def sire_performance_summary_endpoint(
     uow=Depends(get_uow),
 ):
     dt_from = datetime.combine(date_from, datetime.min.time(), tzinfo=UTC)
-    dt_to = datetime.combine(
-        date_to, datetime.max.time().replace(microsecond=0), tzinfo=UTC
-    )
+    dt_to = datetime.combine(date_to, datetime.max.time().replace(microsecond=0), tzinfo=UTC)
     items = await sire_performance_summary.execute(
         uow,
         context.tenant_id,

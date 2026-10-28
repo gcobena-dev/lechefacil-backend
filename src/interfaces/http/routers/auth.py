@@ -610,7 +610,7 @@ async def add_membership_endpoint(
                 msg_tpl.from_name = settings.email_from_name
                 await email_svc.send(msg_tpl)
                 logger.info(
-                    f"Membership invitation email sent to " f"{result.email} with one-time token"
+                    f"Membership invitation email sent to {result.email} with one-time token"
                 )
             except Exception as exc:
                 logger.warning(f"Failed to send membership invitation email: {exc}")

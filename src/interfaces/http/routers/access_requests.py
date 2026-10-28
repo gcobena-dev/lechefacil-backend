@@ -245,10 +245,10 @@ _MAGIC_LINK_INVALID_MSG = (
     "Si la solicitud sigue pendiente, ábrela en el panel de administración."
 )
 _APPROVED_VIA_LINK_MSG = (
-    "La solicitud fue aprobada y se envió correo al solicitante. " "Ya puedes cerrar esta pestaña."
+    "La solicitud fue aprobada y se envió correo al solicitante. Ya puedes cerrar esta pestaña."
 )
 _REJECTED_VIA_LINK_MSG = (
-    "La solicitud fue rechazada y se notificó al solicitante. " "Ya puedes cerrar esta pestaña."
+    "La solicitud fue rechazada y se notificó al solicitante. Ya puedes cerrar esta pestaña."
 )
 
 
