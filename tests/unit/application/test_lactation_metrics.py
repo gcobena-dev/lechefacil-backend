@@ -11,6 +11,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from src.application.use_cases.animals.list_lactations import compute_metrics
+from src.utils.datetime_tz import local_today
 
 START = date(2025, 9, 2)
 
@@ -56,12 +57,12 @@ def test_currency_falls_back_to_the_farm_default_when_no_production_carries_one(
 def test_an_open_lactation_counts_days_up_to_today():
     metrics = compute_metrics(make_lactation(end_date=None), {"total_volume_l": Decimal("100")})
 
-    assert metrics.days_in_milk == (date.today() - START).days
+    assert metrics.days_in_milk == (local_today() - START).days
     assert metrics.average_daily_l > 0
 
 
 def test_a_lactation_that_starts_today_does_not_divide_by_zero():
-    lactation = SimpleNamespace(id="lac-2", start_date=date.today(), end_date=None)
+    lactation = SimpleNamespace(id="lac-2", start_date=local_today(), end_date=None)
 
     metrics = compute_metrics(lactation, {"total_volume_l": Decimal("12")})
 
