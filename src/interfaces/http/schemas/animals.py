@@ -24,6 +24,7 @@ class AnimalBase(BaseModel):
     sex: str | None = None
     dam_id: UUID | None = None
     sire_id: UUID | None = None
+    sire_catalog_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
 
@@ -81,6 +82,7 @@ class AnimalUpdate(BaseModel):
     sex: str | None = None
     dam_id: UUID | None = None
     sire_id: UUID | None = None
+    sire_catalog_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
 
@@ -141,6 +143,7 @@ class AnimalResponse(BaseModel):
     sex: str | None = None
     dam_id: UUID | None = None
     sire_id: UUID | None = None
+    sire_catalog_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
     # Derived: tag/name of the parent animals, so the UI can show and link them
@@ -148,6 +151,7 @@ class AnimalResponse(BaseModel):
     dam_name: str | None = None
     sire_tag: str | None = None
     sire_name: str | None = None
+    sire_catalog_name: str | None = None
 
     # Disposition fields (read-only, set by events)
     disposition_at: datetime | None = None

@@ -25,6 +25,7 @@ class Animal:
     sex: str | None = None
     dam_id: UUID | None = None
     sire_id: UUID | None = None
+    sire_catalog_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
 
@@ -59,6 +60,7 @@ class Animal:
         sex: str | None = None,
         dam_id: UUID | None = None,
         sire_id: UUID | None = None,
+        sire_catalog_id: UUID | None = None,
         external_sire_code: str | None = None,
         external_sire_registry: str | None = None,
     ) -> Animal:
@@ -80,6 +82,7 @@ class Animal:
             sex=sex,
             dam_id=dam_id,
             sire_id=sire_id,
+            sire_catalog_id=sire_catalog_id,
             external_sire_code=external_sire_code,
             external_sire_registry=external_sire_registry,
             created_at=now,

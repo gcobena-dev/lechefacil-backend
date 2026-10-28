@@ -5,6 +5,8 @@ from datetime import UTC, date, datetime, timedelta
 from enum import Enum
 from uuid import UUID, uuid4
 
+from src.utils.datetime_tz import local_date
+
 
 class InseminationMethod(str, Enum):
     AI = "AI"
@@ -96,7 +98,7 @@ class Insemination:
         self.pregnancy_status = PregnancyStatus.CONFIRMED.value
         self.pregnancy_check_date = check_date
         self.pregnancy_checked_by = checked_by
-        self.expected_calving_date = (self.service_date + timedelta(days=GESTATION_DAYS)).date()
+        self.expected_calving_date = local_date(self.service_date + timedelta(days=GESTATION_DAYS))
         self.bump_version()
 
     def mark_open(

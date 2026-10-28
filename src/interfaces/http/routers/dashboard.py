@@ -20,15 +20,14 @@ from src.interfaces.http.schemas.dashboard import (
     VetAlertsResponse,
     WorkerProgressResponse,
 )
+from src.utils.datetime_tz import local_today
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/daily-kpis", response_model=DailyKPIsResponse)
 async def get_daily_kpis(
-    date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(UTC).date()
-    ),
+    date_param: date = Query(alias="date", default_factory=lambda: local_today()),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> DailyKPIsResponse:
@@ -114,9 +113,7 @@ async def get_daily_kpis(
 @router.get("/top-producers", response_model=TopProducersResponse)
 async def get_top_producers(
     request: Request,
-    date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(UTC).date()
-    ),
+    date_param: date = Query(alias="date", default_factory=lambda: local_today()),
     limit: int = Query(default=5, le=20),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
@@ -241,9 +238,7 @@ async def get_top_producers(
 
 @router.get("/daily-progress", response_model=DailyProgressResponse)
 async def get_daily_progress(
-    date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(UTC).date()
-    ),
+    date_param: date = Query(alias="date", default_factory=lambda: local_today()),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> DailyProgressResponse:
@@ -410,9 +405,7 @@ async def get_alerts(
 @router.get("/worker-progress", response_model=WorkerProgressResponse)
 async def get_worker_progress(
     user_id: str,
-    date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(UTC).date()
-    ),
+    date_param: date = Query(alias="date", default_factory=lambda: local_today()),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> WorkerProgressResponse:
@@ -451,9 +444,7 @@ async def get_worker_progress(
 
 @router.get("/vet-alerts", response_model=VetAlertsResponse)
 async def get_vet_alerts(
-    date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(UTC).date()
-    ),
+    date_param: date = Query(alias="date", default_factory=lambda: local_today()),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> VetAlertsResponse:
@@ -487,9 +478,7 @@ async def get_vet_alerts(
 
 @router.get("/admin-overview", response_model=AdminOverviewResponse)
 async def get_admin_overview(
-    date_param: date = Query(
-        alias="date", default_factory=lambda: datetime.now(UTC).date()
-    ),
+    date_param: date = Query(alias="date", default_factory=lambda: local_today()),
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ) -> AdminOverviewResponse:
@@ -698,7 +687,7 @@ async def get_reproduction_kpis(
     # 3. Postpartum alerts from open lactations (no date filter)
     open_lactations = await uow.lactations.list_open_with_animal(tenant_id)
     latest_ins = await uow.inseminations.get_latest_per_animal(tenant_id)
-    today = dt.now(UTC).date()
+    today = local_today()
     alerts: list[PostpartumAlert] = []
     for lac in open_lactations:
         # Skip confirmed-pregnant cows: they already conceived and are not

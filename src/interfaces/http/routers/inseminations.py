@@ -23,6 +23,7 @@ from src.interfaces.http.schemas.inseminations import (
     PregnancyCheckInput,
 )
 from src.interfaces.middleware.auth_middleware import AuthContext
+from src.utils.datetime_tz import local_date
 
 router = APIRouter(prefix="/reproduction/inseminations", tags=["reproduction"])
 
@@ -213,7 +214,7 @@ async def _apply_service_date(uow, tenant_id: UUID, record, service_date: dateti
 
     record.service_date = service_date
     if record.pregnancy_status == PregnancyStatus.CONFIRMED.value:
-        record.expected_calving_date = (service_date + timedelta(days=GESTATION_DAYS)).date()
+        record.expected_calving_date = local_date(service_date + timedelta(days=GESTATION_DAYS))
 
     if record.service_event_id:
         event = await uow.animal_events.get(tenant_id, record.service_event_id)

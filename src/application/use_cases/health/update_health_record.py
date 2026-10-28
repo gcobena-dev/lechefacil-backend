@@ -8,6 +8,7 @@ from uuid import UUID
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.application.patching import resolve_patch
 from src.domain.models.health_record import HealthRecord
+from src.utils.datetime_tz import local_date
 
 #: Columns that may be blanked out. `occurred_at` is NOT NULL, so it is absent.
 CLEARABLE_FIELDS = frozenset(
@@ -70,7 +71,7 @@ async def execute(
     elif "withdrawal_days" in patch:
         # Recalculate withdrawal_until if treatment
         if record.event_type == "TREATMENT" and record.duration_days:
-            end_treatment = record.occurred_at.date() + timedelta(days=record.duration_days)
+            end_treatment = local_date(record.occurred_at) + timedelta(days=record.duration_days)
             record.withdrawal_until = end_treatment + timedelta(days=record.withdrawal_days)
 
             # Update animal withdrawal

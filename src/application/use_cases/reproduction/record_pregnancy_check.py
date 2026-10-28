@@ -6,6 +6,10 @@ from uuid import UUID
 
 from src.application.errors import NotFound, ValidationError
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.application.use_cases.animals.register_event import (
+    apply_pregnancy_status,
+    has_confirmed_pregnancy,
+)
 from src.domain.models.insemination import Insemination, PregnancyStatus
 
 
@@ -47,6 +51,15 @@ async def execute(
         insemination.mark_lost(check_date, payload.checked_by)
 
     updated = await uow.inseminations.update(insemination)
+
+    # A heifer or dry cow shows the pregnancy in her status. An OPEN/LOST
+    # result only takes it back when no other ongoing pregnancy is on record.
+    animal = await uow.animals.get(tenant_id, insemination.animal_id)
+    if animal:
+        pregnant = payload.result == PregnancyStatus.CONFIRMED.value or (
+            await has_confirmed_pregnancy(uow, tenant_id, animal)
+        )
+        await apply_pregnancy_status(uow, tenant_id, animal, pregnant=pregnant)
 
     # Emit pregnancy check notification event
     if actor_user_id:

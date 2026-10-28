@@ -5,6 +5,8 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from src.utils.datetime_tz import local_date
+
 
 @dataclass(slots=True)
 class MilkDelivery:
@@ -46,7 +48,7 @@ class MilkDelivery:
             tenant_id=tenant_id,
             buyer_id=buyer_id,
             date_time=date_time,
-            date=date_time.date(),
+            date=local_date(date_time),
             volume_l=volume_l,
             price_snapshot=price_snapshot,
             currency=currency,

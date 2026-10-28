@@ -24,6 +24,7 @@ CLEARABLE_FIELDS = frozenset(
         "sex",
         "dam_id",
         "sire_id",
+        "sire_catalog_id",
         "external_sire_code",
         "external_sire_registry",
     }
@@ -47,6 +48,7 @@ class UpdateAnimalInput:
     sex: str | None = None
     dam_id: UUID | None = None
     sire_id: UUID | None = None
+    sire_catalog_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
     #: Fields the caller explicitly sent as null, meaning "blank this out".
@@ -91,6 +93,7 @@ async def execute(
         "sex",
         "dam_id",
         "sire_id",
+        "sire_catalog_id",
         "external_sire_code",
         "external_sire_registry",
     ):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -8,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.models.health_record import HealthRecord
 from src.infrastructure.db.orm.health_record import HealthRecordORM
+from src.utils.datetime_tz import local_today
 
 
 class HealthRecordsSQLAlchemyRepository:
@@ -138,7 +138,7 @@ class HealthRecordsSQLAlchemyRepository:
         """Get vaccinations with next_dose_date in the next N days"""
         from datetime import timedelta
 
-        today = date.today()
+        today = local_today()
         future_date = today + timedelta(days=days_ahead)
 
         stmt = (
@@ -156,7 +156,7 @@ class HealthRecordsSQLAlchemyRepository:
 
     async def get_active_withdrawals(self, tenant_id: UUID) -> list[HealthRecord]:
         """Get treatments with active withdrawal periods"""
-        today = date.today()
+        today = local_today()
 
         stmt = (
             select(HealthRecordORM)

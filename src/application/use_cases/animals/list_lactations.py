@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
@@ -9,6 +8,7 @@ from src.application.errors import NotFound, PermissionDenied
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.models.lactation import Lactation
 from src.domain.value_objects.role import Role
+from src.utils.datetime_tz import local_today
 
 
 @dataclass(slots=True)
@@ -43,7 +43,7 @@ def compute_metrics(
     total_volume = Decimal(str(totals.get("total_volume_l") or 0))
     total_amount = Decimal(str(totals.get("total_amount") or 0))
 
-    end_date = lactation.end_date if lactation.end_date else date.today()
+    end_date = lactation.end_date if lactation.end_date else local_today()
     days_in_milk = (end_date - lactation.start_date).days
 
     average_daily = Decimal("0.0")

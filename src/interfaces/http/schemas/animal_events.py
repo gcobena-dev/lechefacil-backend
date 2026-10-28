@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from src.utils.datetime_tz import to_utc
 
 
 class AnimalEventCreate(BaseModel):
     """Schema for creating animal events.
 
     Event types and their required data fields:
-    - CALVING: No extra data required (automatically manages lactations)
-    - DRY_OFF: No extra data required
+    - CALVING: { mother_lot_id?: UUID, calf?: { tag, sex, name?, birth_weight?,
+    breed?, breed_id?, breed_variant?, lot_id?, sire_id?, sire_catalog_id?,
+    external_sire_code?, external_sire_registry? } }. Manages lactations, status
+    and services; the calf's sire defaults to the bull of the credited service.
+    - DRY_OFF: No extra data required (DRY, or PREGNANT_DRY if pregnant)
     - SALE: { buyer?: string, price?: number, notes?: string }
     - DEATH: { cause?: string, notes?: string }
     - CULL: { reason: string, notes?: string }
@@ -52,16 +57,13 @@ class AnimalEventCreate(BaseModel):
 
     @field_validator("occurred_at")
     def ensure_aware_utc(cls, v: datetime) -> datetime:
-        """Ensure `occurred_at` is timezone-aware and in UTC.
+        """Normalize `occurred_at` to UTC.
 
-        If a naive datetime is provided (no offset in the payload), we
-        interpret it as UTC to avoid comparisons between naive and aware
-        datetimes downstream.
+        A naive value is what the user typed in the event form, i.e. Ecuador
+        time. App builds before 0.0.987 send it that way, so it must not be
+        read as UTC (that stored every event 5 hours early).
         """
-        if v.tzinfo is None or v.tzinfo.utcoffset(v) is None:
-            return v.replace(tzinfo=UTC)
-        # Normalize to UTC in case an offset was provided
-        return v.astimezone(UTC)
+        return to_utc(v)
 
 
 class AnimalEventResponse(BaseModel):

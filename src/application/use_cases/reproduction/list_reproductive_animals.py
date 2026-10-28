@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.models.insemination import GESTATION_DAYS
+from src.utils.datetime_tz import local_date, local_today
 
 VALID_FILTERS = {"alertas", "inseminadas", "prenadas", "vacias", "sin_inseminar", "todas"}
 
@@ -113,7 +114,7 @@ def _bucket_for(status: str | None) -> str:
 
 def _as_date(value: date | datetime | None) -> date | None:
     if isinstance(value, datetime):
-        return value.date()
+        return local_date(value)
     return value
 
 
@@ -205,7 +206,7 @@ async def execute(
     # even for cows that have already been dried off again.
     any_calving_by_animal = await uow.lactations.get_last_calving_per_animal(tenant_id)
 
-    today = datetime.now(UTC).date()
+    today = local_today()
 
     # Only female reproductively-eligible animals are considered.
     eligible = [a for a in animals if (a.sex or "").upper() == "FEMALE"]
@@ -242,12 +243,12 @@ async def execute(
         expected_calving: date | None = None
         if is_pregnant and ins and ins["pregnancy_status"] not in ("OPEN", "LOST"):
             service = ins["service_date"]
-            service_date = service.date() if isinstance(service, datetime) else service
+            service_date = local_date(service) if isinstance(service, datetime) else service
             if service_date:
                 days_pregnant = (today - service_date).days
                 ecd = ins["expected_calving_date"]
                 if ecd:
-                    expected_calving = ecd.date() if isinstance(ecd, datetime) else ecd
+                    expected_calving = local_date(ecd) if isinstance(ecd, datetime) else ecd
                 else:
                     expected_calving = service_date + timedelta(days=GESTATION_DAYS)
 
@@ -258,11 +259,11 @@ async def execute(
             candidates.append((last_calving, "calving"))
         if ins:
             sd = ins["service_date"]
-            sd_date = sd.date() if isinstance(sd, datetime) else sd
+            sd_date = local_date(sd) if isinstance(sd, datetime) else sd
             candidates.append((sd_date, "insemination"))
             check = ins["pregnancy_check_date"]
             if check:
-                check_date = check.date() if isinstance(check, datetime) else check
+                check_date = local_date(check) if isinstance(check, datetime) else check
                 candidates.append((check_date, "check"))
         if candidates:
             candidates.sort(key=lambda x: x[0], reverse=True)

@@ -8,6 +8,7 @@ from src.application.errors import NotFound, PermissionDenied
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.models.animal_event import AnimalEvent, AnimalEventType
 from src.domain.value_objects.role import Role
+from src.utils.datetime_tz import local_date
 
 SERVICE_EVENT_TYPES = (AnimalEventType.SERVICE.value, AnimalEventType.EMBRYO_TRANSFER.value)
 
@@ -95,12 +96,12 @@ async def _attach_service_details(
         records = await uow.inseminations.list(tenant_id, animal_id=animal_id)
         for r in records:
             if r.service_date and r.id not in claimed:
-                by_day.setdefault(r.service_date.date(), r)
+                by_day.setdefault(local_date(r.service_date), r)
 
     sires: dict[UUID, object] = {}
 
     for event in service_events:
-        record = by_event.get(event.id) or by_day.get(event.occurred_at.date())
+        record = by_event.get(event.id) or by_day.get(local_date(event.occurred_at))
         if record is None:
             continue
 

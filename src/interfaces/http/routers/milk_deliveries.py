@@ -22,6 +22,7 @@ from src.interfaces.http.schemas.milk_deliveries import (
     MilkDeliveryResponse,
     MilkDeliveryUpdate,
 )
+from src.utils.datetime_tz import local_date
 
 router = APIRouter(prefix="/milk-deliveries", tags=["milk-deliveries"])
 
@@ -102,16 +103,16 @@ async def create_delivery(
         dt = dt.replace(tzinfo=UTC)
     # Prevent duplicate delivery for same buyer and local day
     existing_same_day = await uow.milk_deliveries.list(
-        context.tenant_id, date_from=dt.date(), date_to=dt.date(), buyer_id=buyer_id
+        context.tenant_id, date_from=local_date(dt), date_to=local_date(dt), buyer_id=buyer_id
     )
     if existing_same_day:
         from src.application.errors import ValidationError
 
         raise ValidationError("Ya registró la entrega de leche para este comprador en esta fecha")
 
-    mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), buyer_id)
+    mp = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), buyer_id)
     if mp is None:
-        mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), None)
+        mp = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), None)
     price = mp.price_per_l if mp else (cfg.default_price_per_l if cfg else None)
     currency = mp.currency if mp else (cfg.default_currency if cfg else "USD")
 
@@ -186,7 +187,7 @@ async def update_delivery(
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
         updates["date_time"] = dt
-        updates["date"] = dt.date()
+        updates["date"] = local_date(dt)
     # `notes` reached the schema but never the update, so the note typed in the
     # edit dialog was silently dropped. `buyer_id` is NOT NULL here.
     updates.update(
@@ -210,7 +211,7 @@ async def update_delivery(
 
         # Prevent duplicate after update (same buyer and date on a different record)
         same_day = await uow.milk_deliveries.list(
-            context.tenant_id, date_from=dt.date(), date_to=dt.date(), buyer_id=bid
+            context.tenant_id, date_from=local_date(dt), date_to=local_date(dt), buyer_id=bid
         )
         if any(d.id != existing.id for d in same_day):
             from src.application.errors import ValidationError
@@ -218,9 +219,9 @@ async def update_delivery(
             raise ValidationError(
                 "Ya registró la entrega de leche para este comprador en esta fecha"
             )
-        mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), bid)
+        mp = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), bid)
         if mp is None:
-            mp = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), None)
+            mp = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), None)
         cfg = await uow.tenant_config.get(context.tenant_id)
         price = mp.price_per_l if mp else (cfg.default_price_per_l if cfg else None)
         currency = mp.currency if mp else (cfg.default_currency if cfg else existing.currency)

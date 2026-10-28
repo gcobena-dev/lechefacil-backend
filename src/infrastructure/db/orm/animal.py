@@ -81,6 +81,11 @@ class AnimalORM(Base):
     sire_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("animals.id"), nullable=True
     )
+    # Bull from the reproduction catalog. A herd bull that is also in the
+    # catalog is linked through sire_catalog.animal_id.
+    sire_catalog_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("sire_catalog.id"), nullable=True
+    )
     external_sire_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     external_sire_registry: Mapped[str | None] = mapped_column(String(64), nullable=True)
 

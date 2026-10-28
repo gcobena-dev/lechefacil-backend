@@ -27,6 +27,7 @@ class CreateAnimalInput:
     sex: str | None = None
     dam_id: UUID | None = None
     sire_id: UUID | None = None
+    sire_catalog_id: UUID | None = None
     external_sire_code: str | None = None
     external_sire_registry: str | None = None
 
@@ -61,6 +62,7 @@ async def execute(
         sex=payload.sex,
         dam_id=payload.dam_id,
         sire_id=payload.sire_id,
+        sire_catalog_id=payload.sire_catalog_id,
         external_sire_code=payload.external_sire_code,
         external_sire_registry=payload.external_sire_registry,
     )

@@ -8,22 +8,31 @@ DEFAULT_TIMEZONE_NAME = "America/Guayaquil"
 DEFAULT_TZ = ZoneInfo(DEFAULT_TIMEZONE_NAME)
 
 
-def assume_local_tz(dt: datetime) -> datetime:
-    """Assume the given naive datetime is in DEFAULT_TZ.
-
-    If `dt` is naive, attach DEFAULT_TZ without shifting time.
-    If `dt` is aware, return as-is.
-    """
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=DEFAULT_TZ)
-    return dt
-
-
 def to_utc(dt: datetime) -> datetime:
-    """Convert a datetime to UTC, assuming DEFAULT_TZ for naive values."""
-    if dt.tzinfo is None:
+    """Convert a datetime to UTC, assuming DEFAULT_TZ for naive values.
+
+    Forms send what the user typed (e.g. "2026-10-22T00:30") without an
+    offset; that is Ecuador time, not UTC.
+    """
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
         dt = dt.replace(tzinfo=DEFAULT_TZ)
     return dt.astimezone(UTC)
+
+
+def local_date(dt: datetime) -> date:
+    """Calendar day of `dt` in DEFAULT_TZ, assuming UTC for naive values.
+
+    Timestamps are stored in UTC, so `dt.date()` would roll anything that
+    happened after 19:00 in Ecuador over to the next day.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(DEFAULT_TZ).date()
+
+
+def local_today() -> date:
+    """Today's date in DEFAULT_TZ (the server itself runs in UTC)."""
+    return datetime.now(DEFAULT_TZ).date()
 
 
 _DOW_ES = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]

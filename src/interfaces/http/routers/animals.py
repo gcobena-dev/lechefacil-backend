@@ -4,7 +4,16 @@ from datetime import date as DtDate
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 
 from src.application.events.dispatcher import dispatch_events
 from src.application.use_cases.animals import (
@@ -33,6 +42,12 @@ from src.interfaces.http.schemas.attachments import (
 )
 
 router = APIRouter(prefix="/animals", tags=["animals"])
+
+
+async def _ensure_sire_in_catalog(uow, tenant_id: UUID, sire_catalog_id: UUID | None) -> None:
+    if sire_catalog_id and not await uow.sire_catalog.get(tenant_id, sire_catalog_id):
+        raise HTTPException(status_code=400, detail="Invalid sire_catalog_id")
+
 
 # Safety net for the labels endpoint: herds have a handful of labels, so this is
 # only there to keep the payload bounded if someone goes wild with the tagging.
@@ -298,6 +313,7 @@ async def create_animal_endpoint(
             lot_name = lot_obj.name
     except Exception:
         pass
+    await _ensure_sire_in_catalog(uow, context.tenant_id, payload.sire_catalog_id)
 
     result = await create_animal.execute(
         uow,
@@ -320,6 +336,7 @@ async def create_animal_endpoint(
             sex=payload.sex,
             dam_id=payload.dam_id,
             sire_id=payload.sire_id,
+            sire_catalog_id=payload.sire_catalog_id,
             external_sire_code=payload.external_sire_code,
             external_sire_registry=payload.external_sire_registry,
         ),
@@ -380,6 +397,7 @@ async def get_animal_endpoint(
         except Exception:
             # If statuses table is missing in certain environments/tests, skip enrichment
             pass
+    data["lot_id"] = result.current_lot_id
     # Genealogy: resolve the parents so the detail view can show and link them
     for field, parent_id in (("dam", data.get("dam_id")), ("sire", data.get("sire_id"))):
         if not parent_id:
@@ -388,6 +406,23 @@ async def get_animal_endpoint(
         if parent:
             data[f"{field}_tag"] = parent.tag
             data[f"{field}_name"] = parent.name
+    # A sire can live in the herd, in the reproduction catalog, or in both
+    # (catalog entry linked to the herd bull): resolve whichever side is
+    # missing so the view can link to each one that exists.
+    sire_entry = None
+    if data.get("sire_catalog_id"):
+        sire_entry = await uow.sire_catalog.get(context.tenant_id, data["sire_catalog_id"])
+    elif data.get("sire_id"):
+        sire_entry = await uow.sire_catalog.get_by_animal(context.tenant_id, data["sire_id"])
+    if sire_entry:
+        data["sire_catalog_id"] = sire_entry.id
+        data["sire_catalog_name"] = sire_entry.name
+        if sire_entry.animal_id and not data.get("sire_id"):
+            herd_bull = await uow.animals.get(context.tenant_id, sire_entry.animal_id)
+            if herd_bull:
+                data["sire_id"] = herd_bull.id
+                data["sire_tag"] = herd_bull.tag
+                data["sire_name"] = herd_bull.name
     data["photo_url"] = primary.storage_key if primary else None
     data["primary_photo_signed_url"] = signed_url
     return AnimalResponse.model_validate(data)
@@ -429,6 +464,7 @@ async def update_animal_endpoint(
         "sex": payload.sex,
         "dam_id": payload.dam_id,
         "sire_id": payload.sire_id,
+        "sire_catalog_id": payload.sire_catalog_id,
         "external_sire_code": payload.external_sire_code,
         "external_sire_registry": payload.external_sire_registry,
     }
@@ -452,6 +488,7 @@ async def update_animal_endpoint(
             updates["lot"] = lot_obj.name
     except Exception:
         pass
+    await _ensure_sire_in_catalog(uow, context.tenant_id, payload.sire_catalog_id)
 
     # A field the client sent as null means "blank this out"; a field it did not
     # send at all must stay untouched. `model_fields_set` is the only thing that
@@ -471,6 +508,7 @@ async def update_animal_endpoint(
             ("sex", "sex"),
             ("dam_id", "dam_id"),
             ("sire_id", "sire_id"),
+            ("sire_catalog_id", "sire_catalog_id"),
             ("external_sire_code", "external_sire_code"),
             ("external_sire_registry", "external_sire_registry"),
         )

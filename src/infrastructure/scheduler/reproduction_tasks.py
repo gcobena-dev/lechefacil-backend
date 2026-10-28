@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,7 @@ from src.infrastructure.repos.notifications_sqlalchemy import NotificationsSQLAl
 from src.infrastructure.repos.users_sqlalchemy import UsersSQLAlchemyRepository
 from src.infrastructure.services.notification_service import NotificationService
 from src.interfaces.http.routers.notifications import connection_manager
+from src.utils.datetime_tz import local_today
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ async def check_pending_pregnancy_checks(session_factory) -> None:
 
 async def check_expected_calvings(session_factory, days_ahead: int = 7) -> None:
     """Find CONFIRMED inseminations with expected_calving_date within N days and notify."""
-    today = date.today()
+    today = local_today()
     cutoff = today + timedelta(days=days_ahead)
 
     try:

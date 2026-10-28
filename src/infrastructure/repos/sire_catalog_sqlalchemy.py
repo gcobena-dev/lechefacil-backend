@@ -82,6 +82,19 @@ class SireCatalogSQLAlchemyRepository:
         orm = result.scalar_one_or_none()
         return self._to_domain(orm) if orm else None
 
+    async def get_by_animal(self, tenant_id: UUID, animal_id: UUID) -> SireCatalog | None:
+        """Catalog entry of a herd bull that is also used as a sire."""
+        stmt = (
+            select(SireCatalogORM)
+            .where(SireCatalogORM.tenant_id == tenant_id)
+            .where(SireCatalogORM.animal_id == animal_id)
+            .where(SireCatalogORM.deleted_at.is_(None))
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        orm = result.scalar_one_or_none()
+        return self._to_domain(orm) if orm else None
+
     async def list(
         self,
         tenant_id: UUID,

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
 from src.domain.models.health_record import HealthRecord
+from src.utils.datetime_tz import local_date
 
 
 @dataclass
@@ -40,7 +41,7 @@ async def execute(
     # Calculate withdrawal_until if it's a treatment with withdrawal
     withdrawal_until = None
     if payload.event_type == "TREATMENT" and payload.withdrawal_days and payload.duration_days:
-        end_treatment = payload.occurred_at.date() + timedelta(days=payload.duration_days)
+        end_treatment = local_date(payload.occurred_at) + timedelta(days=payload.duration_days)
         withdrawal_until = end_treatment + timedelta(days=payload.withdrawal_days)
 
     # Create health record

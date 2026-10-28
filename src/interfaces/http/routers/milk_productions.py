@@ -35,6 +35,7 @@ from src.interfaces.http.schemas.milk_productions import (
     ProcessOcrRequest,
     ProcessOcrResponse,
 )
+from src.utils.datetime_tz import local_date, local_today
 
 router = APIRouter(prefix="/milk-productions", tags=["milk-productions"])
 
@@ -66,7 +67,6 @@ async def list_productions(
     context: AuthContext = Depends(get_auth_context),
     uow=Depends(get_uow),
 ):
-    from datetime import date as DtDate
     from uuid import UUID as _UUID
 
     df = DtDate.fromisoformat(date_from) if date_from else None
@@ -157,12 +157,10 @@ async def create_production(
         dt = datetime.combine(payload.date, base_time).replace(tzinfo=UTC)
     elif payload.date_time is not None:
         dt = (
-            payload.date_time
-            if payload.date_time.tzinfo
-            else payload.date_time.replace(tzinfo=UTC)
+            payload.date_time if payload.date_time.tzinfo else payload.date_time.replace(tzinfo=UTC)
         )
     else:
-        d = DtDate.today()
+        d = local_today()
         base_time = DtTime(hour=6, minute=0) if shift == "AM" else DtTime(hour=18, minute=0)
         dt = datetime.combine(d, base_time).replace(tzinfo=UTC)
     # Resolve buyer & price snapshot for approximate value
@@ -170,12 +168,12 @@ async def create_production(
     price = None
     currency = cfg.default_currency if cfg else "USD"
     if buyer_id is not None:
-        p = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), buyer_id)
+        p = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), buyer_id)
         if p is not None:
             price = p.price_per_l
             currency = p.currency
     if price is None:
-        p = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), None)
+        p = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), None)
         if p is not None:
             price = p.price_per_l
             currency = p.currency
@@ -195,7 +193,10 @@ async def create_production(
     shift_val = (payload.shift or ("AM" if dt.hour < 12 else "PM")).upper()
     # Prevent duplicate per animal/day/shift
     existing_same = await uow.milk_productions.list(
-        context.tenant_id, date_from=dt.date(), date_to=dt.date(), animal_id=payload.animal_id
+        context.tenant_id,
+        date_from=local_date(dt),
+        date_to=local_date(dt),
+        animal_id=payload.animal_id,
     )
     dup = next(
         (
@@ -214,7 +215,7 @@ async def create_production(
                 "conflicts": [
                     {
                         "animal_id": str(payload.animal_id),
-                        "date": str(dt.date()),
+                        "date": str(local_date(dt)),
                         "shift": shift_val,
                         "input_quantity": str(payload.input_quantity),
                         "existing_date_time": dup.date_time.isoformat(),
@@ -266,8 +267,8 @@ async def create_production(
     from datetime import timedelta
 
     try:
-        date_from = dt.date() - timedelta(days=30)
-        date_to = dt.date() - timedelta(days=1)
+        date_from = local_date(dt) - timedelta(days=30)
+        date_to = local_date(dt) - timedelta(days=1)
         history = await uow.milk_productions.list(
             context.tenant_id,
             date_from=date_from,
@@ -342,12 +343,10 @@ async def create_productions_bulk(
         dt_shared = datetime.combine(payload.date, base_time).replace(tzinfo=UTC)
     elif payload.date_time is not None:
         dt_shared = (
-            payload.date_time
-            if payload.date_time.tzinfo
-            else payload.date_time.replace(tzinfo=UTC)
+            payload.date_time if payload.date_time.tzinfo else payload.date_time.replace(tzinfo=UTC)
         )
     else:
-        d = DtDate.today()
+        d = local_today()
         base_time = DtTime(hour=6, minute=0) if sh == "AM" else DtTime(hour=18, minute=0)
         dt_shared = datetime.combine(d, base_time).replace(tzinfo=UTC)
     # Resolve price snapshot and currency based on buyer/date
@@ -355,12 +354,14 @@ async def create_productions_bulk(
     price_shared = None
     currency_shared = cfg.default_currency if cfg else "USD"
     if buyer_shared is not None:
-        p = await uow.milk_prices.get_for_date(context.tenant_id, dt_shared.date(), buyer_shared)
+        p = await uow.milk_prices.get_for_date(
+            context.tenant_id, local_date(dt_shared), buyer_shared
+        )
         if p is not None:
             price_shared = p.price_per_l
             currency_shared = p.currency
     if price_shared is None:
-        p = await uow.milk_prices.get_for_date(context.tenant_id, dt_shared.date(), None)
+        p = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt_shared), None)
         if p is not None:
             price_shared = p.price_per_l
             currency_shared = p.currency
@@ -408,8 +409,8 @@ async def create_productions_bulk(
         # Validate duplicates per animal/day/shift
         existing_same = await uow.milk_productions.list(
             context.tenant_id,
-            date_from=dt_shared.date(),
-            date_to=dt_shared.date(),
+            date_from=local_date(dt_shared),
+            date_to=local_date(dt_shared),
             animal_id=item.animal_id,
         )
         dup = next(
@@ -427,7 +428,7 @@ async def create_productions_bulk(
                 skipped.append(
                     MilkProductionSkipped(
                         animal_id=item.animal_id,
-                        date=dt_shared.date(),
+                        date=local_date(dt_shared),
                         shift=shift_val,
                         input_quantity=item.input_quantity,
                         reason="duplicate",
@@ -439,7 +440,7 @@ async def create_productions_bulk(
             conflicts.append(
                 {
                     "animal_id": str(item.animal_id),
-                    "date": str(dt_shared.date()),
+                    "date": str(local_date(dt_shared)),
                     "shift": shift_val,
                     "input_quantity": str(item.input_quantity),
                     "existing_date_time": dup.date_time.isoformat(),
@@ -537,7 +538,7 @@ async def update_production(
         if dt_override.tzinfo is None:
             dt_override = dt_override.replace(tzinfo=UTC)
         updates["date_time"] = dt_override
-        updates["date"] = dt_override.date()
+        updates["date"] = local_date(dt_override)
         # If shift not explicitly provided, recompute from new date_time
         updates["shift"] = "AM" if dt_override.hour < 12 else "PM"
     # An explicit `shift` wins over the one derived from `date_time` above.
@@ -577,8 +578,8 @@ async def update_production(
         # Prevent duplicate per animal/day/shift after update
         same = await uow.milk_productions.list(
             context.tenant_id,
-            date_from=dt.date(),
-            date_to=dt.date(),
+            date_from=local_date(dt),
+            date_to=local_date(dt),
             animal_id=updates.get("animal_id", existing.animal_id),
         )
         if any(
@@ -594,12 +595,12 @@ async def update_production(
         price = None
         currency = existing.currency
         if bid is not None:
-            p = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), bid)
+            p = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), bid)
             if p is not None:
                 price = p.price_per_l
                 currency = p.currency
         if price is None:
-            p = await uow.milk_prices.get_for_date(context.tenant_id, dt.date(), None)
+            p = await uow.milk_prices.get_for_date(context.tenant_id, local_date(dt), None)
             if p is not None:
                 price = p.price_per_l
                 currency = p.currency
@@ -671,7 +672,7 @@ async def presign_ocr_upload(
     # Generate unique file ID for the upload
     file_id = uuid.uuid4()
     file_ext = payload.content_type.split("/")[-1] if "/" in payload.content_type else "jpg"
-    storage_key = f"tenants/{context.tenant_id}/" f"milk-productions/ocr/{file_id}.{file_ext}"
+    storage_key = f"tenants/{context.tenant_id}/milk-productions/ocr/{file_id}.{file_ext}"
     try:
         svc = request.app.state.storage_service
     except AttributeError as exc:

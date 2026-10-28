@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from src.application.interfaces.unit_of_work import UnitOfWork
+from src.utils.datetime_tz import local_date
 
 
 async def execute(
@@ -21,7 +22,7 @@ async def execute(
     lactation = await uow.lactations.find_by_date(
         tenant_id=tenant_id,
         animal_id=animal_id,
-        target_date=production_date_time.date(),
+        target_date=local_date(production_date_time),
     )
 
     return lactation.id if lactation else None
